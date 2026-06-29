@@ -1,0 +1,74 @@
+package: context-engine-frontend-wiring
+version: 1
+prepared_on: 2026-06-29
+purpose: >-
+  Reconcile greenfield backend phases, frontend slices, old Context Engine v1,
+  and Local Studio reference code for low-entropy frontend implementation.
+authority_order:
+  - CONTEXT.md
+  - 00-cross-phase-alignment.md
+  - development-scafold.md
+  - p1 through p8
+  - frontend slices 01 through 17
+  - old Context Engine v1 reference
+  - Local Studio reference
+non_negotiables:
+  - browser_calls_context_engine_api_only
+  - cookie_first_auth_no_browser_bearer_storage
+  - no_browser_provider_model_parser_or_retrieval_controls
+  - no_browser_direct_lightrag_controller_storage_or_provider_access
+  - resource_specific_operation_ownership
+  - rag_only_domain_required_chat
+  - metadata_only_evidence_until_source_view_contract
+  - dark_first_local_studio_visual_language
+slice_status:
+  F01: adopt_now
+  F02: adopt_now
+  F03: adopt_now
+  F04: adopt_now
+  F05: contract_capture_required
+  F06: adopt_after_p3_contract
+  F07: adapt_after_p2_contract
+  F08: adapt_after_p2_contract
+  F09: adapt_after_p4_p5_contract
+  F10: adapt_after_p4_p5_contract
+  F11: adapt_after_p7_contract
+  F12: p0_sse_contract_gate
+  F13: contract_capture_required
+  F14: adopt_after_p3_contract
+  F15: adapt_later_resource_specific
+  F16: metadata_seam_now_navigation_deferred
+  F17: adopt_after_p8_contract
+contract_gates:
+  - id: auth_cookie_contract
+    priority: P0
+    backend: P1
+    frontend: [F01, F02, F03]
+  - id: runtime_settings_contract
+    priority: P0
+    backend: P2
+    frontend: [F07, F08]
+  - id: domain_lifecycle_contract
+    priority: P1
+    backend: P3
+    frontend: [F06, F14]
+  - id: source_lifecycle_contract
+    priority: P1
+    backend: [P4, P5]
+    frontend: [F09, F10]
+  - id: p7_sse_contract
+    priority: P0
+    backend: P7
+    frontend: [F11, F12]
+  - id: graph_proxy_contract
+    priority: P1
+    backend: future
+    frontend: [F13]
+  - id: source_view_contract
+    priority: P2
+    backend: future
+    frontend: [F16]
+  - id: audit_diagnostics_contract
+    priority: P1
+    backend: P8
+    frontend: [F17]
