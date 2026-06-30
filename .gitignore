@@ -1,3 +1,6 @@
+# Local commit snapshots (not for version control)
+.commits/
+
 # GitNexus index (regenerated locally)
 .gitnexus/
 
