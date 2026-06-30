@@ -1,7 +1,7 @@
 ---
 id: F-000
 title: Shared Contract Implementation Plan
-status: approved
+status: implemented
 owner: Context Engine delivery team
 last_reviewed: 2026-06-30
 depends_on: []
@@ -28,11 +28,11 @@ Build only P0 scope, prove it, update evidence, then stop. Do not pull later-pha
 
 ## Implementation Sequence
 
-- [ ] T-001 [docs] Scaffold root SDD folders and agent instructions.
+- [x] T-001 [docs] Scaffold root SDD folders and agent instructions.
   - Verification: Verify `specs/`, `.agent/`, `.github/`, `AGENTS.md`, `README.md` exist.
-- [ ] T-002 [docs] Populate governance/product/architecture/contract/quality/delivery specs.
+- [x] T-002 [docs] Populate governance/product/architecture/contract/quality/delivery specs.
   - Verification: Review starter-token scan and references.
-- [ ] T-003 [docs] Create P1-P9 feature folders and traceability register.
+- [x] T-003 [docs] Create P1-P9 feature folders and traceability register.
   - Verification: Feature register links every phase.
 
 ## Migration And Rollback

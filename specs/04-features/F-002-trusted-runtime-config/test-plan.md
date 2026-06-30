@@ -21,6 +21,8 @@ supersedes: []
 | AC-004 | automated or explicit manual | safe GET excludes secret/ciphertext |
 | AC-005 | automated or explicit manual | Reducto parser requires Reducto credential |
 | AC-006 | automated or explicit manual | no provider network call happens |
+| AC-007 | automated or explicit manual | seeded model catalog, default profile metadata, and safe DTOs |
+| AC-008 | automated or explicit manual | embedding resolver and embedding-profile in-use immutability guard |
 
 ## Regression Checks
 

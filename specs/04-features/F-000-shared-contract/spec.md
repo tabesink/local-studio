@@ -1,7 +1,7 @@
 ---
 id: F-000
 title: Shared Contract Specification
-status: approved
+status: implemented
 owner: Context Engine delivery team
 last_reviewed: 2026-06-30
 depends_on: []

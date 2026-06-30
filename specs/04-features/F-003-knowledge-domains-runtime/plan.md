@@ -49,3 +49,10 @@ Build only P3 scope, prove it, update evidence, then stop. Do not pull later-pha
 - Security leakage: snapshot safe DTOs and logs.
 - Overbuild: reject infrastructure and feature work listed in out-of-scope.
 - Runtime unknowns: stop when a required fixture cannot be proven.
+
+
+## Pre-Implementation Contract Decisions
+
+- [x] ID-A resolved P3 public API DTOs, data tables, operation concurrency, member list filtering, failure-state ownership, embedding-profile storage, and ID reuse semantics.
+- [x] API-001 and DATA-001 now contain concrete P3 shapes before T-010/T-020 implementation.
+- [ ] Controller internal protocol, storage layout, and Docker fixture proof remain P3 implementation gates before T-030/T-040.

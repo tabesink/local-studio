@@ -11,6 +11,7 @@ These files were used to populate the active spec-driven scaffold. They remain r
 | `.references/local-studio-visual-parity-package.md` | `DESIGN.md`, F-009 frontend delivery |
 | `.references/code/client` | old Context Engine route/shell layout evidence |
 | `.references/code/local-studio/frontend` | Local Studio tokens, primitives, shell, settings, dense UI evidence |
+| `.references/code/lightrag` | external LightRAG library to copy wholesale into server private runtime (F-003, F-005, F-006); minimal surgical edits only |
 | `.references/context_engine_fullstack_impl_docs/phase_plan/*.md` | F-000 through F-009 feature plans |
 | `.references/context_engine_fullstack_impl_docs/slices/*.md` | frontend vertical-slice build order inside F-009 |
 | `.references/context_engine_fullstack_impl_docs/*.md` | architecture, API, data, auth, design, evidence, rebuild-order specs |

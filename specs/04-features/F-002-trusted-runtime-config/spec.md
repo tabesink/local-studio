@@ -35,6 +35,9 @@ Administrators and backend runtime resolver.
 - Embedding profiles require vector dimensions and are immutable once used by a domain.
 - `TrustedRuntimeResolver` for private runtime configuration.
 - Safe admin runtime-settings API.
+- Seeded curated model catalog with OpenAI default embedding and synthesis profiles.
+- Catalog-backed model profile validation and safe `isDefault` DTO metadata.
+- Embedding profile resolver for P3 domain-create validation.
 
 ## Out Of Scope
 
@@ -55,6 +58,8 @@ Administrators and backend runtime resolver.
 | FR-002 | Active synthesis profile requires ready provider config. | API-001 |
 | FR-003 | Embedding profile requires vector dimensions and cannot mutate/delete once a domain references it. | DATA-001 |
 | FR-004 | Reducto can be parser provider but not a model profile provider. | PROD-003 |
+| FR-005 | Model profiles are limited to the approved seeded catalog and safe DTOs expose `isDefault`. | API-001 |
+| FR-006 | Trusted runtime resolver validates embedding profiles without provider network calls. | DATA-001 |
 
 ## Contracts And Data
 
@@ -69,6 +74,8 @@ Administrators and backend runtime resolver.
 - AC-004: safe GET excludes secret/ciphertext
 - AC-005: Reducto parser requires Reducto credential
 - AC-006: no provider network call happens
+- AC-007: seeded model catalog and default metadata exposed safely
+- AC-008: embedding profile resolver rejects bad/unready profiles and used embedding profiles cannot be mutated/deleted
 
 ## Open Decisions
 

@@ -15,6 +15,14 @@ supersedes: []
 
 Build only P1 scope, prove it, update evidence, then stop. Do not pull later-phase UI, worker, AI, or runtime behavior forward unless this plan names it.
 
+## Current Pass Scope
+
+- Add a minimal Python/FastAPI backend package with app factory, request IDs, safe error envelope, and P1 routes.
+- Add SQLAlchemy/Alembic persistence for `users` and `auth_sessions`; use Postgres-compatible schema with SQLite permitted only for local automated proof.
+- Seed or rotate one Administrator from environment at startup; do not add user-management UI or later-phase admin mutations.
+- Add focused route, auth, password, session, and migration tests for the acceptance criteria.
+- Update F-001 evidence and traceability only.
+
 ## Boundary Impacts
 
 | Boundary | Impact |
@@ -28,15 +36,15 @@ Build only P1 scope, prove it, update evidence, then stop. Do not pull later-pha
 
 ## Implementation Sequence
 
-- [ ] T-010 [backend] Create FastAPI app factory, settings, request ID, and error envelope.
+- [x] T-010 [backend] Create FastAPI app factory, settings, request ID, and error envelope.
   - Verification: Unit/integration route tests.
-- [ ] T-020 [backend/data] Add Alembic baseline plus users/auth_sessions models.
+- [x] T-020 [backend/data] Add Alembic baseline plus users/auth_sessions models.
   - Verification: Fresh migration test.
-- [ ] T-030 [backend] Implement admin seeding and Argon2id password verification.
+- [x] T-030 [backend] Implement admin seeding and Argon2id password verification.
   - Verification: Startup/rotation tests.
-- [ ] T-040 [backend] Implement login/me/logout and auth dependencies.
+- [x] T-040 [backend] Implement login/me/logout and auth dependencies.
   - Verification: Cookie/authz tests.
-- [ ] T-050 [backend] Add health and admin proof routes.
+- [x] T-050 [backend] Add health and admin proof routes.
   - Verification: Member/admin status tests.
 
 ## Migration And Rollback

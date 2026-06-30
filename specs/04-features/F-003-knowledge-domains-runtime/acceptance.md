@@ -25,3 +25,10 @@ Status: not implemented.
 ## Completion Rule
 
 Do not mark this feature implemented until every criterion has real command output, snapshot, screenshot, fixture, review note, or runbook evidence.
+
+
+## Pre-Implementation Evidence
+
+- `API-001` now defines P3 strict domain create, admin summary/detail/status/operations DTOs, member available-only list, and safe lifecycle error codes.
+- `DATA-001` now defines `domains`, `domain_operations`, operation concurrency, computed availability, failure ownership, and delete/recreate fencing semantics.
+- F-003 implementation acceptance remains pending until T-010 through T-040 are implemented and verified.

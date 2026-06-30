@@ -13,21 +13,21 @@ supersedes: []
 
 ## Required Order
 
-- [ ] T-000 [docs] Read `AGENTS.md`, `CONTEXT.md`, relevant contracts, and this feature folder.
+- [x] T-000 [docs] Read `AGENTS.md`, `CONTEXT.md`, relevant contracts, and this feature folder.
   - Verification: implementation response lists specs read.
-- [ ] T-010 [backend] Create FastAPI app factory, settings, request ID, and error envelope.
+- [x] T-010 [backend] Create FastAPI app factory, settings, request ID, and error envelope.
   - Verification: Unit/integration route tests.
-- [ ] T-020 [backend/data] Add Alembic baseline plus users/auth_sessions models.
+- [x] T-020 [backend/data] Add Alembic baseline plus users/auth_sessions models.
   - Verification: Fresh migration test.
-- [ ] T-030 [backend] Implement admin seeding and Argon2id password verification.
+- [x] T-030 [backend] Implement admin seeding and Argon2id password verification.
   - Verification: Startup/rotation tests.
-- [ ] T-040 [backend] Implement login/me/logout and auth dependencies.
+- [x] T-040 [backend] Implement login/me/logout and auth dependencies.
   - Verification: Cookie/authz tests.
-- [ ] T-050 [backend] Add health and admin proof routes.
+- [x] T-050 [backend] Add health and admin proof routes.
   - Verification: Member/admin status tests.
-- [ ] T-900 [verification] Run every check named in `test-plan.md`.
+- [x] T-900 [verification] Run every check named in `test-plan.md`.
   - Verification: acceptance evidence updated.
-- [ ] T-910 [traceability] Update `acceptance.md`, `implementation-log.md`, and `specs/07-traceability/feature-register.md`.
+- [x] T-910 [traceability] Update `acceptance.md`, `implementation-log.md`, and `specs/07-traceability/feature-register.md`.
   - Verification: register status and evidence links current.
 
 ## Parallelization Notes

@@ -28,13 +28,13 @@ Build only P2 scope, prove it, update evidence, then stop. Do not pull later-pha
 
 ## Implementation Sequence
 
-- [ ] T-010 [backend/data] Add migrations/models for provider configs, model profiles, runtime settings.
+- [x] T-010 [backend/data] Add migrations/models for provider configs, model profiles, runtime settings.
   - Verification: Fresh migration and constraint tests.
-- [ ] T-020 [backend/security] Implement encryption key validation and secret crypto service.
+- [x] T-020 [backend/security] Implement encryption key validation and secret crypto service.
   - Verification: Ciphertext/no-plaintext tests.
-- [ ] T-030 [backend/api] Implement admin runtime-settings routes and DTOs.
+- [x] T-030 [backend/api] Implement admin runtime-settings routes and DTOs.
   - Verification: 403 and safe DTO snapshots.
-- [ ] T-040 [backend/service] Implement `TrustedRuntimeResolver` with no network calls.
+- [x] T-040 [backend/service] Implement `TrustedRuntimeResolver` with no network calls.
   - Verification: Resolver unit tests.
 
 ## Migration And Rollback
@@ -49,3 +49,11 @@ Build only P2 scope, prove it, update evidence, then stop. Do not pull later-pha
 - Security leakage: snapshot safe DTOs and logs.
 - Overbuild: reject infrastructure and feature work listed in out-of-scope.
 - Runtime unknowns: stop when a required fixture cannot be proven.
+
+
+## Post-P2 Pre-P3 Hardening
+
+- [x] T-050 [backend/service] Seed the curated model catalog and expose safe `isDefault` metadata.
+  - Verification: Catalog/default DTO tests.
+- [x] T-060 [backend/service] Add catalog validation, automatic OpenAI default synthesis activation, embedding resolver, and embedding-profile in-use guard.
+  - Verification: Runtime-config route/resolver tests.

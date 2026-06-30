@@ -43,3 +43,9 @@ webui/out/
 webui/.env*.local
 next-env.d.ts
 *.tsbuildinfo
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.sqlite3
+*.egg-info/

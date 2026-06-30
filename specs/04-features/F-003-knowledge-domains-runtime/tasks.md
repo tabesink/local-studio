@@ -13,8 +13,10 @@ supersedes: []
 
 ## Required Order
 
-- [ ] T-000 [docs] Read `AGENTS.md`, `CONTEXT.md`, relevant contracts, and this feature folder.
+- [x] T-000 [docs] Read `AGENTS.md`, `CONTEXT.md`, relevant contracts, and this feature folder.
   - Verification: implementation response lists specs read.
+- [x] T-005 [contracts] Promote ID-A pre-P3 resolved API/data/domain-operation decisions into active specs.
+  - Verification: API-001, DATA-001, and F-003 docs updated.
 - [ ] T-010 [backend/data] Add domain/operation migrations and generation fencing.
   - Verification: State and uniqueness tests.
 - [ ] T-020 [backend/api] Implement domain admin/member API routes.

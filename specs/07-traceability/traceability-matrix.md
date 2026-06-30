@@ -14,7 +14,7 @@ supersedes: []
 | --- | --- | --- | --- | --- |
 | BR-001 browser only calls CE API | F-009 | API-001, ARCH-002 | frontend import/network audit | planned |
 | BR-002 cookie-only session | F-001, F-009 | API-001, QA-002 | auth integration + browser storage test | planned |
-| BR-004 no secret values cross API | F-002, F-009 | API-001, QA-002 | safe DTO snapshot/secret scan | planned |
+| BR-004 no secret values cross API | F-002, F-009 | API-001, QA-002 | safe DTO snapshot/secret scan | implemented for F-002; F-009 planned |
 | BR-005 query eligibility | F-003, F-005, F-006 | DATA-001, AI-001 | integration tests | planned |
 | BR-007 LightRAG proof | F-005 | AI-001 | pinned fixture | planned |
 | BR-008 exact evidence mapping | F-006, F-007 | AI-001 | mapper/foreign/deleted tests | planned |
