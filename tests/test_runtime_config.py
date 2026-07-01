@@ -245,12 +245,28 @@ def test_reducto_parser_requires_reducto_credential(app, settings: Settings) -> 
 
 
 def test_embedding_profile_in_use_blocks_patch_and_delete(app, settings: Settings) -> None:
+    with TestClient(app):
+        pass
+
     engine, db = _session(settings)
     try:
-        db.execute(text("CREATE TABLE domains (id VARCHAR(64) PRIMARY KEY, embedding_profile_id VARCHAR(36) NOT NULL)"))
         db.execute(
-            text("INSERT INTO domains (id, embedding_profile_id) VALUES (:id, :profile_id)"),
-            {"id": "fatigue", "profile_id": "openai-embedding-default"},
+            text(
+                """
+                INSERT INTO domains (
+                    id, display_name, state, embedding_profile_id, runtime_instance_id, control_generation
+                )
+                VALUES (:id, :display_name, :state, :profile_id, :runtime_instance_id, :control_generation)
+                """
+            ),
+            {
+                "id": "fatigue",
+                "display_name": "Fatigue Analysis",
+                "state": "stopped",
+                "profile_id": "openai-embedding-default",
+                "runtime_instance_id": "00000000-0000-0000-0000-000000000001",
+                "control_generation": 1,
+            },
         )
         db.commit()
     finally:

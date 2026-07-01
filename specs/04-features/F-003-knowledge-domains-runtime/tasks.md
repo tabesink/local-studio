@@ -17,17 +17,17 @@ supersedes: []
   - Verification: implementation response lists specs read.
 - [x] T-005 [contracts] Promote ID-A pre-P3 resolved API/data/domain-operation decisions into active specs.
   - Verification: API-001, DATA-001, and F-003 docs updated.
-- [ ] T-010 [backend/data] Add domain/operation migrations and generation fencing.
+- [x] T-010 [backend/data] Add domain/operation migrations and generation fencing.
   - Verification: State and uniqueness tests.
-- [ ] T-020 [backend/api] Implement domain admin/member API routes.
+- [x] T-020 [backend/api] Implement domain admin/member API routes.
   - Verification: Authz and DTO tests.
-- [ ] T-030 [backend/controller] Implement private controller client/server boundary.
+- [x] T-030 [backend/controller] Implement private controller client/server boundary.
   - Verification: Internal auth and no-public-port tests.
-- [ ] T-040 [backend/worker] Implement start/stop/delete worker paths.
+- [x] T-040 [backend/worker] Implement start/stop/delete worker paths.
   - Verification: Delete resume and stale generation tests.
-- [ ] T-900 [verification] Run every check named in `test-plan.md`.
+- [x] T-900 [verification] Run every check named in `test-plan.md`.
   - Verification: acceptance evidence updated.
-- [ ] T-910 [traceability] Update `acceptance.md`, `implementation-log.md`, and `specs/07-traceability/feature-register.md`.
+- [x] T-910 [traceability] Update `acceptance.md`, `implementation-log.md`, and `specs/07-traceability/feature-register.md`.
   - Verification: register status and evidence links current.
 
 ## Parallelization Notes

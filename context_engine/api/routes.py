@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Path, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -28,6 +28,22 @@ from context_engine.services.runtime_config import (
     safe_runtime_settings,
     update_model_profile,
     update_runtime_settings,
+)
+from context_engine.services.domains import (
+    DOMAIN_ID_PATTERN,
+    DomainError,
+    admin_domain_list,
+    create_domain,
+    domain_detail,
+    domain_operations,
+    domain_status,
+    enqueue_delete_domain,
+    member_domain_list,
+    safe_domain_admin,
+    safe_domain_operation,
+    start_domain,
+    stop_domain,
+    controller_from_settings,
 )
 
 
@@ -67,6 +83,14 @@ class RuntimeSettingsPatchRequest(BaseModel):
     active_parser_kind: str | None = Field(default=None, alias="activeParserKind")
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class DomainCreateRequest(BaseModel):
+    id: str = Field(pattern=DOMAIN_ID_PATTERN)
+    display_name: str | None = Field(default=None, alias="displayName", min_length=1, max_length=120)
+    embedding_profile_id: str = Field(alias="embeddingProfileId", min_length=1, max_length=36)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 api_router = APIRouter()
@@ -152,6 +176,10 @@ def _runtime_config_api_error(exc: RuntimeConfigError) -> ApiError:
     return ApiError(exc.status_code, exc.code, exc.message)
 
 
+def _domain_api_error(exc: DomainError) -> ApiError:
+    return ApiError(exc.status_code, exc.code, exc.message)
+
+
 @api_router.get("/admin/runtime-settings")
 def admin_runtime_settings(
     _: User = Depends(require_admin),
@@ -233,3 +261,123 @@ def admin_update_runtime_settings(
     except RuntimeConfigError as exc:
         raise _runtime_config_api_error(exc) from exc
     return {"runtimeSettings": safe_runtime_settings(settings)}
+
+
+@api_router.post("/admin/domains", status_code=201)
+def admin_create_domain(
+    payload: DomainCreateRequest,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    try:
+        domain = create_domain(
+            db,
+            settings=settings,
+            domain_id=payload.id,
+            display_name=payload.display_name,
+            embedding_profile_id=payload.embedding_profile_id,
+            requested_by_user=admin,
+        )
+    except RuntimeConfigError as exc:
+        raise _runtime_config_api_error(exc) from exc
+    except DomainError as exc:
+        raise _domain_api_error(exc) from exc
+    return {"domain": safe_domain_admin(db, domain, controller_from_settings(settings))}
+
+
+@api_router.get("/admin/domains")
+def admin_list_domains(
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    return {"domains": admin_domain_list(db, settings)}
+
+
+@api_router.get("/admin/domains/{domain_id}")
+def admin_get_domain(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    try:
+        return {"domain": domain_detail(db, settings, domain_id)}
+    except DomainError as exc:
+        raise _domain_api_error(exc) from exc
+
+
+@api_router.get("/admin/domains/{domain_id}/status")
+def admin_get_domain_status(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    try:
+        return domain_status(db, settings, domain_id)
+    except DomainError as exc:
+        raise _domain_api_error(exc) from exc
+
+
+@api_router.post("/admin/domains/{domain_id}/start")
+def admin_start_domain(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    try:
+        domain = start_domain(db, settings=settings, domain_id=domain_id, requested_by_user=admin)
+    except DomainError as exc:
+        raise _domain_api_error(exc) from exc
+    return {"domain": safe_domain_admin(db, domain, controller_from_settings(settings))}
+
+
+@api_router.post("/admin/domains/{domain_id}/stop")
+def admin_stop_domain(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    try:
+        domain = stop_domain(db, settings=settings, domain_id=domain_id, requested_by_user=admin)
+    except DomainError as exc:
+        raise _domain_api_error(exc) from exc
+    return {"domain": safe_domain_admin(db, domain, controller_from_settings(settings))}
+
+
+@api_router.delete("/admin/domains/{domain_id}", status_code=202)
+def admin_delete_domain(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    try:
+        operation = enqueue_delete_domain(db, domain_id=domain_id, requested_by_user=admin)
+    except DomainError as exc:
+        raise _domain_api_error(exc) from exc
+    return {"operation": safe_domain_operation(operation)}
+
+
+@api_router.get("/admin/domains/{domain_id}/operations")
+def admin_domain_operations(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    try:
+        return {"operations": domain_operations(db, domain_id)}
+    except DomainError as exc:
+        raise _domain_api_error(exc) from exc
+
+
+@api_router.get("/domains")
+def list_available_domains(
+    _: CurrentSession = Depends(require_current_session),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    return {"domains": member_domain_list(db, settings)}

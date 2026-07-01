@@ -204,6 +204,44 @@ Admin domain DTOs never expose `runtimeInstanceId`, `controlGeneration`, control
 
 `activeOperation` is null when no queued/running domain operation exists.
 
+### Domain lifecycle actions
+
+`POST /admin/domains/{domain_id}/start` and `POST /admin/domains/{domain_id}/stop` complete synchronously in P3 and return:
+
+```json
+{
+  "domain": {
+    "id": "fatigue",
+    "displayName": "Fatigue Analysis",
+    "state": "running",
+    "embeddingProfileId": "openai-embedding-default",
+    "available": true,
+    "createdAt": "2026-06-30T12:00:00Z",
+    "updatedAt": "2026-06-30T12:01:00Z"
+  }
+}
+```
+
+`DELETE /admin/domains/{domain_id}` accepts asynchronous hard delete with `202` and returns the queued safe operation:
+
+```json
+{
+  "operation": {
+    "id": "op-uuid",
+    "operationType": "delete",
+    "status": "queued",
+    "message": "Delete queued.",
+    "errorCode": null,
+    "errorMessage": null,
+    "startedAt": null,
+    "finishedAt": null,
+    "createdAt": "2026-06-30T12:02:00Z"
+  }
+}
+```
+
+After delete is accepted, the domain is fenced as `deleting`, omitted from member `GET /domains`, and removed from all domain reads only after the worker completes resource cleanup and hard-deletes the row.
+
 ### Domain operations
 
 `GET /admin/domains/{domain_id}/operations` returns safe lifecycle history:

@@ -44,6 +44,9 @@ class Settings:
     session_cookie_samesite: str = field(default_factory=lambda: _env("CE_SESSION_COOKIE_SAMESITE", "lax") or "lax")
     session_ttl_seconds: int = field(default_factory=lambda: _env_int("CE_SESSION_TTL_SECONDS", 60 * 60 * 8))
     request_id_header: str = "X-Request-ID"
+    domain_runtime_root: str = field(default_factory=lambda: _env("CE_DOMAIN_RUNTIME_ROOT", ".data/domain-runtimes") or ".data/domain-runtimes")
+    domain_delete_worker_id: str = field(default_factory=lambda: _env("CE_DOMAIN_DELETE_WORKER_ID", "domain-delete-worker") or "domain-delete-worker")
+    domain_delete_lease_seconds: int = field(default_factory=lambda: _env_int("CE_DOMAIN_DELETE_LEASE_SECONDS", 60))
 
     @classmethod
     def from_env(cls) -> "Settings":

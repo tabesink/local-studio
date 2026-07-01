@@ -17,13 +17,14 @@ def sqlite_url(tmp_path: Path) -> str:
 
 
 @pytest.fixture
-def settings(sqlite_url: str) -> Settings:
+def settings(sqlite_url: str, tmp_path: Path) -> Settings:
     return Settings(
         database_url=sqlite_url,
         admin_username="admin@example.test",
         admin_password="correct horse battery staple",
         session_cookie_secure=False,
         session_ttl_seconds=3600,
+        domain_runtime_root=str(tmp_path / "domain-runtimes"),
         testing=True,
     )
 

@@ -35,6 +35,18 @@ Use this precedence when documents conflict:
 
 Reference material under `.references/` is evidence, not active implementation authority. If a reference contradicts an approved spec, update the spec through the normal change process instead of silently choosing the reference.
 
+## Reference Code Repos
+
+Use the read-only reference repos only as evidence for implementing the active specs:
+
+| Reference repo | Use for |
+| --- | --- |
+| `.references/code/context_engine/` | old Context Engine product behavior, route/layout shape, API/backend patterns, and migration clues |
+| `.references/code/lightrag/` | LightRAG library/runtime behavior for private Context Engine runtime integration |
+| `.references/code/local-studio/` | Local Studio visual parity, tokens, primitives, shell geometry, and interaction patterns |
+
+Do not import behavior from these repos unless the active feature spec and affected contracts allow it.
+
 ## Frontend Rule
 
 The frontend is a thin Next.js App Router client over Context Engine API truth. Its route structure follows the old Context Engine shell: public login, authenticated app rail, Chat, Documents, Graph, Operations, and Settings dialog/panels. Its visual language follows Local Studio: compact, dark-first workstation, Geist typography, dense rows, restrained borders, right detail panels, and token-first primitives.

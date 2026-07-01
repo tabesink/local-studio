@@ -14,7 +14,11 @@ Before editing code, read:
 6. Relevant architecture and quality specs
 7. Existing implementation and tests
 
-Reference files under `.references/` are evidence only. Use `README.md` for source-of-truth precedence.
+Reference files under `.references/` are evidence only. Use `README.md` for source-of-truth precedence. When reference-code evidence is needed, use only the relevant read-only repo:
+
+- `.references/code/context_engine/` for old Context Engine product behavior, route/layout shape, API/backend patterns, and migration clues.
+- `.references/code/lightrag/` for LightRAG library/runtime behavior that must be reconciled through Context Engine contracts.
+- `.references/code/local-studio/` for Local Studio visual parity, tokens, primitives, shell geometry, and interaction patterns.
 
 ## Non-Negotiable Rules
 

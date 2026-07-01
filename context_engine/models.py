@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from context_engine.db import Base, utc_now
@@ -23,6 +23,33 @@ PROFILE_KINDS = (PROFILE_SYNTHESIS, PROFILE_EMBEDDING)
 PARSER_DOCLING = "docling"
 PARSER_REDUCTO = "reducto"
 PARSER_KINDS = (PARSER_DOCLING, PARSER_REDUCTO)
+DOMAIN_STATE_STOPPED = "stopped"
+DOMAIN_STATE_RUNNING = "running"
+DOMAIN_STATE_DELETING = "deleting"
+DOMAIN_STATES = (DOMAIN_STATE_STOPPED, DOMAIN_STATE_RUNNING, DOMAIN_STATE_DELETING)
+DOMAIN_OPERATION_CREATE = "create"
+DOMAIN_OPERATION_START = "start"
+DOMAIN_OPERATION_STOP = "stop"
+DOMAIN_OPERATION_DELETE = "delete"
+DOMAIN_OPERATION_TYPES = (
+    DOMAIN_OPERATION_CREATE,
+    DOMAIN_OPERATION_START,
+    DOMAIN_OPERATION_STOP,
+    DOMAIN_OPERATION_DELETE,
+)
+DOMAIN_OPERATION_STATUS_QUEUED = "queued"
+DOMAIN_OPERATION_STATUS_RUNNING = "running"
+DOMAIN_OPERATION_STATUS_SUCCEEDED = "succeeded"
+DOMAIN_OPERATION_STATUS_FAILED = "failed"
+DOMAIN_OPERATION_STATUS_CANCELLED = "cancelled"
+DOMAIN_OPERATION_STATUSES = (
+    DOMAIN_OPERATION_STATUS_QUEUED,
+    DOMAIN_OPERATION_STATUS_RUNNING,
+    DOMAIN_OPERATION_STATUS_SUCCEEDED,
+    DOMAIN_OPERATION_STATUS_FAILED,
+    DOMAIN_OPERATION_STATUS_CANCELLED,
+)
+DOMAIN_OPERATION_ACTIVE_STATUSES = (DOMAIN_OPERATION_STATUS_QUEUED, DOMAIN_OPERATION_STATUS_RUNNING)
 
 
 class User(Base):
@@ -114,3 +141,77 @@ class RuntimeSettings(Base):
     active_parser_kind: Mapped[str] = mapped_column(String(32), nullable=False, default=PARSER_DOCLING)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now, onupdate=utc_now)
+
+
+class Domain(Base):
+    __tablename__ = "domains"
+    __table_args__ = (
+        CheckConstraint("state in ('stopped', 'running', 'deleting')", name="ck_domains_state"),
+        CheckConstraint("control_generation >= 1", name="ck_domains_control_generation_positive"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default=DOMAIN_STATE_STOPPED)
+    embedding_profile_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("model_profiles.id"),
+        index=True,
+        nullable=False,
+    )
+    runtime_instance_id: Mapped[str] = mapped_column(String(36), nullable=False, default=lambda: str(uuid.uuid4()))
+    control_generation: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now, onupdate=utc_now)
+
+    embedding_profile: Mapped[ModelProfile] = relationship()
+    operations: Mapped[list["DomainOperation"]] = relationship(
+        back_populates="domain",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class DomainOperation(Base):
+    __tablename__ = "domain_operations"
+    __table_args__ = (
+        CheckConstraint("operation_type in ('create', 'start', 'stop', 'delete')", name="ck_domain_operations_type"),
+        CheckConstraint(
+            "status in ('queued', 'running', 'succeeded', 'failed', 'cancelled')",
+            name="ck_domain_operations_status",
+        ),
+        Index("ix_domain_operations_domain_created", "domain_id", text("created_at DESC")),
+        Index(
+            "uq_domain_operations_one_active",
+            "domain_id",
+            unique=True,
+            sqlite_where=text("status IN ('queued', 'running')"),
+            postgresql_where=text("status IN ('queued', 'running')"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    domain_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("domains.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    operation_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    control_generation_at_start: Mapped[int] = mapped_column(Integer, nullable=False)
+    requested_by_user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    lease_owner: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now, onupdate=utc_now)
+
+    domain: Mapped[Domain] = relationship(back_populates="operations")

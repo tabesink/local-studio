@@ -28,13 +28,13 @@ Build only P3 scope, prove it, update evidence, then stop. Do not pull later-pha
 
 ## Implementation Sequence
 
-- [ ] T-010 [backend/data] Add domain/operation migrations and generation fencing.
+- [x] T-010 [backend/data] Add domain/operation migrations and generation fencing.
   - Verification: State and uniqueness tests.
-- [ ] T-020 [backend/api] Implement domain admin/member API routes.
+- [x] T-020 [backend/api] Implement domain admin/member API routes.
   - Verification: Authz and DTO tests.
-- [ ] T-030 [backend/controller] Implement private controller client/server boundary.
+- [x] T-030 [backend/controller] Implement private controller client/server boundary.
   - Verification: Internal auth and no-public-port tests.
-- [ ] T-040 [backend/worker] Implement start/stop/delete worker paths.
+- [x] T-040 [backend/worker] Implement start/stop/delete worker paths.
   - Verification: Delete resume and stale generation tests.
 
 ## Migration And Rollback
@@ -55,4 +55,5 @@ Build only P3 scope, prove it, update evidence, then stop. Do not pull later-pha
 
 - [x] ID-A resolved P3 public API DTOs, data tables, operation concurrency, member list filtering, failure-state ownership, embedding-profile storage, and ID reuse semantics.
 - [x] API-001 and DATA-001 now contain concrete P3 shapes before T-010/T-020 implementation.
-- [ ] Controller internal protocol, storage layout, and Docker fixture proof remain P3 implementation gates before T-030/T-040.
+- [x] Controller internal protocol, storage layout, and no-host-port proof implemented through the private `LocalDomainRuntimeController` boundary for automated P3 evidence.
+- [ ] Live Docker-host fixture proof remains a deployment/manual evidence item outside this workspace run.

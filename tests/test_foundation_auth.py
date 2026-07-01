@@ -281,5 +281,5 @@ def test_openapi_snapshot_matches() -> None:
 
     app = create_app(Settings(database_url="sqlite:///:memory:", session_cookie_secure=False, testing=True))
     current = json.dumps(app.openapi(), indent=2, sort_keys=True) + "\n"
-    expected = Path("tests/snapshots/f002_openapi.json").read_text()
+    expected = Path("tests/snapshots/f003_openapi.json").read_text()
     assert current == expected

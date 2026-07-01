@@ -139,6 +139,7 @@ def seed_runtime_config(db: Session) -> None:
     if db.get(RuntimeSettings, RUNTIME_SETTINGS_ID) is None:
         db.add(RuntimeSettings(id=RUNTIME_SETTINGS_ID, active_parser_kind=PARSER_DOCLING))
 
+    db.flush()
     _seed_model_catalog(db)
     db.flush()
     _activate_default_synthesis_if_ready(db)
