@@ -3,7 +3,7 @@ id: F-009
 title: Frontend Delivery Acceptance Evidence
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-02
 depends_on: [F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008]
 supersedes: []
 ---
@@ -23,6 +23,9 @@ Status: not implemented.
 | AC-006 | pending | planned | no secret/path/raw payload in client errors/logs |
 | AC-007 | pending | planned | Playwright desktop/mobile key flows |
 | AC-008 | pending | planned | visual checks at 1440x900, 1280x800, and narrow viewport dark/light |
+| AC-009 | pending | planned | shell nav order and routes match ce-client-port-and-parity.md |
+| AC-010 | pending | planned | chat ContextPanelShell uses tab registry; context tab shows SSE evidence before answer tokens |
+| AC-011 | pending | planned | direct LLM chat turn renders without evidence rows/citations and without exposing route/model/tool controls |
 
 ## Completion Rule
 

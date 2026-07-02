@@ -51,3 +51,16 @@ Build only P4 scope, prove it, update evidence, then stop. Do not pull later-pha
 - Security leakage: snapshot safe DTOs and logs.
 - Overbuild: reject infrastructure and feature work listed in out-of-scope.
 - Runtime unknowns: stop when a required fixture cannot be proven.
+
+## P4 Storage And Worker Details
+
+- Source storage root: `CE_SOURCE_STORAGE_ROOT`, default `.data/source-storage`.
+- Derived private layout: `domains/{domain_id}/sources/{source_id}/original` and `domains/{domain_id}/sources/{source_id}/images/{image_id}` under the source storage root.
+- Storage helpers must enforce root confinement; database rows must not persist storage paths.
+- Source preparation worker uses `CE_SOURCE_PREP_WORKER_ID` and `CE_SOURCE_PREP_LEASE_SECONDS` for claim/lease behavior.
+- Domain delete worker must call a narrow P4 source purge hook before final Knowledge Domain hard delete.
+- No generic jobs table, Redis/RQ/Celery, event bus, parser profile framework, LightRAG call, indexing, retrieval, evidence, citation, chat, source viewer, or download behavior belongs in this phase.
+
+## Contract Patch Status
+
+P4 implementation depends on the P4 additions to API-001, DATA-001, and this feature spec. If implementation discovers a new public field, state, error, persistence column, parser behavior, or delete behavior, update the active contract before code consumes it.

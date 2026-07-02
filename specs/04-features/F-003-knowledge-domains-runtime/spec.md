@@ -83,6 +83,8 @@ No open product decisions are allowed before implementation starts. If a backend
 
 ## Resolved Pre-P3 Decisions
 
+Private LightRAG runtime integration must use an editable vendored copy at `vendor/lightrag/` per ADR-002. Pip-only `lightrag-hku` is not acceptable as the runtime source of truth when Context Engine-owned KG prompt changes are required.
+
 The ID-A pre-P3 review decisions are adopted into API-001 and DATA-001:
 
 - `domains.id` is a public slug matching `^[a-z0-9][a-z0-9_-]{1,62}$`, not a UUID.

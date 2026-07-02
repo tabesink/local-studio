@@ -13,21 +13,23 @@ supersedes: []
 
 ## Required Order
 
-- [ ] T-000 [docs] Read `AGENTS.md`, `CONTEXT.md`, relevant contracts, and this feature folder.
+- [x] T-000 [docs] Read `AGENTS.md`, `CONTEXT.md`, relevant contracts, and this feature folder.
   - Verification: implementation response lists specs read.
-- [ ] T-010 [backend/service] Implement query target resolver and domain availability checks.
+- [x] T-005 [contract] Patch API-001/F-006 with exact evidence request, response, fallback, and safe error shapes.
+  - Verification: OpenAPI snapshot and DTO tests.
+- [x] T-010 [backend/service] Implement query target resolver and domain availability checks.
   - Verification: Conflict tests.
-- [ ] T-020 [backend/integration] Implement private retrieval client wrapper.
+- [x] T-020 [backend/integration] Implement private retrieval client wrapper.
   - Verification: Timeout/safe error tests.
-- [ ] T-030 [backend/retrieval] Implement strict marker parser and Source Block mapper.
+- [x] T-030 [backend/retrieval] Implement strict marker parser and Source Block mapper.
   - Verification: Foreign/deleted/ineligible tests.
-- [ ] T-040 [backend/api] Implement `POST /api/v1/domains/{domain_id}/evidence`.
+- [x] T-040 [backend/api] Implement `POST /api/v1/domains/{domain_id}/evidence`.
   - Verification: DTO snapshot tests.
-- [ ] T-050 [backend/service] Add private callable for P7 reuse.
+- [x] T-050 [backend/service] Add private callable for P7 reuse.
   - Verification: Shared mapper tests.
-- [ ] T-900 [verification] Run every check named in `test-plan.md`.
+- [x] T-900 [verification] Run every check named in `test-plan.md`.
   - Verification: acceptance evidence updated.
-- [ ] T-910 [traceability] Update `acceptance.md`, `implementation-log.md`, and `specs/07-traceability/feature-register.md`.
+- [x] T-910 [traceability] Update `acceptance.md`, `implementation-log.md`, and `specs/07-traceability/feature-register.md`.
   - Verification: register status and evidence links current.
 
 ## Parallelization Notes

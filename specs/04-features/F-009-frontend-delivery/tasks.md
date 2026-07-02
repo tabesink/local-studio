@@ -3,7 +3,7 @@ id: F-009
 title: Frontend Delivery Task List
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-02
 depends_on: [F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008]
 supersedes: []
 ---
@@ -25,8 +25,8 @@ supersedes: []
   - Verification: admin/member and secret-status tests.
 - [ ] T-050 [frontend] Implement documents/upload/operations slices.
   - Verification: state-machine and upload tests.
-- [ ] T-060 [frontend] Implement evidence-only and SSE chat slices.
-  - Verification: SSE fixture/cancel tests.
+- [ ] T-060 [frontend] Port chat shell with ContextPanelShell + context tab; implement direct LLM and domain RAG SSE slices; wire P6/P7 per `context-panel-tabs.md`.
+  - Verification: SSE fixture/cancel tests; context tab evidence ordering; direct LLM has empty context and no hidden controls.
 - [ ] T-070 [frontend] Implement graph/source-nav/audit diagnostics only after contracts are captured.
   - Verification: contract and visual tests.
 - [ ] T-900 [verification] Run every check named in `test-plan.md`.

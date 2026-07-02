@@ -27,6 +27,8 @@ Each folder contains:
 - `acceptance.md` for completion evidence;
 - `implementation-log.md` for delivery notes, deviations, and drift.
 
+`F-009-frontend-delivery/` also includes `frontend-slice-map.md`, `ce-client-port-and-parity.md`, and `context-panel-tabs.md`.
+
 ## Feature Size Rule
 
 Split a phase only when a planned change has an independent user outcome, separate release gate, or unclear ownership. Do not split merely to preserve a technical layer boundary.

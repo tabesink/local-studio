@@ -1,9 +1,9 @@
 ---
 id: F-007
-title: Grounded Streaming Chat UX And State Contract
+title: Agentic Chat UX And State Contract
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-02
 depends_on: [F-006]
 supersedes: []
 ---
@@ -13,7 +13,11 @@ supersedes: []
 
 ## Surface
 
-Chat UI later renders conversation list/thread/composer, current-turn evidence, token stream, safe terminal states, and cancel. No source navigation until F-009 slice 16 contract exists.
+Chat UI (P9) **ports** old CE client two-column `LightRagChatShell`: thread + composer + **ContextPanelShell** with v1 **`context`** tab (`SessionContextNavigation`, `SourceInspectorPane`). Restyle with Local Studio tokens. Tab registry/router required for future panel tabs. Renders direct LLM turns, current-turn domain Evidence, token stream, safe stage labels, terminal states, and cancel. No source navigation until F-009 slice 16 contract exists.
+
+The shell is route-agnostic. It shows no evidence rows for `direct_llm`, fills the context tab from `domain_rag` evidence SSE events, and never exposes route/model/tool/retrieval controls.
+
+Port references: `ce-client-port-and-parity.md`, `context-panel-tabs.md`.
 
 ## User/System Flow
 

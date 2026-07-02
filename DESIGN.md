@@ -18,8 +18,10 @@ This document replaces the earlier white-canvas workbench direction. **Local Stu
 | Agent-facing UI implementation guide | `docs/design/context_engine_agent_ui_guidelines.md` |
 | Frontend/backend boundary | `docs/architecture.md` |
 | Context Engine domain vocabulary | `CONTEXT.md` |
-| UI feature requirements | relevant phase PRD / implementation plan |
+| UI feature requirements | `specs/04-features/F-009-frontend-delivery/` |
+| CE client port contract | `specs/04-features/F-009-frontend-delivery/ce-client-port-and-parity.md` |
 | Visual parity source package | `.references/local-studio-visual-parity-package.md` |
+| Old CE client (structure port) | `.references/code/context-engine/client/` |
 | Local Studio reference codebase | `.references/code/local-studio/` |
 | Local Studio source reference | `.references/code/local-studio/frontend/src/app/styles/globals/tokens.css` |
 | Local Studio shared primitives | `.references/code/local-studio/frontend/src/ui/` |
@@ -44,11 +46,14 @@ Use Local Studio as the reference implementation, not as vague inspiration.
 
 For any Context Engine UI decision, resolve in this order:
 
-1. Is there an existing Local Studio token?
-2. Is there an existing Local Studio primitive?
-3. Is there an existing Local Studio screen pattern?
-4. Can a narrow variant extend that primitive without adding a new design language?
-5. Only then add a Context Engine-specific component.
+1. Is there an existing **old CE client** layout/route pattern to port (`.references/code/context-engine/client/`)?
+2. Is there an existing Local Studio token?
+3. Is there an existing Local Studio primitive?
+4. Is there an existing Local Studio screen pattern for restyle?
+5. Can a narrow variant extend that primitive without adding a new design language?
+6. Only then add a Context Engine-specific component.
+
+Port structure from old CE client. Restyle with Local Studio. See `specs/04-features/F-009-frontend-delivery/ce-client-port-and-parity.md`.
 
 Never start from generic Tailwind, generic shadcn, a white dashboard template, or a marketing-page aesthetic.
 
@@ -478,13 +483,15 @@ Never infer lifecycle from client-side temporary state. FastAPI is the source of
 
 ## 8.3 Documents and Ingestion
 
-**Reference pattern:** task/table list + right detail panel + compact upload modal.
+**Reference pattern:** port old CE client `/documents` layout — table list + **inline PDF preview panel** (50% desktop split, mobile drawer). Restyle with Local Studio tokens.
 
 Document row:
 
 ```text
-status dot | title / source path | parser | chunks | updated | row actions
+status dot | title / filename | parser | prep/index state | updated | row actions
 ```
+
+Row click opens `DocumentPreviewPanel` → `DocumentPdfPreview` (blob URL + native `<object>`). Do not move preview to a nested `/documents/[id]` route.
 
 Ingestion state:
 
@@ -497,20 +504,20 @@ Ingestion state:
 The right panel may contain:
 
 ```text
-Document title
-source path · parser · job ID
-status + progress
-counts / timestamps / compact diagnostics
-tabs: Details | Evidence | Job log
+PDF preview (<object>) or safe metadata when preview unavailable
+Document title · parser · status
+prep/index progress · timestamps · compact diagnostics
+tabs: Details | Operations (when API provides)
 ```
 
 Avoid nested upload cards. Use one focused upload dialog with direct progress and cancel action.
 
 ## 8.4 Retrieval / Query / Chat
 
-**Reference pattern:** Local Studio agent/workspace composition.
+**Reference pattern:** port old CE client `LightRagChatShell` two-column layout; restyle composer/messages with Local Studio tokens.
 
 - Center canvas holds conversation/query result.
+- Collapsible/resizable **ContextPanelShell** with tab registry; v1 **`context`** tab ports session context and source inspector from old CE (`context-panel-tabs.md`).
 - Query input/composer follows the same dark raised composer grammar.
 - Model, domain, and retrieval mode controls stay compact and local.
 - Response uses readable sans body; copied technical values use mono.

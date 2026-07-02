@@ -3,7 +3,7 @@ id: F-004
 title: Source Documents And Canonical Preparation UX And State Contract
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-02
 depends_on: [F-003]
 supersedes: []
 ---
@@ -13,7 +13,21 @@ supersedes: []
 
 ## Surface
 
-Admin API supports later documents library, upload dialog, outline, and operations surfaces. No member source-content route in this phase.
+Admin API supports later documents library, upload dialog, outline, and operations surfaces. No member source-content API in this phase.
+
+P9 documents UI **ports** the old CE client `/documents` pattern: library table + **inline PDF preview panel** on the same route (see `F-009/ce-client-port-and-parity.md`). Restyle with Local Studio tokens.
+
+## Documents UI (P9 — port + restyle)
+
+```text
+/documents (single route)
+  DocumentLibraryTable
+  DocumentPreviewPanel  ← 50% split desktop; drawer mobile
+    DocumentPdfPreview  ← blob URL + <object type="application/pdf">
+  DocumentUploadDialog (admin)
+```
+
+Preview blob fetch requires a captured safe API contract before wiring. Port panel structure first; block fetch until contract exists.
 
 ## User/System Flow
 
@@ -35,5 +49,5 @@ Read feature spec
 
 - Frontend work must follow `DESIGN.md`.
 - Icon-only controls need labels/tooltips.
-- Dialogs require focus trap, Escape close, title/description, and opener focus restore.
+- Preview drawer/dialog: focus trap, Escape close, title/description, opener focus restore.
 - Tables/lists must support keyboard access and stable row heights.

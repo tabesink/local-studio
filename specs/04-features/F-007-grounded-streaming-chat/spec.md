@@ -1,25 +1,25 @@
 ---
 id: F-007
-title: Grounded Streaming Chat Specification
+title: Agentic Chat And Streaming Specification
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-02
 depends_on: [F-006]
 supersedes: []
 ---
 
 
-# F-007 - Grounded Streaming Chat
+# F-007 - Agentic Chat And Streaming
 
 Phase: P7
 
 ## Outcome
 
-Create user-owned conversations where each turn selects one Knowledge Domain, retrieves mapped evidence, and streams a grounded answer or safe fallback.
+Create user-owned conversations where each turn is server-classified as either narrow direct LLM general chat or advanced agentic RAG against one selected Knowledge Domain, then streams safe Context Engine SSE events.
 
 ## Why Now
 
-Chat is the primary user-facing RAG experience and must preserve evidence, citations, ownership, idempotency, and redaction.
+Chat is the primary user-facing synthesis experience and must preserve route ownership, evidence, citations, idempotency, safe direct chat, and redaction.
 
 ## Actors
 
@@ -27,16 +27,20 @@ Members, Administrators as chat users, synthesis provider, retrieval service.
 
 ## In Scope
 
-- `conversations` and `conversation_turns`.
+- `conversations`, `conversation_turns`, and `conversation_turn_evidence_refs`.
 - Owner filters and conversation CRUD.
-- Required `domain_id` per turn.
+- Optional `domain_id` per turn; required for domain-specific questions and `domain_rag`, absent for `direct_llm`.
 - Client request idempotency per conversation.
 - One running turn per conversation.
-- Reuse P6 evidence callable.
+- Server intent gate for `direct_llm` vs `domain_rag`.
+- Direct LLM responder for non-domain general chat only.
+- Reuse P6 evidence callable through one RetrievalPort implementation; `fact`, `overview`, and `verbatim` are logical intent labels on that same retriever.
 - Resolve active synthesis profile once per turn.
 - Bounded prior user questions only.
-- Grounded prompt builder.
+- CE-native advanced agentic RAG orchestrator with a statically registered typed middleware chain and closed retrieval operations.
+- Orchestrator prompt/operation descriptions and provider stream adapter.
 - Context Engine SSE contract.
+- Safe `stage` SSE projection.
 - Citation validation.
 - Evidence-only fallback and no-grounded-context result.
 - Source/domain redaction hooks.
@@ -53,32 +57,42 @@ Members, Administrators as chat users, synthesis provider, retrieval service.
 - background synthesis retry
 - chat worker/queue
 - source navigation UI
+- open web search or browser-supplied tools
+- separate retrievers for `fact`, `overview`, or `verbatim`; FAISS recreation; second vector store; duplicate retrieval endpoint
+- LangChain, LangGraph, `create_agent`, `create_react_agent`, `StateGraph`, or framework adapters
 
 ## Functional Requirements
 
 | ID | Requirement | Source |
 | --- | --- | --- |
-| FR-001 | Pilot chat is RAG-only; no general/domainless/direct non-grounded branch. | AI-001 |
-| FR-002 | Every turn requires one domain and one client request id. | API-001 |
-| FR-003 | Evidence is emitted before tokens and one terminal SSE event ends the stream. | EVT-001 |
-| FR-004 | Provider failure after evidence returns evidence-only fallback; no raw provider error. | AI-001 |
-| FR-005 | Source/domain delete redacts derived answer/citations but keeps user question. | DATA-001 |
+| FR-001 | Non-domain general chat may use direct LLM with no Evidence/citations; browser cannot select this route. | AI-001 |
+| FR-002 | Domain-specific or ambiguous knowledge questions require one selected Knowledge Domain and must run the advanced agentic RAG path. | API-001, AI-001 |
+| FR-003 | Domain RAG uses a CE-native `TurnOrchestrator` with statically registered typed middleware, closed RetrievalPort operations, and bounded plan/retrieve/verify loops over one physical P6/LightRAG retriever. | AI-001 |
+| FR-004 | Evidence is emitted before grounded answer tokens and one terminal SSE event ends the stream. | EVT-001 |
+| FR-005 | Missing Evidence in domain RAG returns no-grounded-context and never falls back to direct LLM. | AI-001 |
+| FR-006 | Provider failure after evidence returns evidence-only fallback; no raw provider error. | AI-001 |
+| FR-007 | Source/domain delete redacts derived answer/citations but keeps user question. | DATA-001 |
 
 ## Contracts And Data
 
 - Contracts: API-001, EVT-001, DATA-001, AI-001
-- Data: `conversations`, `conversation_turns`; no prompt/raw evidence/raw provider columns.
+- Data: `conversations`, `conversation_turns`, `conversation_turn_evidence_refs`; no prompt/raw evidence/raw provider columns.
 
 ## Acceptance Criteria
 
 - AC-001: user can CRUD own conversations only
-- AC-002: every turn requires domain
+- AC-002: domain-specific turn requires domain; direct general chat omits domain
 - AC-003: second running turn -> 409
 - AC-004: duplicate request returns existing result/no second provider call
 - AC-005: no evidence -> no_grounded_context
 - AC-006: provider failure after retrieval -> evidence_only
 - AC-007: client disconnect aborts stream and clears running state
 - AC-008: browser-sent provider/model/prompt/retrieval fields -> 422
+- AC-009: non-domain general chat returns direct LLM answer with no retrieval, evidence, or citations
+- AC-010: domain-specific no-evidence case does not fall back to direct LLM
+- AC-011: advanced RAG closes over allowed operations and budgets; invalid operation/plan fails closed without LangChain/LangGraph
+- AC-012: SSE stage events expose labels only, never planning text or reasoning
+- AC-013: `fact`, `overview`, and `verbatim` are proven as intent labels over one RetrievalPort/P6 LightRAG path, not separate retrievers
 
 ## Open Decisions
 

@@ -33,3 +33,12 @@ supersedes: []
 ## Blocked Evidence
 
 If any test cannot be run, mark the feature blocked in `acceptance.md` with the missing dependency and owner.
+
+## Required Additional Checks
+
+- Fresh migration creates `source_documents`, `source_preparation_operations`, `source_blocks`, and `source_images` with documented constraints and without forbidden JSON/path/payload columns.
+- Source API safe DTO scan covers upload/list/detail/outline/operations/retry/cancel responses and the OpenAPI snapshot for forbidden fields/values: secret, credential, ciphertext, path, storage, url, runtime, port, container, parserPayload, providerPayload, taskId, jobId, canonicalMarkdown, rawText, sourceText, stack, traceback, and lightrag.
+- Storage cleanup tests use a temp `CE_SOURCE_STORAGE_ROOT` and prove duplicate upload rollback, source delete cleanup, and domain delete source purge cleanup.
+- Worker tests prove claim/lease, failed parse leaves Source Document `pending` with a failed operation, retry preserves frozen parser kind, cancel fences stale publish, stale workers publish zero rows, and successful publish is all-or-none.
+- Parser adapter tests use synthetic non-sensitive fixtures for Docling and Reducto and assert the same `PreparedSource` semantics.
+- No-LightRAG proof uses an import/call audit or injected test trap in P4 source services/workers.

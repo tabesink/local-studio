@@ -37,11 +37,11 @@ The server-side decision that a domain/source can be retrieved because lifecycle
 _Avoid_: Ready flag when more than indexing readiness is meant
 
 **Conversation**:
-A user-owned chat history container whose turns may each select a Knowledge Domain.
+A user-owned chat history container whose turns may select a Knowledge Domain for domain-grounded RAG or omit it for narrow direct LLM general chat.
 _Avoid_: Session, thread when ownership is unclear, team chat
 
 **Turn**:
-One user question and resulting grounded response attempt against exactly one Knowledge Domain.
+One user question and resulting response attempt. A domain-grounded Turn records exactly one Knowledge Domain; a direct LLM Turn records no Knowledge Domain and may answer only non-domain general chat.
 _Avoid_: Message when the domain/retrieval boundary matters
 
 **Redaction**:
@@ -65,14 +65,14 @@ _Avoid_: Viewer when write ownership of conversations matters
 - **Evidence** maps to one or more **Source Blocks** and never to raw LightRAG output alone.
 - A **Citation** belongs to one answer and points back to **Evidence**.
 - A **Conversation** belongs to exactly one **Member** or **Administrator** as owner.
-- A **Turn** belongs to exactly one **Conversation** and records exactly one **Knowledge Domain**.
+- A **Turn** belongs to exactly one **Conversation** and records either exactly one **Knowledge Domain** for domain-grounded RAG or no Knowledge Domain for direct LLM general chat.
 - A **LightRAG Runtime** belongs to exactly one **Knowledge Domain**.
-- **Redaction** applies to **Turns** when cited sources or selected domains are deleted.
+- **Redaction** applies to domain-grounded **Turns** when cited sources or selected domains are deleted.
 
 ## Example dialogue
 
 > **Dev:** "Can the chat answer a general question if the selected **Knowledge Domain** has no matching **Evidence**?"
-> **Domain expert:** "No. Pilot chat is RAG-only. The **Turn** should report no grounded context or evidence-only fallback, not use general model knowledge."
+> **Domain expert:** "Only when the user is asking non-domain general chat. If the user asks about domain content and no **Evidence** exists, the **Turn** reports no grounded context and does not use general model knowledge."
 
 > **Dev:** "If an admin deletes a **Source Document**, do we just hide its **Citation**?"
 > **Domain expert:** "No. **Redaction** removes the derived answer and citations from any **Turn** that cited that source, while keeping the user's original question."
@@ -82,5 +82,5 @@ _Avoid_: Viewer when write ownership of conversations matters
 - "Domain" means **Knowledge Domain**, not tenant, user workspace, or deployment environment.
 - "Document" means **Source Document** when discussing product behavior; parser-native files and derived artifacts should use more precise names.
 - "Parser profile" is not a pilot concept; the pilot stores frozen `parser_kind` and resolves current credentials privately.
-- "Chat" means domain-scoped grounded chat for the pilot; general/domainless chat is deferred.
+- "Chat" has two explicit routes: domain-scoped agentic RAG for Knowledge Domain questions, and narrow direct LLM general chat for non-domain conversation. Browser code cannot choose the route.
 - "Hard delete" means retrieval is blocked and derived chat content is redacted, not merely that current source storage is removed.

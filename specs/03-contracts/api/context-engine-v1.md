@@ -3,7 +3,7 @@ id: API-001
 title: Context Engine API v1
 status: approved
 owner: Context Engine API team
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-02
 depends_on: [CON-000, ARCH-001]
 supersedes: []
 ---
@@ -28,7 +28,7 @@ supersedes: []
 | P4 | `POST /admin/domains/{domain_id}/sources`, `GET /admin/domains/{domain_id}/sources`, `GET /admin/domains/{domain_id}/sources/{source_id}`, `GET /admin/domains/{domain_id}/sources/{source_id}/outline`, `GET /admin/domains/{domain_id}/sources/{source_id}/operations`, `POST /admin/domains/{domain_id}/sources/{source_id}/retry`, `POST /admin/domains/{domain_id}/sources/{source_id}/cancel`, `DELETE /admin/domains/{domain_id}/sources/{source_id}` |
 | P5 | `POST /admin/domains/{domain_id}/sources/{source_id}/index/retry`, `POST /admin/domains/{domain_id}/sources/{source_id}/index/cancel` |
 | P6 | `POST /domains/{domain_id}/evidence` |
-| P7 | conversation CRUD and `POST` turn SSE route captured before implementation; every turn requires `domain_id` and `client_request_id` |
+| P7 | `GET /conversations`, `POST /conversations`, `GET /conversations/{conversation_id}`, `DELETE /conversations/{conversation_id}`, `POST /conversations/{conversation_id}/turns:stream` |
 | P8 | `GET /admin/audit-events`, optional `GET /admin/domains/{domain_id}/diagnostics/lightrag?tail=200` |
 | P9 | frontend consumes only captured P1-P8 endpoints through typed feature wrappers |
 
@@ -294,3 +294,279 @@ Unavailable domains are omitted entirely rather than returned with `available: f
 | Controller or runtime unavailable | 502 | `domain_runtime_unavailable` |
 
 Second lifecycle requests are never queued behind an active operation. They fail fast with `domain_operation_in_progress` and a safe message suitable for a later admin toast.
+
+## P4 Source Document DTOs
+
+All `/admin/domains/{domain_id}/sources*` routes are Administrator-only. They require an existing Knowledge Domain whose state is not `deleting`. P4 source preparation does not require the domain to be running or available.
+
+### Source upload
+
+`POST /admin/domains/{domain_id}/sources` uses `multipart/form-data`.
+
+Parts:
+
+```text
+file: required binary upload
+```
+
+The server sanitizes the uploaded filename into `originalFilename`, computes SHA-256 over the original bytes, freezes `runtime_settings.active_parser_kind` onto `source_documents.parser_kind`, stores the original in private source storage, creates a `pending` Source Document, and enqueues a `queued` preparation operation in one transaction. Same hash in the same Knowledge Domain returns `409 source_duplicate`; the same hash in another Knowledge Domain is allowed.
+
+Pilot upload limits:
+
+```text
+max file size: 25 MiB
+content types:
+  application/pdf
+  text/plain
+  text/markdown
+  application/vnd.openxmlformats-officedocument.wordprocessingml.document
+```
+
+`201` response:
+
+```json
+{
+  "source": {
+    "id": "source-uuid",
+    "domainId": "fatigue",
+    "originalFilename": "manual.pdf",
+    "contentType": "application/pdf",
+    "originalSizeBytes": 12345,
+    "originalSha256": "sha256-hex",
+    "state": "pending",
+    "parserKind": "docling",
+    "blockCount": 0,
+    "imageCount": 0,
+    "createdAt": "2026-07-02T12:00:00Z",
+    "updatedAt": "2026-07-02T12:00:00Z"
+  },
+  "operation": {
+    "id": "op-uuid",
+    "operationType": "prepare",
+    "status": "queued",
+    "message": "Preparation queued.",
+    "errorCode": null,
+    "errorMessage": null,
+    "startedAt": null,
+    "finishedAt": null,
+    "createdAt": "2026-07-02T12:00:00Z"
+  }
+}
+```
+
+### Source reads
+
+`GET /admin/domains/{domain_id}/sources` returns `{ "sources": [SourceAdminSummary] }` ordered by newest first. `GET /admin/domains/{domain_id}/sources/{source_id}` returns `{ "source": SourceAdminSummary }`.
+
+`SourceAdminSummary` is the safe lifecycle DTO shown in the upload response. P5 extends it with safe source-index lifecycle fields defined below. It never includes source originals, storage paths, image URLs, source download URLs, parser-native payloads, parser task IDs, parser/provider URLs, canonical Markdown, raw source text, raw parser/provider payloads, runtime URLs, private LightRAG data, stack traces, credentials, index request ids, index generations, rendered input hashes, lease fields, or private remote identities.
+
+`GET /admin/domains/{domain_id}/sources/{source_id}/outline` returns structure only:
+
+```json
+{
+  "items": [
+    {
+      "sourceOrder": 1,
+      "kind": "text",
+      "headingLevel": 1,
+      "title": "Inspection",
+      "pageStart": 1,
+      "pageEnd": 2,
+      "sectionPath": ["Inspection"]
+    }
+  ]
+}
+```
+
+`GET /admin/domains/{domain_id}/sources/{source_id}/operations` returns `{ "operations": [SourcePreparationOperation] }` ordered by newest first. `SourcePreparationOperation` uses the safe operation DTO from the upload response and omits `preparationGenerationAtStart`, lease fields, and `requestedByUserId`.
+
+### Source actions
+
+`POST /admin/domains/{domain_id}/sources/{source_id}/retry` is allowed only for a `pending` Source Document with no active preparation operation. It increments `preparation_generation` and enqueues a new `prepare` operation using the Source Document frozen `parserKind`, not the current global parser setting. Response: `202 { "operation": SourcePreparationOperation }`.
+
+`POST /admin/domains/{domain_id}/sources/{source_id}/cancel` increments `preparation_generation` and marks the active queued/running preparation operation `cancelled`. Response: `200 { "operation": SourcePreparationOperation }`. If preparation has already published and the Source Document is `prepared`, cancellation returns `409 source_state_conflict`.
+
+`DELETE /admin/domains/{domain_id}/sources/{source_id}` is synchronous local hard delete in P4. It fences active preparation work, marks active preparation cancelled, removes private original/image files, deletes Source Blocks/Images through cascade, deletes the Source Document row, and returns `204 No Content`. P5 owns remote LightRAG delete behavior for indexed sources.
+
+### Source errors
+
+| Situation | HTTP | Code |
+| --- | --- | --- |
+| Unknown domain | 404 | `domain_not_found` |
+| Domain is deleting | 409 | `domain_state_conflict` |
+| Unknown source in domain | 404 | `source_not_found` |
+| Duplicate file hash in domain | 409 | `source_duplicate` |
+| Unsupported upload content type | 422 | `source_file_unsupported` |
+| Upload exceeds pilot size limit | 413 | `source_file_too_large` |
+| Wrong source state for action | 409 | `source_state_conflict` |
+| Active source preparation exists | 409 | `source_operation_in_progress` |
+| Parser configuration missing/unready | 409 | `parser_not_ready` |
+| Parser authentication failed | 502 | `parser_auth_failed` |
+| Parser unavailable or timed out | 502 | `parser_unavailable` |
+| Parser response cannot be normalized | 502 | `parser_malformed_response` |
+| Prepared source fails validation | 422 | `source_preparation_invalid` |
+
+All source/parser error messages are safe and bland. Parser-native errors, provider payloads, task IDs, URLs, paths, stack traces, credentials, and source text are not returned.
+
+## P5 Source Index DTOs And Actions
+
+All `/admin/domains/{domain_id}/sources/{source_id}/index/*` routes are Administrator-only. They require an existing Knowledge Domain whose state is not `deleting` and an existing Source Document in that domain. The browser never talks to LightRAG, provider APIs, runtime URLs, storage paths, or remote ids.
+
+P5 extends `SourceAdminSummary` with safe index lifecycle fields:
+
+```json
+{
+  "indexState": "not_requested",
+  "indexErrorCode": null,
+  "indexErrorMessage": null,
+  "indexAcceptedAt": null,
+  "indexReadyAt": null,
+  "indexUpdatedAt": null
+}
+```
+
+Safe source DTOs do not include `indexGeneration`, `indexRequestId`, `indexContentHash`, `indexRemoteDocumentId`, `indexLeaseOwner`, `indexLeaseExpiresAt`, rendered LightRAG input, Source Block canonical Markdown, raw LightRAG hits, provider payloads, runtime URLs, or storage paths. `queryEligible` is not exposed in P5 unless this contract is explicitly patched; later retrieval/chat services call the backend `source_is_query_eligible()` predicate server-side.
+
+### Source index retry
+
+`POST /admin/domains/{domain_id}/sources/{source_id}/index/retry` queues a new source-index attempt for a prepared Source Document only after previous remote content is absent or proved never accepted. It increments `index_generation`, computes deterministic rendered input and `index_content_hash`, assigns the current generation `index_request_id`, sets `index_state = queued`, clears safe index error fields, and returns:
+
+```text
+202 { "source": SourceAdminSummary }
+```
+
+Retry must fail fast with a safe conflict when active index work exists. It does not return a preparation operation DTO and does not create an index operation/history object.
+
+### Source index cancel
+
+`POST /admin/domains/{domain_id}/sources/{source_id}/index/cancel` fences active or ready index content. It increments the index generation, prevents late submit/readiness results from marking the source ready, deletes remote content when accepted/ready content may exist, verifies absence when a remote delete is needed, transitions to `cancelled`, and returns:
+
+```text
+200 { "source": SourceAdminSummary }
+```
+
+If remote cleanup is required and fails, the route returns a safe failure and does not claim cancellation complete.
+
+### Source and domain delete after P5
+
+`DELETE /admin/domains/{domain_id}/sources/{source_id}` remains `204 No Content` only when any accepted/ready remote LightRAG content has been deleted and verified absent before local Source Document rows, Source Blocks, Source Images, or private files are removed. If remote cleanup cannot be completed, the source remains fenced and the route returns a safe error.
+
+Domain delete remains asynchronous through the domain delete worker. For P5, the domain delete worker must clear indexed remote content for every accepted/ready source and verify absence before calling the local P4 source purge hook and hard-deleting the Knowledge Domain.
+
+### Source index errors
+
+| Situation | HTTP | Code |
+| --- | --- | --- |
+| Source is not prepared | 409 | `source_not_prepared` |
+| Active index work exists | 409 | `source_index_in_progress` |
+| Index was not requested or is already terminal for this action | 409 | `source_index_state_conflict` |
+| Remote LightRAG runtime unavailable | 502 | `source_index_remote_unavailable` |
+| Remote LightRAG indexing failed | 502 | `source_index_remote_failed` |
+| Remote LightRAG delete/absence proof failed | 502 | `source_index_delete_failed` |
+
+All source-index error messages are safe and bland. They never include remote ids, runtime URLs, rendered input, Source Block content, raw LightRAG/provider payloads, request payloads, stack traces, credentials, or storage paths.
+
+## P6 Scoped Evidence Retrieval
+
+`POST /domains/{domain_id}/evidence` is available to authenticated Members and Administrators. The selected Knowledge Domain must exist and be available by backend domain availability rules before retrieval starts. The route does not mutate sources, index state, domain lifecycle, runtime settings, or diagnostics.
+
+Request body is strict camelCase JSON with no retrieval controls:
+
+```json
+{
+  "question": "What startup sequence does the manual require?"
+}
+```
+
+`question` is required, trimmed by validation, at least 1 character, and at most 2000 characters. Unknown fields, including `query`, `topK`, `reranker`, `retrievalMode`, `sourceId`, `sourcePath`, `model`, `provider`, `prompt`, or `apiKey`, return `422 validation_error`.
+
+Successful mapped retrieval returns:
+
+```json
+{
+  "result": "evidence_found",
+  "evidence": [
+    {
+      "excerpt": "Bounded evidence excerpt.",
+      "sourceLabel": "manual.md"
+    }
+  ]
+}
+```
+
+No mapped Evidence after retrieval returns `200` with:
+
+```json
+{
+  "result": "no_grounded_context",
+  "evidence": []
+}
+```
+
+`EvidenceItem` fields:
+
+| Field | Rule |
+| --- | --- |
+| `excerpt` | Safe excerpt derived from the mapped eligible Source Block, max 500 characters. It is never raw LightRAG hit text and never full Source Block content beyond this bound. |
+| `sourceLabel` | Safe Source Document display label, max 255 characters. |
+
+The response order follows mapped retrieval order. Duplicate mapped Source Blocks may be collapsed server-side; clients must not infer private identity from ordering.
+
+P6 responses never include Source Block ids, Source Document ids, source refs, raw scores, raw LightRAG hits, remote ids, file paths, storage paths, runtime addresses, provider payloads, prompt text, stack traces, full canonical Markdown, index generations, request ids, or private runtime payloads.
+
+### Evidence retrieval errors
+
+| Situation | HTTP | Code |
+| --- | --- | --- |
+| Unknown domain | 404 | `domain_not_found` |
+| Domain is stopped, deleting, or has an active lifecycle operation | 409 | `domain_state_conflict` |
+| Domain runtime unavailable or timed out | 502 | `domain_runtime_unavailable` |
+| No Source Document in the selected domain passes query eligibility | 409 | `domain_no_eligible_sources` |
+
+Safe messages are bland and suitable for a later UI toast. They never disclose whether discarded LightRAG hits existed, why individual hits were discarded, private ids, source text, runtime details, paths, provider payloads, stack traces, or the submitted question.
+
+## P7 Conversations And Turn Stream
+
+All `/conversations*` routes require an authenticated Member or Administrator. Conversation rows are owner-scoped; another user's conversation returns 404, not ownership details.
+
+`GET /conversations` returns:
+
+```json
+{
+  "conversations": [
+    {
+      "id": "conv_01",
+      "title": "Safe generated title",
+      "createdAt": "2026-07-02T12:00:00Z",
+      "updatedAt": "2026-07-02T12:05:00Z"
+    }
+  ]
+}
+```
+
+`POST /conversations` accepts an optional safe title and returns the same safe conversation DTO. `GET /conversations/{conversation_id}` returns the conversation plus safe turn summaries owned by the caller. `DELETE /conversations/{conversation_id}` deletes only the caller's conversation and returns `204`.
+
+`POST /conversations/{conversation_id}/turns:stream` accepts `application/json` and returns `text/event-stream`.
+
+```json
+{
+  "clientRequestId": "01J00000000000000000000000",
+  "message": "What startup sequence does the manual require?",
+  "domainId": "manuals"
+}
+```
+
+`domainId` is optional only for direct LLM general chat. Domain-specific, source-specific, operational, or ambiguous knowledge questions require a selected available Knowledge Domain before domain RAG begins.
+
+Forbidden request fields include `route`, `model`, `provider`, `embeddingModel`, `systemPrompt`, `topK`, `reranker`, `hiddenFilter`, `retrievalMode`, `toolChoice`, `apiKey`, `sourcePath`, raw prompt fragments, and provider payloads. Unknown or forbidden control fields return `422`.
+
+The server classifies the turn:
+
+| Route | Requirement | Behavior |
+| --- | --- | --- |
+| `direct_llm` | non-domain general chat | no retrieval, no Evidence, no citations |
+| `domain_rag` | selected available Knowledge Domain | advanced agentic RAG through P6 RetrievalPort |
+
+Missing Evidence in `domain_rag` returns a safe no-grounded-context result and does not retry as direct LLM.
+
+SSE events follow EVT-001. Public payloads never expose prompts, raw answers before safe projection, raw LightRAG hits, provider payloads, private source/block IDs, runtime URLs, storage paths, stack traces, or tool reasoning.

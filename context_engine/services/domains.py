@@ -516,8 +516,21 @@ class DomainDeleteWorker:
         runtime_instance_id = domain.runtime_instance_id
         control_generation = operation.control_generation_at_start
         try:
+            from context_engine.services.indexing import SourceIndexError
+            from context_engine.services.sources import SourceStorageError, purge_domain_sources_local
+
+            purge_domain_sources_local(db, self._settings, domain.id)
             self._controller.delete(domain)
+        except SourceIndexError as exc:
+            db.rollback()
+            _fail_operation(db, operation, exc.code, exc.message)
+            return True
+        except SourceStorageError:
+            db.rollback()
+            _fail_operation(db, operation, "source_delete_failed", "Source resources could not be removed.")
+            return True
         except DomainControllerError:
+            db.rollback()
             _fail_operation(db, operation, "domain_runtime_unavailable", "Runtime resources could not be removed.")
             return True
 

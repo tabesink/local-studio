@@ -1,7 +1,7 @@
 ---
 id: F-004
 title: Source Documents And Canonical Preparation Task List
-status: approved
+status: implemented
 owner: Context Engine delivery team
 last_reviewed: 2026-06-30
 depends_on: [F-003]
@@ -13,21 +13,21 @@ supersedes: []
 
 ## Required Order
 
-- [ ] T-000 [docs] Read `AGENTS.md`, `CONTEXT.md`, relevant contracts, and this feature folder.
+- [x] T-000 [docs] Read `AGENTS.md`, `CONTEXT.md`, relevant contracts, and this feature folder.
   - Verification: implementation response lists specs read.
-- [ ] T-010 [backend/data] Add source/preparation/block/image migrations.
+- [x] T-010 [backend/data] Add source/preparation/block/image migrations.
   - Verification: Fresh migration and constraints.
-- [ ] T-020 [backend/api/storage] Implement upload/original storage/hash duplicate guard.
+- [x] T-020 [backend/api/storage] Implement upload/original storage/hash duplicate guard.
   - Verification: Upload and duplicate tests.
-- [ ] T-030 [backend/parser] Implement Docling/Reducto adapters to `PreparedSource`.
+- [x] T-030 [backend/parser] Implement Docling/Reducto adapters to `PreparedSource`.
   - Verification: Adapter shape tests.
-- [ ] T-040 [backend/worker] Implement validator and all-or-none publish worker.
+- [x] T-040 [backend/worker] Implement validator and all-or-none publish worker.
   - Verification: Crash/cancel/stale tests.
-- [ ] T-050 [backend/api] Implement retry/cancel/delete/source list APIs.
+- [x] T-050 [backend/api] Implement retry/cancel/delete/source list APIs.
   - Verification: Operation and redaction safety tests.
-- [ ] T-900 [verification] Run every check named in `test-plan.md`.
+- [x] T-900 [verification] Run every check named in `test-plan.md`.
   - Verification: acceptance evidence updated.
-- [ ] T-910 [traceability] Update `acceptance.md`, `implementation-log.md`, and `specs/07-traceability/feature-register.md`.
+- [x] T-910 [traceability] Update `acceptance.md`, `implementation-log.md`, and `specs/07-traceability/feature-register.md`.
   - Verification: register status and evidence links current.
 
 ## Parallelization Notes

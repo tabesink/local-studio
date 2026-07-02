@@ -3,7 +3,7 @@ id: PROD-001
 title: Product Brief
 status: approved
 owner: Context Engine product and delivery team
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-02
 depends_on: [GOV-001]
 supersedes: []
 ---
@@ -15,7 +15,7 @@ supersedes: []
 - Product name: Context Engine
 - Purpose: internal shared-workspace RAG workbench for administrator-curated Knowledge Domains, grounded answers, and traceable source evidence.
 - Primary users: Members and Administrators.
-- Business value: make trusted internal source knowledge queryable without exposing provider secrets, raw runtime internals, or ungrounded model answers.
+- Business value: make trusted internal source knowledge queryable without exposing provider secrets or raw runtime internals, while allowing clearly separated direct LLM general chat.
 
 ## Product Boundary
 
@@ -40,7 +40,7 @@ Context Engine is not:
 
 | Role | Journey | Observable result |
 | --- | --- | --- |
-| Member | Login -> app shell -> choose available Knowledge Domain -> ask question | grounded answer, evidence, or no-grounded-context result |
+| Member | Login -> app shell -> ask general chat or choose available Knowledge Domain -> ask domain question | direct LLM answer, grounded answer with evidence, or no-grounded-context result |
 | Member | Documents/Graph/Source context | inspect allowed knowledge surfaces without raw private runtime access |
 | Administrator | Settings -> providers/parsers/users/domains | safe configuration without secret leakage |
 | Administrator | Documents -> upload -> preparation/index operations | Source Document reaches prepared/index-ready or safe failure |

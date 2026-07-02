@@ -1,0 +1,20 @@
+event: turn.started
+data: {"turn_id":"t_123","conversation_id":"c_123"}
+
+event: stage.changed
+data: {"stage":"planning"}
+
+event: stage.changed
+data: {"stage":"retrieving"}
+
+event: evidence.ready
+data: {"evidence":[{"reference_id":"ref_1","document_title":"Manual","locator":"p. 12"}]}
+
+event: stage.changed
+data: {"stage":"answering"}
+
+event: answer.delta
+data: {"text":"The safe operating sequence begins with..."}
+
+event: answer.completed
+data: {"message_id":"m_456","answer":"...","citations":["ref_1"],"stop_reason":"grounded_answer"}

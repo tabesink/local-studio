@@ -3,7 +3,7 @@ id: F-009
 title: Frontend Delivery Implementation Plan
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-02
 depends_on: [F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008]
 supersedes: []
 ---
@@ -19,7 +19,7 @@ Build only P9 scope, prove it, update evidence, then stop. Do not pull later-pha
 
 | Boundary | Impact |
 | --- | --- |
-| UI | This is the production UI phase. It preserves old Context Engine route/shell structure while adopting Local Studio compact dark-first visual grammar. |
+| UI | Port old CE client structure from `.references/code/context-engine/client/` (shell, routes, documents PDF split, graph, chat two-column shell with tabbed context panel). Restyle with Local Studio tokens per `DESIGN.md`, `ce-client-port-and-parity.md`, and `context-panel-tabs.md`. |
 | API/service | Implement only endpoints and services named by this feature. |
 | Data | Frontend owns local UI state only. It does not persist product state or credentials. |
 | Worker/runtime | Only included when named in scope; otherwise absent. |
@@ -32,15 +32,15 @@ Build only P9 scope, prove it, update evidence, then stop. Do not pull later-pha
   - Verification: unit tests and visual baseline.
 - [ ] T-020 [frontend] Implement cookie login/logout/me and route guards.
   - Verification: browser storage/auth tests.
-- [ ] T-030 [frontend] Implement authenticated app shell, compact rail, settings entry, forbidden/loading/error states.
-  - Verification: Playwright shell tests.
-- [ ] T-040 [frontend] Implement Settings panels only after relevant OpenAPI fixtures exist.
+- [ ] T-030 [frontend] Port authenticated app shell from CE client: `AppPageFrame`, w-14 `AppSideRail`, Settings dialog entry, forbidden/loading/error states; restyle with LS tokens.
+  - Verification: Playwright shell tests; nav order matches `ce-client-port-and-parity.md`.
+- [ ] T-040 [frontend] Port Settings dialog panels from CE client; restyle with LS `SettingsLayout`; wire only after relevant OpenAPI fixtures exist.
   - Verification: admin/member and secret-status tests.
-- [ ] T-050 [frontend] Implement documents/upload/operations slices.
-  - Verification: state-machine and upload tests.
-- [ ] T-060 [frontend] Implement evidence-only and SSE chat slices.
-  - Verification: SSE fixture/cancel tests.
-- [ ] T-070 [frontend] Implement graph/source-nav/audit diagnostics only after contracts are captured.
+- [ ] T-050 [frontend] Port documents route (table + inline PDF preview panel + upload dialog) from CE client; wire P4/P5 source APIs.
+  - Verification: state-machine, upload, and preview-panel layout tests.
+- [ ] T-060 [frontend] Port chat two-column shell with ContextPanelShell (v1 `context` tab) and SSE slices from CE client; wire direct LLM and domain RAG P7 contracts per `context-panel-tabs.md`.
+  - Verification: SSE fixture/cancel tests; context tab receives domain evidence before answer tokens; direct LLM renders with no evidence rows.
+- [ ] T-070 [frontend] Port graph workspace from CE client (`/database-visualize`); implement source-nav/audit when contracts captured.
   - Verification: contract and visual tests.
 
 ## Migration And Rollback

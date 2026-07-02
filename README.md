@@ -17,9 +17,9 @@ Build one phase at a time. Do not let a later phase reopen earlier ownership dec
 | P4 | `specs/04-features/F-004-source-documents-preparation/` | Source Document upload, preparation, canonical Source Blocks |
 | P5 | `specs/04-features/F-005-lightrag-indexing-eligibility/` | LightRAG indexing, readiness, delete, query eligibility |
 | P6 | `specs/04-features/F-006-scoped-evidence-retrieval/` | domain-scoped evidence retrieval without synthesis |
-| P7 | `specs/04-features/F-007-grounded-streaming-chat/` | durable RAG-only conversations and Context Engine SSE |
+| P7 | `specs/04-features/F-007-grounded-streaming-chat/` | durable conversations, direct general chat, and advanced agentic domain RAG over Context Engine SSE |
 | P8 | `specs/04-features/F-008-observability-pilot-gate/` | audit, safe logs, optional tracing, launch evidence |
-| P9 | `specs/04-features/F-009-frontend-delivery/` | thin Next.js UI with old Context Engine layout shape and Local Studio visual parity |
+| P9 | `specs/04-features/F-009-frontend-delivery/` | thin Next.js UI: **port** old CE client layout/routes/PDF viewer/graph/chat shell; **restyle** with Local Studio parity |
 
 ## Source Of Truth
 
@@ -41,17 +41,27 @@ Use the read-only reference repos only as evidence for implementing the active s
 
 | Reference repo | Use for |
 | --- | --- |
-| `.references/code/context_engine/` | old Context Engine product behavior, route/layout shape, API/backend patterns, and migration clues |
-| `.references/code/lightrag/` | LightRAG library/runtime behavior for private Context Engine runtime integration |
+| `.references/code/context-engine/` | old Context Engine product behavior, route/layout shape (see `client/`), API/backend patterns, and migration clues |
+| `.references/code/context-engine/client/` | **P9 port source:** shell, icon rail, `/chat`, `/documents` + PDF preview, `/database-visualize`, Settings dialog |
+| `.references/code/lightrag/` | LightRAG library/runtime **read-only evidence** for contract proof and promotion seed (F-003, F-005, F-006). Editable runtime copy lives at `vendor/lightrag/` per ADR-002. |
 | `.references/code/local-studio/` | Local Studio visual parity, tokens, primitives, shell geometry, and interaction patterns |
+| `.references/controllable-rag-fastapi-replication-pkg/` | advanced controllable RAG architecture evidence for F-007 orchestration, bounded retrieval loops, SSE projection, and modular chat shell wiring |
 
 Do not import behavior from these repos unless the active feature spec and affected contracts allow it.
 
 ## Frontend Rule
 
-The frontend is a thin Next.js App Router client over Context Engine API truth. Its route structure follows the old Context Engine shell: public login, authenticated app rail, Chat, Documents, Graph, Operations, and Settings dialog/panels. Its visual language follows Local Studio: compact, dark-first workstation, Geist typography, dense rows, restrained borders, right detail panels, and token-first primitives.
+The frontend is a thin Next.js App Router client over Context Engine API truth.
 
-See `DESIGN.md` and `specs/04-features/F-009-frontend-delivery/ux.md`.
+**Structure (port):** old CE client at `.references/code/context-engine/client/` — w-14 icon rail, `/chat` (two-column + tabbed context panel), `/documents` with inline PDF preview panel, `/database-visualize` graph workspace, global Settings dialog.
+
+**Skin (restyle):** Local Studio tokens and primitives from `DESIGN.md` — compact dark-first workstation, Geist typography, dense rows, restrained borders. Do not ship old CE white-canvas styling.
+
+**Data (wire):** P1–P8 contracts in `specs/03-contracts/` only. Unknown API shape → fixture capture task.
+
+Authoritative port contracts: `specs/04-features/F-009-frontend-delivery/ce-client-port-and-parity.md`, `context-panel-tabs.md`
+
+See also `DESIGN.md`, `specs/04-features/F-009-frontend-delivery/ux.md`, and `.references/feature-ce-api-uiux-wirering-brainstorm/` (junior dev evidence pack).
 
 ## Agent Workflow
 

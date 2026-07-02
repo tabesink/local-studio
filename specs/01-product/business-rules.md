@@ -3,7 +3,7 @@ id: PROD-003
 title: Business Rules
 status: approved
 owner: Context Engine product and backend team
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-02
 depends_on: [PROD-001, PROD-002]
 supersedes: []
 ---
@@ -20,7 +20,7 @@ supersedes: []
 | BR-006 | Source Document preparation publishes all-or-none canonical Source Blocks. | source prep | worker crash/cancel tests |
 | BR-007 | LightRAG indexing is blocked until the pinned runtime proves `CE_BLOCK` preservation, readiness, idempotency, and delete behavior. | indexing | fixture proof |
 | BR-008 | Evidence must map exactly from a current eligible Source Block. | retrieval, chat | mapper tests |
-| BR-009 | Pilot chat is RAG-only and requires a selected Knowledge Domain. | chat | request validation/SSE tests |
+| BR-009 | Chat route is server-classified: non-domain general chat may use direct LLM with no Knowledge Domain; domain-specific questions require a selected Knowledge Domain and the advanced agentic RAG path. | chat | request validation/SSE/orchestrator tests |
 | BR-010 | Source/domain delete redacts derived answer/citation content while preserving user questions. | chat, delete | redaction tests |
 | BR-011 | Local Studio visual parity governs new UI patterns. | frontend | visual checks |
 | BR-012 | Unknown API shape means capture fixture/OpenAPI evidence before implementation. | all API consumers | fixture task evidence |

@@ -74,3 +74,47 @@ Administrators, worker, parser adapters, domain delete workflow.
 ## Open Decisions
 
 No open product decisions are allowed before implementation starts. If a backend/runtime/frontend contract is unknown, create a fixture-capture task and keep the feature blocked until evidence exists.
+
+## Resolved P4 Contract Decisions
+
+- Source Document ids are opaque UUID strings.
+- Upload accepts one multipart `file` part, uses the sanitized uploaded filename as `originalFilename`, and does not accept a browser-selected parser or display-name override in P4.
+- Upload freezes `runtime_settings.active_parser_kind` onto `source_documents.parser_kind`; retry always uses that frozen parser kind.
+- The same original SHA-256 is rejected only within the same Knowledge Domain.
+- P4 source delete is synchronous local hard delete with `204 No Content`; P5 owns remote LightRAG delete behavior for indexed sources.
+- All P4 source routes are Administrator-only and return safe lifecycle DTOs only.
+- Private source storage is derived from `CE_SOURCE_STORAGE_ROOT` and never stored in or returned by API DTOs.
+
+## Internal PreparedSource Contract
+
+`PreparedSource` is internal worker data only. It is not persisted as parser-native payload and is not returned by any API route.
+
+```text
+PreparedSource
+  source_document_id
+  parser_kind: docling | reducto
+  blocks[]
+  images[]
+  warnings[]
+
+PreparedBlock
+  source_order
+  kind: text | table | figure
+  canonical_markdown
+  heading_level?
+  page_start?
+  page_end?
+  section_path[]
+
+PreparedImage
+  source_order
+  content_hash
+  mime_type
+  bytes
+  alt_text?
+  page_number?
+```
+
+Docling and Reducto adapters must normalize to the same `PreparedSource` shape. The canonical validator rejects empty block sets, invalid ordering, unsupported block kinds, empty canonical Markdown, invalid page ranges, unsafe parser-native metadata, and images that do not point at a figure Source Block. Publish is all-or-none: parse outside a long DB transaction, validate first, then insert Source Blocks/Images and mark the operation succeeded in one transaction guarded by `preparation_generation`.
+
+Retained metadata is limited to `source_order`, `kind`, `heading_level`, `page_start`, `page_end`, `section_path`, safe warning codes/messages, and safe image labels. Parser-native IDs, task IDs, URLs, provider metadata, bbox coordinates, raw parser responses, raw errors, credentials, config JSON, storage paths, and source text in public surfaces are forbidden.

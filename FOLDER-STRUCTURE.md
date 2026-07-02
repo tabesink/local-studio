@@ -29,6 +29,8 @@ repository/
 │   ├── 06-delivery/                  # environments, release/rollback, runbooks
 │   ├── 07-traceability/              # feature register, traceability matrix, change log
 │   └── 99-archive/                   # superseded docs only
+├── vendor/
+│   └── lightrag/                     # editable vendored LightRAG runtime (ADR-002); promoted from `.references/code/lightrag/`
 ├── .agent/                           # reusable agent prompts and checklists from the starter scaffold
 └── .github/                          # spec-driven PR template
 ```
@@ -56,4 +58,8 @@ Each phase feature contains:
 - `acceptance.md`
 - `implementation-log.md`
 
-`F-009-frontend-delivery/` also includes `frontend-slice-map.md` for the 17 ordered frontend slices.
+`F-009-frontend-delivery/` also includes:
+
+- `frontend-slice-map.md` — 17 ordered frontend slices
+- `ce-client-port-and-parity.md` — port old CE client structure + Local Studio restyle contract
+- `context-panel-tabs.md` — modular chat right-panel tabs (v1: context/evidence)

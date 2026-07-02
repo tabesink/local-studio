@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from email.parser import BytesParser
+from email.policy import default as email_policy
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Path, Request, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -44,6 +48,22 @@ from context_engine.services.domains import (
     start_domain,
     stop_domain,
     controller_from_settings,
+)
+from context_engine.services.evidence import EvidenceRetrievalError, retrieve_scoped_evidence
+from context_engine.services.indexing import SourceIndexError, cancel_source_index, retry_source_index
+from context_engine.services.sources import (
+    MAX_SOURCE_FILE_SIZE_BYTES,
+    SourceError,
+    cancel_source,
+    delete_source,
+    list_sources,
+    retry_source,
+    safe_source,
+    safe_source_operation,
+    source_detail,
+    source_operations,
+    source_outline,
+    upload_source_bytes,
 )
 
 
@@ -89,6 +109,34 @@ class DomainCreateRequest(BaseModel):
     id: str = Field(pattern=DOMAIN_ID_PATTERN)
     display_name: str | None = Field(default=None, alias="displayName", min_length=1, max_length=120)
     embedding_profile_id: str = Field(alias="embeddingProfileId", min_length=1, max_length=36)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class EvidenceRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("question")
+    @classmethod
+    def strip_question(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Question is required.")
+        return stripped
+
+
+class EvidenceItemResponse(BaseModel):
+    excerpt: str = Field(max_length=500)
+    source_label: str = Field(alias="sourceLabel", max_length=255)
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class EvidenceResponse(BaseModel):
+    result: Literal["evidence_found", "no_grounded_context"]
+    evidence: list[EvidenceItemResponse]
 
     model_config = ConfigDict(extra="forbid")
 
@@ -178,6 +226,36 @@ def _runtime_config_api_error(exc: RuntimeConfigError) -> ApiError:
 
 def _domain_api_error(exc: DomainError) -> ApiError:
     return ApiError(exc.status_code, exc.code, exc.message)
+
+
+def _source_api_error(exc: SourceError) -> ApiError:
+    return ApiError(exc.status_code, exc.code, exc.message)
+
+
+def _source_index_api_error(exc: SourceIndexError) -> ApiError:
+    return ApiError(exc.status_code, exc.code, exc.message)
+
+
+def _evidence_api_error(exc: EvidenceRetrievalError) -> ApiError:
+    return ApiError(exc.status_code, exc.code, exc.message)
+
+
+def _multipart_file_from_request(request: Request, body: bytes) -> tuple[str | None, str | None, bytes]:
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" not in content_type.lower():
+        raise ApiError(422, "validation_error", "Request validation failed.")
+    header = f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8")
+    message = BytesParser(policy=email_policy).parsebytes(header + body)
+    if not message.is_multipart():
+        raise ApiError(422, "validation_error", "Request validation failed.")
+    for part in message.iter_parts():
+        disposition = part.get("content-disposition", "")
+        if part.get_param("name", header="content-disposition") == "file" and "form-data" in disposition:
+            payload = part.get_payload(decode=True)
+            if payload is None:
+                raise ApiError(422, "validation_error", "Request validation failed.")
+            return part.get_filename(), part.get_content_type(), payload
+    raise ApiError(422, "validation_error", "Request validation failed.")
 
 
 @api_router.get("/admin/runtime-settings")
@@ -372,6 +450,189 @@ def admin_domain_operations(
         return {"operations": domain_operations(db, domain_id)}
     except DomainError as exc:
         raise _domain_api_error(exc) from exc
+
+
+@api_router.post(
+    "/admin/domains/{domain_id}/sources",
+    status_code=201,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["file"],
+                        "properties": {"file": {"type": "string", "format": "binary"}},
+                    }
+                }
+            },
+        }
+    },
+)
+async def admin_upload_source(
+    request: Request,
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    filename, content_type, data = _multipart_file_from_request(request, await request.body())
+    if len(data) > MAX_SOURCE_FILE_SIZE_BYTES:
+        raise _source_api_error(SourceError(413, "source_file_too_large", "File is too large."))
+    try:
+        source, operation = upload_source_bytes(
+            db,
+            settings=settings,
+            domain_id=domain_id,
+            filename=filename,
+            content_type=content_type,
+            data=data,
+            requested_by_user=admin,
+        )
+    except SourceError as exc:
+        raise _source_api_error(exc) from exc
+    return {"source": safe_source(db, source), "operation": safe_source_operation(operation)}
+
+
+@api_router.get("/admin/domains/{domain_id}/sources")
+def admin_list_sources(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    try:
+        return {"sources": list_sources(db, domain_id)}
+    except SourceError as exc:
+        raise _source_api_error(exc) from exc
+
+
+@api_router.get("/admin/domains/{domain_id}/sources/{source_id}")
+def admin_get_source(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    source_id: str = Path(min_length=1, max_length=36),
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    try:
+        return {"source": source_detail(db, domain_id, source_id)}
+    except SourceError as exc:
+        raise _source_api_error(exc) from exc
+
+
+@api_router.get("/admin/domains/{domain_id}/sources/{source_id}/outline")
+def admin_get_source_outline(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    source_id: str = Path(min_length=1, max_length=36),
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    try:
+        return {"items": source_outline(db, domain_id, source_id)}
+    except SourceError as exc:
+        raise _source_api_error(exc) from exc
+
+
+@api_router.get("/admin/domains/{domain_id}/sources/{source_id}/operations")
+def admin_source_operations(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    source_id: str = Path(min_length=1, max_length=36),
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    try:
+        return {"operations": source_operations(db, domain_id, source_id)}
+    except SourceError as exc:
+        raise _source_api_error(exc) from exc
+
+
+@api_router.post("/admin/domains/{domain_id}/sources/{source_id}/index/retry", status_code=202)
+def admin_retry_source_index(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    source_id: str = Path(min_length=1, max_length=36),
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    try:
+        source = retry_source_index(db, settings=settings, domain_id=domain_id, source_id=source_id)
+    except SourceIndexError as exc:
+        raise _source_index_api_error(exc) from exc
+    return {"source": safe_source(db, source)}
+
+
+@api_router.post("/admin/domains/{domain_id}/sources/{source_id}/index/cancel")
+def admin_cancel_source_index(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    source_id: str = Path(min_length=1, max_length=36),
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    try:
+        source = cancel_source_index(db, settings=settings, domain_id=domain_id, source_id=source_id)
+    except SourceIndexError as exc:
+        raise _source_index_api_error(exc) from exc
+    return {"source": safe_source(db, source)}
+
+
+@api_router.post("/admin/domains/{domain_id}/sources/{source_id}/retry", status_code=202)
+def admin_retry_source(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    source_id: str = Path(min_length=1, max_length=36),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    try:
+        operation = retry_source(db, domain_id=domain_id, source_id=source_id, requested_by_user=admin)
+    except SourceError as exc:
+        raise _source_api_error(exc) from exc
+    return {"operation": safe_source_operation(operation)}
+
+
+@api_router.post("/admin/domains/{domain_id}/sources/{source_id}/cancel")
+def admin_cancel_source(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    source_id: str = Path(min_length=1, max_length=36),
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    try:
+        operation = cancel_source(db, domain_id=domain_id, source_id=source_id)
+    except SourceError as exc:
+        raise _source_api_error(exc) from exc
+    return {"operation": safe_source_operation(operation)}
+
+
+@api_router.delete("/admin/domains/{domain_id}/sources/{source_id}", status_code=204)
+def admin_delete_source(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    source_id: str = Path(min_length=1, max_length=36),
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    try:
+        delete_source(db, settings=settings, domain_id=domain_id, source_id=source_id)
+    except SourceError as exc:
+        raise _source_api_error(exc) from exc
+    except SourceIndexError as exc:
+        raise _source_index_api_error(exc) from exc
+    return Response(status_code=204)
+
+
+@api_router.post("/domains/{domain_id}/evidence", response_model=EvidenceResponse)
+def retrieve_domain_evidence(
+    payload: EvidenceRequest,
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    _: CurrentSession = Depends(require_current_session),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    try:
+        return retrieve_scoped_evidence(db, settings=settings, domain_id=domain_id, question=payload.question)
+    except EvidenceRetrievalError as exc:
+        raise _evidence_api_error(exc) from exc
 
 
 @api_router.get("/domains")
