@@ -1,20 +1,11 @@
 import type { NextConfig } from "next";
 
-const apiBase = process.env.CONTEXT_ENGINE_API_BASE?.replace(/\/+$/, "") ?? "http://127.0.0.1:8000";
-
-const nextConfig: NextConfig = {
-  async rewrites() {
-    return [
-      {
-        source: "/api/v1/:path*",
-        destination: `${apiBase}/api/v1/:path*`,
-      },
-      {
-        source: "/health/:path*",
-        destination: `${apiBase}/health/:path*`,
-      },
-    ];
-  },
-};
+// API proxying lives in src/proxy.ts, not here: next.config.ts rewrites()
+// resolves once at `next build` time and is baked into
+// .next/routes-manifest.json, so it cannot react to a runtime-supplied
+// CONTEXT_ENGINE_API_BASE (e.g. a Docker `-e` flag or compose environment
+// value). Proxy runs per-request in the Node.js runtime and reads
+// process.env at request time.
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

@@ -66,7 +66,12 @@ export function AppSideRail() {
         aria-label="Logout"
         title="Logout"
         className={cx(railItemClass(), "mt-auto")}
-        onClick={() => void logout()}
+        onClick={() => {
+          // logout() always clears auth state and redirects in its own finally
+          // block; this catch only prevents an unhandled rejection if the API
+          // call itself fails (e.g. network error).
+          logout().catch(() => undefined);
+        }}
       >
         <LogOut className="size-4" aria-hidden />
       </button>
