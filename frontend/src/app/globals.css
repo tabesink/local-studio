@@ -1,0 +1,172 @@
+@import "tailwindcss";
+
+:root {
+  --font-geist-sans: Geist, system-ui, sans-serif;
+  --font-geist-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --ui-scale: 1;
+  --leading: 1.5;
+  --leading-tight: 1.25;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;
+  --radius-base: 7px;
+  --border-width: 1px;
+  --space-base: 4px;
+
+  --fs-2xs: calc(9px * var(--ui-scale));
+  --fs-xs: calc(10px * var(--ui-scale));
+  --fs-sm: calc(11px * var(--ui-scale));
+  --fs-md: calc(12px * var(--ui-scale));
+  --fs-base: calc(13px * var(--ui-scale));
+  --fs-lg: calc(14px * var(--ui-scale));
+  --fs-xl: calc(16px * var(--ui-scale));
+  --fs-2xl: calc(18px * var(--ui-scale));
+  --fs-3xl: calc(20px * var(--ui-scale));
+
+  --rad-xs: calc(var(--radius-base) * 0.5);
+  --rad-sm: calc(var(--radius-base) * 0.75);
+  --rad-md: calc(var(--radius-base) * 0.75);
+  --rad-lg: var(--radius-base);
+  --rad-xl: calc(var(--radius-base) * 1.5);
+  --rad-2xl: calc(var(--radius-base) * 2);
+
+  --row-h: 28px;
+  --row-h-sm: 24px;
+  --ui-control-h: 28px;
+  --sidebar-w-collapsed: 48px;
+}
+
+:root,
+:root[data-theme="zai-dark"],
+.theme-zai-dark {
+  color-scheme: dark;
+  --color-background: #0f0f0f;
+  --color-header: #101010;
+  --color-panel: #111111;
+  --color-sidebar: #191919;
+  --color-card: #202020;
+  --color-popover: #222222;
+  --color-input: #242424;
+  --color-surface: #ffffff0c;
+  --color-surface-hover: #ffffff14;
+  --color-hover: #ffffff0f;
+  --color-selected: #ffffff17;
+  --color-border: #ffffff14;
+  --color-border-hover: #ffffff24;
+  --color-foreground: #e7e7e7;
+  --color-foreground-subtle: color-mix(in oklab, #e7e7e7 58%, transparent);
+  --color-foreground-subtlest: color-mix(in oklab, #e7e7e7 34%, transparent);
+  --color-brand: #ffffff;
+  --color-primary-foreground: #000000;
+  --color-success: #46bf72;
+  --color-warning: #d48a4c;
+  --color-destructive: #ff5c5c;
+  --link: #7ea1c8;
+
+  --bg: var(--color-background);
+  --fg: var(--color-foreground);
+  --dim: var(--color-foreground-subtle);
+  --surface: var(--color-card);
+  --surface-2: #2b2b2b;
+  --surface-3: var(--color-input);
+  --rail: var(--color-sidebar);
+  --border: var(--color-border);
+  --separator: var(--color-border);
+  --hover: var(--color-hover);
+  --active: var(--color-selected);
+  --accent: var(--color-brand);
+  --ok: var(--color-success);
+  --warn: var(--color-warning);
+  --err: var(--color-destructive);
+
+  --ui-bg: var(--bg);
+  --ui-fg: var(--fg);
+  --ui-muted: var(--dim);
+  --ui-surface: var(--surface);
+  --ui-surface-2: var(--surface-2);
+  --ui-surface-3: var(--surface-3);
+  --ui-border: var(--border);
+  --ui-separator: var(--separator);
+  --ui-hover: var(--hover);
+  --ui-active: var(--active);
+  --ui-accent: var(--accent);
+  --ui-success: var(--ok);
+  --ui-warning: var(--warn);
+  --ui-danger: var(--err);
+  --ui-radius: var(--rad-md);
+  --ui-radius-sm: var(--rad-sm);
+  --ui-radius-lg: var(--rad-lg);
+
+  --background: var(--ui-bg);
+  --foreground: var(--ui-fg);
+  --card: var(--ui-surface);
+  --muted: var(--ui-surface);
+  --muted-foreground: var(--ui-muted);
+  --popover: var(--color-popover);
+  --primary: var(--ui-accent);
+  --primary-foreground: var(--color-primary-foreground);
+  --secondary: var(--ui-surface-2);
+  --destructive: var(--ui-danger);
+  --input: var(--ui-separator);
+  --ring: color-mix(in srgb, var(--link) 40%, transparent);
+}
+
+:root[data-theme="zai-light"],
+.theme-zai-light {
+  color-scheme: light;
+  --color-background: #f4f5f5;
+  --color-header: #fbfbfb;
+  --color-panel: #fbfbfb;
+  --color-sidebar: #eceeee;
+  --color-card: #fbfbfb;
+  --color-popover: #fbfbfb;
+  --color-input: #fbfbfb;
+  --color-surface: #0d0d0d08;
+  --color-surface-hover: #0d0d0d0d;
+  --color-hover: #0d0d0d0b;
+  --color-selected: #0d0d0d12;
+  --color-border: #0d0d0d1a;
+  --color-border-hover: #0d0d0d24;
+  --color-foreground: #262626;
+  --color-foreground-subtle: color-mix(in oklab, #262626 60%, transparent);
+  --color-foreground-subtlest: color-mix(in oklab, #262626 40%, transparent);
+  --color-brand: #000000;
+  --color-primary-foreground: #ffffff;
+  --color-success: #1e8a3e;
+  --color-warning: #e07b00;
+  --color-destructive: #e03131;
+  --link: #6b8db5;
+  --surface-2: #e6e6e6;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: var(--fs-base);
+  line-height: var(--leading);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: var(--active);
+}
