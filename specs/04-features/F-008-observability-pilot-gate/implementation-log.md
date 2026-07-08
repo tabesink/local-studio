@@ -26,6 +26,7 @@ Status: implemented.
 | 2026-07-06 | Implemented optional LightRAG diagnostics/log tail route as a bounded, redacted backend-owned per-domain diagnostic file tail. | Local runtime provisioning already owns a per-domain `logs` directory, making the optional route cheap and deterministic without piping host/global logs. | Missing diagnostic material returns audited `diagnostics_unavailable`; raw host/container logs remain out of scope. |
 | 2026-07-06 | Changed request id handling to ignore caller-supplied `X-Request-ID` and always emit a server UUID. | API request ids are observability correlation ids, not a trust boundary delegated to clients. | Public clients can read the response header but cannot choose the persisted correlation value. |
 | 2026-07-06 | Approved `scripts/compose_smoke.py` as the P8 local compose-replacement smoke and added `scripts/pilot_flow.py` as the full local pilot-flow gate. | The repo has no deployment compose fixture, and RUN-001 allows an approved local fake/replacement gate for P8 evidence. | Future deployment compose can be added without reopening P8 backend acceptance. |
+| 2026-07-08 | Review fix CHG-035: migration 0007 downgrade now raises `RuntimeError` instead of silently dropping `audit_events` and `request_id`/`trace_id` correlation data. | ce-code-review #10 — the downgrade destroyed audit accountability with no compensation; restore-from-backup is the supported path. | Audit check-constraint swap atomicity (#23) deferred; see `docs/residual-review-findings/a85eb030.md`. |
 
 ## Verification
 

@@ -1,0 +1,209 @@
+{
+  "paths": {
+    "/api/v1/composer-refs:discover": {
+      "post": {
+        "operationId": "post_composer_refs_discover_api_v1_composer_refs_discover_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComposerRefDiscoverRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Post Composer Refs Discover Api V1 Composer Refs Discover Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Composer Refs Discover"
+      }
+    },
+    "/api/v1/conversations/{conversation_id}/turns:stream": {
+      "post": {
+        "operationId": "post_conversation_turn_stream_api_v1_conversations__conversation_id__turns_stream_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 1,
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TurnStreamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Conversation Turn Stream"
+      }
+    }
+  },
+  "schemas": {
+    "ComposerRefDiscoverRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "conversationId": {
+          "anyOf": [
+            {
+              "maxLength": 36,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversationid"
+        },
+        "domainId": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Domainid"
+        },
+        "kinds": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "source",
+                  "evidence",
+                  "wiki",
+                  "template"
+                ],
+                "type": "string"
+              },
+              "maxItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Kinds"
+        },
+        "limit": {
+          "default": 10,
+          "maximum": 50.0,
+          "minimum": 1.0,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Query"
+        }
+      },
+      "title": "ComposerRefDiscoverRequest",
+      "type": "object"
+    },
+    "TurnStreamRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "clientRequestId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Clientrequestid",
+          "type": "string"
+        },
+        "composerRefTokens": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Composerreftokens",
+          "type": "array"
+        },
+        "domainId": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Domainid"
+        },
+        "message": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "clientRequestId",
+        "message"
+      ],
+      "title": "TurnStreamRequest",
+      "type": "object"
+    }
+  }
+}

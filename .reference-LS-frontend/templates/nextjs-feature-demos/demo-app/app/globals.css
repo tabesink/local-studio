@@ -1,0 +1,14 @@
+@import "tailwindcss" source("../../");
+@import "../../_shared/styles/local-studio-tokens.css";
+
+/* The geist package's .variable classes on <html> supply --font-geist-sans
+   and --font-geist-mono; tokens.css carries the system-stack fallback. */
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+}

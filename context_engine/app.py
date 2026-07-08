@@ -21,6 +21,7 @@ from context_engine.config import Settings
 from context_engine.db import create_db_engine, create_session_factory
 from context_engine.services.audit import AuditError
 from context_engine.services.auth import seed_admin
+from context_engine.services.prompt_templates import seed_prompt_templates
 from context_engine.services.runtime_config import seed_runtime_config, validate_config_encryption_key
 from context_engine.services.structured_logging import configure_json_logging, safe_log
 
@@ -45,6 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             seed_admin(db, app_settings)
             seed_runtime_config(db)
+            seed_prompt_templates(db)
         finally:
             db.close()
         try:

@@ -77,6 +77,15 @@ Allowed stage values are `classifying`, `planning`, `retrieving`, `verifying`, `
   "citations": [
     { "evidenceRefId": "evref_01", "citationLabel": "[1]" }
   ],
+  "acceptedRefs": [
+    {
+      "id": "turnref_01",
+      "kind": "source",
+      "order": 1,
+      "label": "manual.md",
+      "description": "Source"
+    }
+  ],
   "budget": {
     "planStepCount": 1,
     "retrievalOperationCount": 1,
@@ -86,7 +95,7 @@ Allowed stage values are `classifying`, `planning`, `retrieving`, `verifying`, `
 }
 ```
 
-`done.route` is `direct_llm` or `domain_rag`. `done.status` is `completed` or `redacted`. `done.stopReason` is one of `direct_llm`, `grounded`, `no_grounded_context`, `evidence_only`, `turn_budget_exhausted`, or `redacted`. Direct LLM `done` events have an empty `citations` array.
+`done.route` is `direct_llm` or `domain_rag`. `done.status` is `completed` or `redacted`. `done.stopReason` is one of `direct_llm`, `grounded`, `no_grounded_context`, `evidence_only`, `turn_budget_exhausted`, or `redacted`. Direct LLM `done` events have an empty `citations` array. F-012 `done.acceptedRefs` contains safe accepted composer-ref metadata only and is emitted only on terminal `done` and idempotent terminal replay, not in `stage`, `evidence`, or `token` events.
 
 `error` payload:
 
@@ -118,7 +127,7 @@ Allowed stage values are `classifying`, `planning`, `retrieving`, `verifying`, `
 
 ## Safety Rules
 
-SSE payloads must not include raw prompt, raw evidence source text beyond approved excerpts, raw provider payload, raw LightRAG hit, secret, path, runtime URL, stack trace, private source/block IDs, planning text, or chain-of-thought unless a later approved source-ref contract allows it.
+SSE payloads must not include raw prompt, template body, raw source/wiki text, raw evidence source text beyond approved excerpts, raw provider payload, raw LightRAG hit, secret, path, runtime URL, stack trace, private source/block IDs, private template/wiki ids, planning text, or chain-of-thought. F-012 accepted-ref projection is limited to turn-scoped accepted-ref id, kind, order, safe label, and optional safe description.
 
 P8 request/log/trace context must not change SSE event names, ordering, or payload shape. `trace_id` is private operational metadata and is never emitted in SSE payloads in P8.
 

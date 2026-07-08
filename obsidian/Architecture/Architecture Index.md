@@ -23,6 +23,14 @@ Cross-phase durable system design. Phase-scoped notes may also live under `Phase
 - [[P4 Image Storage Architecture]] — blocks vs image bytes
 - [[P6 Evidence And Asset Delivery]] — safe excerpts; source-ref gap
 
+## Runtime and chat
+
+- [[P2 Runtime Setup Flow]] — admin setup order
+- [[P2 Model Profiles Table]] — synthesis, embedding, parser per operation
+- [[P2 Provider Credentials Setup]] — encrypted provider secrets; admin-only
+- [[TrustedRuntimeResolver]] — server-side credential + profile resolution
+- [[F-012 Chat Workbench Layout]] — three-region `/chat` workbench
+
 ## Related
 
 - [[Context Engine Index]]

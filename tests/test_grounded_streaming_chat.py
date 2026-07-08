@@ -13,6 +13,7 @@ from context_engine.models import (
     TURN_ROUTE_DOMAIN_RAG,
     TURN_STATUS_COMPLETED,
     TURN_STATUS_REDACTED,
+    TURN_STATUS_RUNNING,
     TURN_STOP_REASON_GROUNDED,
     TURN_STOP_REASON_REDACTED,
     ConversationTurn,
@@ -29,7 +30,9 @@ from context_engine.services.chat_turns import (
     ChatTurnError,
     SynthesisProviderError,
     SynthesisStreamAdapter,
+    _complete_turn,
     intent_for_operation,
+    redact_turns_for_domain,
     stream_turn_events,
 )
 from context_engine.services.conversations import create_conversation
@@ -575,6 +578,52 @@ def test_source_and_domain_delete_redact_derived_turn_content(app, settings: Set
         assert domain_turn.stop_reason == TURN_STOP_REASON_REDACTED
         assert domain_turn.user_message == "Summarize the fatigue domain SOP"
         assert domain_turn.assistant_answer is None
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_late_stream_finalize_does_not_overwrite_redaction(app, settings: Settings) -> None:
+    with TestClient(app):
+        pass
+
+    engine, db = _session(settings)
+    try:
+        owner = create_user(db, "cas-owner@example.test", "password", role=ROLE_MEMBER)
+        conversation = create_conversation(db, owner=owner, title="Redaction race")
+        now = utc_now()
+        turn = ConversationTurn(
+            conversation_id=conversation.id,
+            client_request_id="redact-race",
+            domain_id="manuals",
+            route=TURN_ROUTE_DOMAIN_RAG,
+            status=TURN_STATUS_RUNNING,
+            user_message="What does the manual say?",
+            started_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(turn)
+        db.commit()
+
+        # Redaction (e.g. domain delete) wins the race while the stream is in flight.
+        assert redact_turns_for_domain(db, "manuals") == 1
+
+        finalized = _complete_turn(
+            db,
+            turn=turn,
+            stop_reason=TURN_STOP_REASON_GROUNDED,
+            assistant_answer="Late derived content.",
+        )
+
+        assert finalized.status == TURN_STATUS_REDACTED
+        assert finalized.stop_reason == TURN_STOP_REASON_REDACTED
+        assert finalized.assistant_answer is None
+
+        stored = db.get(ConversationTurn, turn.id)
+        assert stored is not None
+        assert stored.status == TURN_STATUS_REDACTED
+        assert stored.assistant_answer is None
     finally:
         db.close()
         engine.dispose()

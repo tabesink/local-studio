@@ -3,7 +3,7 @@ id: F-009-TABS
 title: Chat Context Panel Tabs Contract
 status: approved
 owner: Context Engine frontend team
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-08
 depends_on: [F-009, ce-client-port-and-parity.md]
 supersedes: []
 ---
@@ -12,104 +12,99 @@ supersedes: []
 
 ## Governing Rule
 
-Build `/chat` right panel as a **tabbed shell** from P9 slice 11. Ship **one tab in v1: `context`** (evidence + source inspector). Future tabs plug in via registry + router without restructuring `LightRagChatShell`.
+Build the `/chat` right panel as a **turn-scoped Evidence Panel** in v1: a single-column,
+Local Studio `ComputerPanel`-style aside that displays the safe Evidence rows
+(`id`, `citationLabel`, `sourceLabel`, `excerpt`) for the current or selected turn.
+The tabbed shell (registry + router + tab bar) is the **growth path**, not the v1 deliverable:
+the tab id type stays in code so future tabs plug in without restructuring the chat shell.
+
+Grill decisions recorded 2026-07-08 (supersede the earlier v1 sketch in this file):
+
+1. v1 data depth is SSE Evidence only — no figure/table asset cards, no workspace source fetch.
+2. v1 layout is a single column (list + selected excerpt), not the old CE 33/67 nested split.
+3. Inline timeline "Evidence (N)" blocks are removed; the panel owns Evidence display.
+4. Panel scope is the current/selected turn only — no session ledger, no All/This answer/Pinned filters, no pins.
+5. Panel is closed by default and auto-opens when the active turn has Evidence; the user may collapse it.
+6. Clicking an assistant message selects that turn's Evidence; streaming follows the in-flight turn.
+7. Inline citation chips (`[n]` → panel selection) are deferred.
+8. No tab bar renders while only one panel body exists.
 
 ```text
-PORT content (v1)     ←  old CE SidePanel inner content
-PORT tab pattern      ←  Local Studio AgentBrowserPanel / ComputerTabPanel / COMPUTER_TAB_IDS
+PORT geometry         ←  Local Studio ComputerPanel (aside, resize, --color-panel)
+PORT list grammar     ←  LS quiet surface rows / panel sections
+DEFER content parity  ←  old CE SessionContextNavigation ledger + SourceInspectorPane assets
 RESTYLE               ←  DESIGN.md
 ```
 
-## Target Layout
+## Target Layout (v1)
 
 ```text
-LightRagChatShell
-├── LEFT (unchanged)     ConversationView + ChatComposer
-└── ContextPanelShell    evolves CE SidePanel
-      ├── ContextPanelTabBar     LS ComputerHeader pattern when ≥2 tabs
-      └── ContextPanelRouter
-            context  → ContextTabPanel   (v1 — required)
-            terminal → (future)
-            side-chat → (future)
-            operations → (future)
+ChatShell (flex-row)
+├── LEFT (existing)      timeline + composer
+└── EvidencePanel        evidence-only aside
+      ├── header         "Evidence" + row count + collapse control
+      ├── list           [citationLabel] sourceLabel rows (selectable)
+      └── detail         selected row excerpt (bounded text)
 ```
 
-v1 may hide the tab bar when only `context` is registered. **Code must still use** `CONTEXT_PANEL_TAB_IDS` + router — not a hard-coded SidePanel-only implementation.
+Geometry per LS `ComputerPanel`: default 440px width, left-edge pointer resize,
+min `max(280px, 25vw)`, max `65vw`, `--color-panel` surface, `h-10` header on
+`--color-header`.
 
-## v1 — Context Tab
+## v1 Data Wiring
 
-Port CE client content inside `ContextTabPanel`:
+Evidence data comes from the P7 SSE turn flow and conversation history only.
+The panel does not add a second evidence fetch path.
 
 ```text
-ContextTabPanel
-└── ResizablePanelGroup
-      ├── SessionContextNavigation   evidence list, filters, pins
-      └── SourceInspectorPane        selected source detail
+SSE evidence event (domain_rag; before token)
+  → streamEvidence (in-flight turn rows) → panel auto-open
+turn completes → GET /conversations/{id} refresh → turns[].evidence[]
+click assistant message → selectedTurnId → panel shows that turn's evidence
+direct_llm turn → no evidence event → panel does not open for that turn
 ```
 
-| CE client file | Role |
-| --- | --- |
-| `components/chat/SidePanel.tsx` | collapsible aside, resize, mobile drawer → `ContextPanelShell` |
-| `components/chat/SessionContextNavigation.tsx` | evidence ledger |
-| `components/chat/SourceInspectorPane.tsx` | source inspector |
-| `lib/session-context-ledger.ts` | ledger state |
+`stage` SSE events may update a compact activity indicator in the chat header.
+The panel must ignore planning text because no planning text is allowed in EVT-001.
 
-Evidence data comes from P7 SSE turn flow only. The tab shell does not add a second evidence fetch path.
-
-Direct LLM turns have no Evidence and leave the context tab empty for that assistant message. Domain RAG turns populate the context tab only from P7 `evidence` SSE events.
-
-## Tab Registry (required pattern)
+## Tab Registry (types retained for growth)
 
 ```typescript
 export const CONTEXT_PANEL_TAB_IDS = ["context"] as const;
 export type ContextPanelTabId = (typeof CONTEXT_PANEL_TAB_IDS)[number];
 ```
 
-Adding a tab later:
+While `CONTEXT_PANEL_TAB_IDS` has one entry, no tab bar renders and the single
+body is the Evidence Panel content. Adding a tab later:
 
 1. append id to `CONTEXT_PANEL_TAB_IDS`;
-2. add panel component to `ContextPanelRouter`;
+2. introduce the tab bar (LS ComputerHeader pattern) and a panel router;
 3. add tab bar label (and spec gate if product behavior is new).
 
-Local Studio references for pattern only:
+## Deferred Beyond v1 (reserved)
 
-| LS | CE |
+| Item | Gate |
 | --- | --- |
-| `features/agent/tools/types.ts` | `features/chat/context-panel/types.ts` |
-| `features/agent/ui/computer-tab-panel.tsx` | `ContextPanelRouter` |
-| `features/agent/ui/agent-browser-panel.tsx` | `ContextPanelShell` + `ContextPanelTabBar` |
-| `ui/tabs.tsx`, `ui/segmented-control.tsx` | tab bar styling |
+| Session ledger (cross-turn merge, All/This answer/Pinned, pins, caps) | product decision to restore old CE ledger UX |
+| Source inspector with figure/table asset cards | opaque source-ref contract (F-009 slice 16 gate) |
+| Inline citation chips selecting panel rows | markdown/citation rendering slice |
+| `terminal` tab | product + backend contract; no Electron bridge in pilot by default |
+| `side-chat` tab | F-007 conversation model |
+| `operations` tab | P9 slice 15 |
 
-## Future Tabs (out of v1 — reserved)
-
-| Tab id | Purpose | Gate |
-| --- | --- | --- |
-| `context` | Evidence + source inspector | P9 slices 11–12 |
-| `terminal` | Admin/dev terminal | product + backend contract; no Electron bridge in pilot by default |
-| `side-chat` | Second domain-scoped chat | F-007 conversation model |
-| `operations` | Prep/index operation tail | P9 slice 15 |
-
-Do not implement future tabs in v1.
-
-## Wiring To Chat SSE
-
-```text
-SSE evidence event
-  → contextByAssistantId + sessionContextLedger
-  → ContextTabPanel (context tab)
-  → row select → SourceInspectorPane
-```
-
-`stage` SSE events may update a compact activity indicator in the shell. The context panel must ignore planning text because no planning text is allowed in EVT-001.
+Do not implement deferred items in v1.
 
 ## Forbidden
 
-- Hard-coded SidePanel with no tab registry
+- Evidence fetched outside chat turn SSE + conversation history
+- Private identifiers in panel data (`sourceBlockId`, `documentId`, `chunkId`, paths, URLs)
+- Porting old CE `loadSourceNavigator` / workspace-context fetch (leaks private ids)
 - LS agent PaneGrid / multi main-pane splits for v1
-- New tab that fetches evidence outside chat turn SSE
 - Route/model/tool/retrieval-mode controls in the chat shell
-- Replacing context panel with documents-route `RightDetailPanel` pattern
+- Replacing the panel with the documents-route `RightDetailPanel` pattern
+- Naming or presenting the Evidence Panel as Smart Composer (separate governed surface)
 
 ## Evidence Pack
 
-Terse junior notes: `.references/feature-ce-api-uiux-wirering-brainstorm/F-007-context-panel-tabs.md` (not authority).
+- Wiring map (junior/agent guide): `.devnotes/02-evidence-panel-wiring-map.md`
+- Terse junior notes: `.references/feature-ce-api-uiux-wirering-brainstorm/F-007-context-panel-tabs.md` (not authority)

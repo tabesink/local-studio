@@ -118,6 +118,19 @@ def test_login_sets_http_only_cookie_and_never_returns_token(app, settings: Sett
         engine.dispose()
 
 
+def test_settings_reject_unsafe_or_invalid_samesite(settings: Settings) -> None:
+    import dataclasses
+
+    import pytest
+
+    with pytest.raises(ValueError, match="requires session_cookie_secure"):
+        dataclasses.replace(settings, session_cookie_samesite="none", session_cookie_secure=False)
+    with pytest.raises(ValueError, match="must be one of"):
+        dataclasses.replace(settings, session_cookie_samesite="bogus")
+    allowed = dataclasses.replace(settings, session_cookie_samesite="None", session_cookie_secure=True)
+    assert allowed.session_cookie_samesite == "none"
+
+
 def test_logout_revokes_session_and_clears_cookie(app, settings: Settings) -> None:
     with TestClient(app) as client:
         login = client.post(

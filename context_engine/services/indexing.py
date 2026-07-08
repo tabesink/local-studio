@@ -495,8 +495,12 @@ class LightRAGClient:
 
         try:
             return bool(self._run(op()))
-        except Exception:
-            return False
+        except SourceIndexError:
+            raise
+        except Exception as exc:
+            # Surface verification failures instead of reporting "still present",
+            # which callers would misread as a failed delete.
+            raise _safe_error("source_index_unavailable", "Source index runtime unavailable.") from exc
 
     def retrieve(self, domain: Domain, *, question: str) -> tuple[RawRetrievalHit, ...]:
         if not question.strip():
@@ -817,6 +821,17 @@ class SourceIndexWorker:
         generation = source.index_generation
         request_id = source.index_request_id
         if not request_id:
+            # Without a request id the submission can never progress; fail the
+            # source instead of leaving it SUBMITTING until the lease expires.
+            now = utc_now()
+            source.index_state = SOURCE_INDEX_STATE_FAILED
+            source.index_error_code = "source_index_request_missing"
+            source.index_error_message = "Source index request id is missing."
+            source.index_lease_owner = None
+            source.index_lease_expires_at = None
+            source.index_updated_at = now
+            source.updated_at = now
+            db.commit()
             return True
 
         if source.index_state == SOURCE_INDEX_STATE_SUBMITTING:
@@ -872,6 +887,9 @@ class SourceIndexWorker:
                 ),
             )
             .order_by(SourceDocument.index_updated_at, SourceDocument.created_at, SourceDocument.id)
+            # Row lock prevents double-claim across worker processes on Postgres;
+            # SQLAlchemy's SQLite dialect ignores FOR UPDATE, so dev/tests are unaffected.
+            .with_for_update(skip_locked=True)
         )
         if source is None:
             return None

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { AppLogo } from "@/components/ui/AppLogo";
 import { Button } from "@/components/ui/Button";
 import { ErrorBox } from "@/components/ui/ErrorBox";
 import { Input } from "@/components/ui/Input";
@@ -42,9 +43,9 @@ export default function LoginPage() {
         onSubmit={onSubmit}
         className="w-full max-w-[360px] rounded-[var(--rad-xl)] border border-[var(--ui-border)] bg-[var(--color-panel)] p-5"
       >
-        <div className="mb-5">
-          <div className="mb-3 flex size-9 items-center justify-center rounded-[var(--rad-lg)] border border-[var(--ui-border)] bg-[var(--rail)] font-mono text-[length:var(--fs-sm)] font-semibold text-[var(--fg)]">
-            CE
+        <div className="mb-5 text-center">
+          <div className="mx-auto mb-3 flex size-24 items-center justify-center rounded-[var(--rad-lg)] bg-[var(--rail)] p-2">
+            <AppLogo className="h-full w-full" />
           </div>
           <h1 className="text-[length:var(--fs-2xl)] font-semibold leading-[var(--leading-tight)] text-[var(--fg)]">
             Context Engine

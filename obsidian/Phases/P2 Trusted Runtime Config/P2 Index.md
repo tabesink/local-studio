@@ -2,7 +2,7 @@
 type: index
 phase: P2
 feature: F-002
-status: stub
+status: active
 spec: specs/04-features/F-002-trusted-runtime-config/spec.md
 audience:
   - agent
@@ -11,7 +11,7 @@ tags:
   - phase/p2
   - feature/f-002
   - type/index
-  - status/stub
+  - status/active
 ---
 
 # P2 Index
@@ -20,8 +20,11 @@ tags:
 
 ## Notes
 
+- [[P2 Runtime Setup Flow]] — typical admin setup order for pilot/local
+- [[P2 Provider Credentials Setup]] — admin API key rotation; Fernet encryption
+- [[P2 Model Profiles Table]] — synthesis, embedding, parser per operation
+- [[TrustedRuntimeResolver]] — private runtime config resolution
 - (stub) [[P2 Implementation Summary]] — from `.devnotes/P2-trusted-runtime-config-impl-SUMMARY.md`
-- (stub) [[TrustedRuntimeResolver]] — from `.devnotes/P2-trusted-runtime-resolver-FUNCTION.md`
 
 ## Reviews
 

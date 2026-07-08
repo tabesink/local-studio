@@ -23,6 +23,7 @@ supersedes: []
 | P8 | `audit_events`; nullable private `conversation_turns.trace_id`; nullable origin `domain_operations.request_id`; nullable origin `source_preparation_operations.request_id`; existing `source_documents.index_request_id` for source-index correlation |
 | P10 | no schema change for the first runnable-stack gate |
 | P11 | `wiki_pages`, `wiki_revisions`, `wiki_contributions`, `wiki_contribution_evidence_refs` |
+| P12 | `prompt_templates`, `composer_ref_tokens`, `conversation_turn_composer_refs` and `conversation_turns.composer_ref_fingerprint` |
 
 ## State Machines
 
@@ -308,6 +309,7 @@ P6 and P7 must call this helper instead of copying the conditions. Frontend code
 | `user_message` | User-visible question text; confidential, owner-scoped, retained after redaction. |
 | `assistant_answer` | Nullable derived answer text; direct LLM or grounded answer only after safe projection; cleared on redaction where required. |
 | `safe_error_code`, `safe_error_message` | Nullable safe terminal failure details only. |
+| `composer_ref_fingerprint` | Required F-012 idempotency fingerprint over submitted composer ref token hashes; no raw token or private target content. Empty-ref requests use the approved empty fingerprint. |
 | `plan_step_count`, `retrieval_operation_count`, `repair_attempt_count` | Nonnegative safe counters for budget proof; no planning text. |
 | `created_at`, `started_at`, `completed_at`, `updated_at` | Service timestamps. |
 
@@ -385,11 +387,53 @@ Only P7 services, citation validation, and redaction hooks may read the private 
 ## P7 Idempotency Persistence Rules
 
 - Duplicate detection uses `(conversation_id, client_request_id)`.
-- If an existing turn has the same `client_request_id`, the service compares the submitted `message` to `conversation_turns.user_message` and the effective domain to `conversation_turns.domain_id`.
+- If an existing turn has the same `client_request_id`, the service compares the submitted `message` to `conversation_turns.user_message`, the effective domain to `conversation_turns.domain_id`, and the submitted composer-ref fingerprint to `conversation_turns.composer_ref_fingerprint`.
 - A mismatch returns `client_request_conflict` and does not create a second row.
 - A running existing turn returns `conversation_turn_in_progress`.
 - A completed, failed, or redacted existing turn is replayed from persisted safe fields and never calls the provider, LightRAG, or the P6 retriever again.
 - Supplied `domainId` always makes the effective route `domain_rag`; direct LLM turns persist and compare `domain_id = null` only when no `domainId` was supplied and the server intent gate classified the request as direct general chat.
+
+## F-012 Governed Context Assembly Tables
+
+`prompt_templates`
+
+| Field | Rule |
+| --- | --- |
+| `id` | Opaque prompt template id primary key. |
+| `name` | Safe display name, max 120 characters. |
+| `description` | Nullable safe description, max 500 characters. |
+| `body` | Server-private template body, max 2000 characters. Never returned to Members or persisted on turns. |
+| `state` | Closed set `approved`, `disabled`; only approved templates can be selected. |
+| `created_at`, `updated_at` | Service timestamps. |
+
+`composer_ref_tokens`
+
+| Field | Rule |
+| --- | --- |
+| `id` | Opaque token row id primary key. |
+| `token_hash` | Unique SHA-256 hash of backend-issued random token. The raw token is returned once to the browser and never persisted. |
+| `owner_user_id` | Required FK to `users.id`; tokens are caller-scoped. |
+| `ref_kind` | Closed set `source`, `evidence`, `wiki`, `template`. |
+| `target_id` | Private target id for backend validation only; never returned publicly. |
+| `domain_id` | Nullable domain compatibility value. Required for source, evidence, and wiki refs. |
+| `safe_label`, `safe_description` | Safe metadata copied from the discovery target; cleared/omitted when invalidated. |
+| `expires_at`, `created_at` | Service timestamps. |
+
+`conversation_turn_composer_refs`
+
+| Field | Rule |
+| --- | --- |
+| `id` | Opaque accepted-ref id primary key. |
+| `turn_id` | Required FK to `conversation_turns.id` with `ON DELETE CASCADE`. |
+| `ref_order` | Positive integer order within the turn; unique per turn. |
+| `ref_kind` | Closed set `source`, `evidence`, `wiki`, `template`. |
+| `safe_label`, `safe_description` | Safe accepted-ref metadata only; cleared on redaction/invalidation where required. |
+| `domain_id`, `source_document_id`, `source_block_id`, `evidence_ref_id`, `wiki_page_id`, `wiki_revision_id`, `prompt_template_id` | Private linkage columns for validation, redaction, and audit. Public mappers never return them. |
+| `redacted_at`, `created_at` | Service timestamps. `redacted_at` clears public safe metadata from API/SSE projection. |
+
+Indexes and constraints: unique token hash; index `(owner_user_id, expires_at)` for token lookup; unique `(turn_id, ref_order)`; check `ref_order >= 1`; check ref/template states; check redacted accepted refs have null safe metadata.
+
+F-012 tables must not persist raw assembled prompt text, raw source text, raw wiki body, raw Evidence text, raw LightRAG hits, provider payloads, storage paths, runtime URLs, raw composer tokens, browser payloads, or stack traces.
 
 ## P11 Wiki Curation Tables
 

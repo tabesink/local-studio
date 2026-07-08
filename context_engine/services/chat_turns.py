@@ -7,7 +7,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from context_engine.config import Settings
@@ -16,6 +16,7 @@ from context_engine.models import (
     AUDIT_EVENT_CHAT_TURN_REDACTED,
     Conversation,
     ConversationTurn,
+    ConversationTurnComposerRef,
     ConversationTurnEvidenceRef,
     TURN_ROUTE_DIRECT_LLM,
     TURN_ROUTE_DOMAIN_RAG,
@@ -36,6 +37,13 @@ from context_engine.models import (
 from context_engine.services.audit import AuditContext, AuditService
 from context_engine.services.auth import iso_utc
 from context_engine.services.chat_intent import requires_domain
+from context_engine.services.composer_refs import (
+    ComposerRefError,
+    composer_ref_fingerprint,
+    normalize_composer_ref_tokens,
+    persist_accepted_composer_refs,
+    validate_composer_ref_tokens,
+)
 from context_engine.services.conversations import get_owned_conversation
 from context_engine.services.evidence import (
     EvidenceRetrievalError,
@@ -46,6 +54,7 @@ from context_engine.services.evidence import (
     resolve_available_domain,
 )
 from context_engine.services.indexing import SourceIndexError, index_client_from_settings
+from context_engine.services.prompt_assembly import PromptAssemblyContext, PromptAssemblyService
 from context_engine.services.runtime_config import (
     RuntimeConfigError,
     SecretCrypto,
@@ -92,6 +101,7 @@ class TurnStartResult:
     synthesis: TrustedModelRuntimeConfig | None
     prior_user_questions: tuple[str, ...]
     request_id: str | None = None
+    assembly_context: PromptAssemblyContext | None = None
 
 
 @dataclass(frozen=True)
@@ -123,6 +133,7 @@ class SynthesisStreamAdapter:
         synthesis: TrustedModelRuntimeConfig,
         message: str,
         prior_user_questions: tuple[str, ...],
+        assembly_context: PromptAssemblyContext | None = None,
     ) -> Iterable[str]:
         return ("I can help with that.",)
 
@@ -133,6 +144,7 @@ class SynthesisStreamAdapter:
         message: str,
         evidence: tuple[PublicEvidenceRef, ...],
         prior_user_questions: tuple[str, ...],
+        assembly_context: PromptAssemblyContext | None = None,
     ) -> Iterable[str]:
         return ("The answer is supported by the current evidence.",)
 
@@ -292,6 +304,7 @@ def start_or_replay_turn(
     client_request_id: str,
     message: str,
     domain_id: str | None,
+    composer_ref_tokens: list[str] | None = None,
     retrieval_port: P6RetrievalPort | None = None,
     request_id: str | None = None,
 ) -> TurnStartResult:
@@ -301,6 +314,11 @@ def start_or_replay_turn(
     normalized_domain_id = normalize_optional_domain_id(domain_id)
     route, effective_domain_id = classify_turn_route(message=normalized_message, domain_id=normalized_domain_id)
     _validate_effective_route(route=route, domain_id=effective_domain_id)
+    try:
+        normalized_ref_tokens = normalize_composer_ref_tokens(composer_ref_tokens)
+        composer_ref_request_fingerprint = composer_ref_fingerprint(normalized_ref_tokens)
+    except ComposerRefError as exc:
+        raise ChatTurnError(exc.status_code, exc.code, exc.message) from exc
 
     existing = _existing_request_turn(
         db,
@@ -312,6 +330,7 @@ def start_or_replay_turn(
             existing.user_message != normalized_message
             or existing.domain_id != effective_domain_id
             or existing.route != route
+            or existing.composer_ref_fingerprint != composer_ref_request_fingerprint
         ):
             raise ChatTurnError(409, "client_request_conflict", "Client request conflicts with an existing turn.")
         if existing.status == TURN_STATUS_RUNNING:
@@ -339,6 +358,18 @@ def start_or_replay_turn(
             domain_id=effective_domain_id,
             retrieval_port=retrieval_port,
         )
+    try:
+        composer_validation = validate_composer_ref_tokens(
+            db,
+            settings=settings,
+            owner=owner,
+            conversation_id=conversation.id,
+            domain_id=effective_domain_id,
+            tokens=list(normalized_ref_tokens),
+        )
+    except ComposerRefError as exc:
+        raise ChatTurnError(exc.status_code, exc.code, exc.message) from exc
+    assembly_context = PromptAssemblyService(db).assemble(composer_validation.refs)
     synthesis = _resolve_synthesis(db, settings)
     prior_questions = _prior_user_questions(db, conversation.id)
 
@@ -350,6 +381,7 @@ def start_or_replay_turn(
         route=route,
         status=TURN_STATUS_RUNNING,
         user_message=normalized_message,
+        composer_ref_fingerprint=composer_validation.fingerprint,
         trace_id=new_trace_id(),
         started_at=now,
         created_at=now,
@@ -359,6 +391,10 @@ def start_or_replay_turn(
     db.add(turn)
     db.commit()
     db.refresh(turn)
+    if composer_validation.refs:
+        persist_accepted_composer_refs(db, turn_id=turn.id, refs=composer_validation.refs)
+        db.commit()
+        db.refresh(turn)
     safe_log(
         logger,
         "chat.turn_claimed",
@@ -370,7 +406,14 @@ def start_or_replay_turn(
         outcome="running",
         replay=False,
     )
-    return TurnStartResult(turn=turn, replay=False, synthesis=synthesis, prior_user_questions=prior_questions, request_id=request_id)
+    return TurnStartResult(
+        turn=turn,
+        replay=False,
+        synthesis=synthesis,
+        prior_user_questions=prior_questions,
+        request_id=request_id,
+        assembly_context=None if assembly_context.is_empty else assembly_context,
+    )
 
 
 def claim_turn(
@@ -438,6 +481,15 @@ def _public_evidence_refs(turn: ConversationTurn) -> list[ConversationTurnEviden
     )
 
 
+def _public_composer_refs(turn: ConversationTurn) -> list[ConversationTurnComposerRef]:
+    if turn.status == TURN_STATUS_REDACTED:
+        return []
+    return sorted(
+        [ref for ref in turn.composer_refs if ref.redacted_at is None],
+        key=lambda ref: (ref.ref_order, ref.id),
+    )
+
+
 def _public_assistant_answer(turn: ConversationTurn) -> str | None:
     if turn.status in {TURN_STATUS_RUNNING, TURN_STATUS_FAILED, TURN_STATUS_REDACTED}:
         return None
@@ -448,6 +500,7 @@ def _public_assistant_answer(turn: ConversationTurn) -> str | None:
 
 def safe_turn_summary(turn: ConversationTurn) -> dict[str, Any]:
     evidence_refs = _public_evidence_refs(turn)
+    composer_refs = _public_composer_refs(turn)
     safe_error = None
     if turn.safe_error_code or turn.safe_error_message:
         safe_error = {
@@ -464,6 +517,16 @@ def safe_turn_summary(turn: ConversationTurn) -> dict[str, Any]:
         "userMessage": turn.user_message,
         "assistantAnswer": _public_assistant_answer(turn),
         "safeError": safe_error,
+        "acceptedRefs": [
+            {
+                "id": ref.id,
+                "kind": ref.ref_kind,
+                "order": ref.ref_order,
+                "label": ref.safe_label,
+                "description": ref.safe_description,
+            }
+            for ref in composer_refs
+        ],
         "evidence": [
             {
                 "id": ref.id,
@@ -526,6 +589,7 @@ def _done(turn: ConversationTurn, *, replay: bool) -> TurnStreamEvent:
             "status": turn.status,
             "stopReason": turn.stop_reason,
             "citations": summary["citations"],
+            "acceptedRefs": summary["acceptedRefs"],
             "budget": summary["budget"],
             "replay": replay,
         },
@@ -585,6 +649,25 @@ def _persist_evidence_refs(
     return _refresh_turn(db, turn)
 
 
+def _finalize_turn_if_running(db: Session, turn: ConversationTurn, values: dict[str, Any]) -> bool:
+    """Compare-and-set finalize: only a still-running turn may be finalized.
+
+    A concurrent redaction (source/domain delete) may already have moved the turn
+    to `redacted`; in that case the late stream result must not overwrite it.
+    """
+    result = db.execute(
+        update(ConversationTurn)
+        .where(ConversationTurn.id == turn.id, ConversationTurn.status == TURN_STATUS_RUNNING)
+        .values(**values)
+        .execution_options(synchronize_session=False)
+    )
+    if result.rowcount == 0:
+        db.rollback()
+        db.refresh(turn)
+        return False
+    return True
+
+
 def _complete_turn(
     db: Session,
     *,
@@ -596,19 +679,23 @@ def _complete_turn(
     repair_attempt_count: int | None = None,
 ) -> ConversationTurn:
     now = utc_now()
-    turn.status = TURN_STATUS_COMPLETED
-    turn.stop_reason = stop_reason
-    turn.assistant_answer = assistant_answer
-    turn.safe_error_code = None
-    turn.safe_error_message = None
+    values: dict[str, Any] = {
+        "status": TURN_STATUS_COMPLETED,
+        "stop_reason": stop_reason,
+        "assistant_answer": assistant_answer,
+        "safe_error_code": None,
+        "safe_error_message": None,
+        "completed_at": now,
+        "updated_at": now,
+    }
     if plan_step_count is not None:
-        turn.plan_step_count = plan_step_count
+        values["plan_step_count"] = plan_step_count
     if retrieval_operation_count is not None:
-        turn.retrieval_operation_count = retrieval_operation_count
+        values["retrieval_operation_count"] = retrieval_operation_count
     if repair_attempt_count is not None:
-        turn.repair_attempt_count = repair_attempt_count
-    turn.completed_at = now
-    turn.updated_at = now
+        values["repair_attempt_count"] = repair_attempt_count
+    if not _finalize_turn_if_running(db, turn, values):
+        return turn
     _set_conversation_updated(db, turn, now)
     db.commit()
     turn = _refresh_turn(db, turn)
@@ -627,13 +714,17 @@ def _complete_turn(
 
 def _fail_turn(db: Session, *, turn: ConversationTurn, code: str, message: str, stop_reason: str) -> ConversationTurn:
     now = utc_now()
-    turn.status = TURN_STATUS_FAILED
-    turn.stop_reason = stop_reason
-    turn.assistant_answer = None
-    turn.safe_error_code = code
-    turn.safe_error_message = message
-    turn.completed_at = now
-    turn.updated_at = now
+    values: dict[str, Any] = {
+        "status": TURN_STATUS_FAILED,
+        "stop_reason": stop_reason,
+        "assistant_answer": None,
+        "safe_error_code": code,
+        "safe_error_message": message,
+        "completed_at": now,
+        "updated_at": now,
+    }
+    if not _finalize_turn_if_running(db, turn, values):
+        return turn
     _set_conversation_updated(db, turn, now)
     db.commit()
     turn = _refresh_turn(db, turn)
@@ -757,11 +848,14 @@ class TurnOrchestrator:
             tokens: list[str] = []
             assert start.synthesis is not None
             try:
-                for token in self._synthesis_adapter.stream_direct(
-                    synthesis=start.synthesis,
-                    message=turn.user_message,
-                    prior_user_questions=start.prior_user_questions,
-                ):
+                kwargs: dict[str, Any] = {
+                    "synthesis": start.synthesis,
+                    "message": turn.user_message,
+                    "prior_user_questions": start.prior_user_questions,
+                }
+                if start.assembly_context is not None:
+                    kwargs["assembly_context"] = start.assembly_context
+                for token in self._synthesis_adapter.stream_direct(**kwargs):
                     if token:
                         tokens.append(token)
                         yield _token(turn, token)
@@ -863,12 +957,15 @@ class TurnOrchestrator:
             tokens: list[str] = []
             assert start.synthesis is not None
             try:
-                for token in self._synthesis_adapter.stream_grounded(
-                    synthesis=start.synthesis,
-                    message=turn.user_message,
-                    evidence=public_evidence,
-                    prior_user_questions=start.prior_user_questions,
-                ):
+                kwargs: dict[str, Any] = {
+                    "synthesis": start.synthesis,
+                    "message": turn.user_message,
+                    "evidence": public_evidence,
+                    "prior_user_questions": start.prior_user_questions,
+                }
+                if start.assembly_context is not None:
+                    kwargs["assembly_context"] = start.assembly_context
+                for token in self._synthesis_adapter.stream_grounded(**kwargs):
                     if token:
                         tokens.append(token)
                         yield _token(turn, token)
@@ -945,6 +1042,7 @@ def stream_turn_events(
     client_request_id: str,
     message: str,
     domain_id: str | None,
+    composer_ref_tokens: list[str] | None = None,
     request_id: str | None = None,
     synthesis_adapter: SynthesisStreamAdapter | None = None,
     retrieval_port: P6RetrievalPort | None = None,
@@ -957,6 +1055,7 @@ def stream_turn_events(
         client_request_id=client_request_id,
         message=message,
         domain_id=domain_id,
+        composer_ref_tokens=composer_ref_tokens,
         retrieval_port=retrieval_port,
         request_id=request_id,
     )
@@ -985,6 +1084,10 @@ def _redact_turns(db: Session, turns: list[ConversationTurn], audit_context: Aud
             ref.citation_label = None
             ref.source_label = None
             ref.excerpt = None
+        for ref in turn.composer_refs:
+            ref.redacted_at = ref.redacted_at or now
+            ref.safe_label = None
+            ref.safe_description = None
         AuditService(db).record(
             AUDIT_EVENT_CHAT_TURN_REDACTED,
             context=audit_context,
@@ -1008,16 +1111,23 @@ def redact_turns_for_source(
     source_document_id: str,
     audit_context: AuditContext | None = None,
 ) -> int:
-    turns = list(
-        db.scalars(
+    turns_by_id = {
+        turn.id: turn
+        for turn in db.scalars(
             select(ConversationTurn)
             .join(ConversationTurnEvidenceRef)
             .where(ConversationTurnEvidenceRef.source_document_id == source_document_id)
             .order_by(ConversationTurn.created_at, ConversationTurn.id)
-        )
-        .unique()
-    )
-    return _redact_turns(db, turns, audit_context)
+        ).unique()
+    }
+    for turn in db.scalars(
+        select(ConversationTurn)
+        .join(ConversationTurnComposerRef)
+        .where(ConversationTurnComposerRef.source_document_id == source_document_id)
+        .order_by(ConversationTurn.created_at, ConversationTurn.id)
+    ).unique():
+        turns_by_id[turn.id] = turn
+    return _redact_turns(db, list(turns_by_id.values()), audit_context)
 
 
 def redact_turns_for_domain(db: Session, domain_id: str, audit_context: AuditContext | None = None) -> int:

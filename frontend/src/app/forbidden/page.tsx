@@ -1,10 +1,10 @@
-import { AppPageFrame } from "@/components/layout/AppPageFrame";
+import { AppShell } from "@/components/layout/AppShell";
 import { PageState } from "@/components/ui/PageState";
 
 export default function ForbiddenPage() {
   return (
-    <AppPageFrame>
+    <AppShell>
       <PageState title="Forbidden" message="You do not have access to this surface." tone="danger" />
-    </AppPageFrame>
+    </AppShell>
   );
 }

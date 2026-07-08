@@ -517,8 +517,26 @@ def test_source_admin_routes_forbid_members(app, settings: Settings) -> None:
 
 
 def test_p4_source_services_do_not_import_or_call_lightrag() -> None:
+    # The boundary rule forbids importing the LightRAG library, not the word
+    # "lightrag": routes legitimately expose the contract-mandated
+    # /admin/domains/{id}/diagnostics/lightrag path via the diagnostics service.
+    import ast
+
+    def lightrag_imports(path: str) -> list[str]:
+        tree = ast.parse(Path(path).read_text(encoding="utf-8"))
+        offenders: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                offenders.extend(
+                    alias.name for alias in node.names if "lightrag" in alias.name.lower()
+                )
+            elif isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                if "lightrag" in module.lower():
+                    offenders.append(module)
+        return offenders
+
     source_text = Path("context_engine/services/sources.py").read_text(encoding="utf-8").lower()
-    api_text = Path("context_engine/api/routes.py").read_text(encoding="utf-8").lower()
     assert "lightrag" not in source_text
     assert "ainsert" not in source_text
-    assert "lightrag" not in api_text
+    assert lightrag_imports("context_engine/api/routes.py") == []

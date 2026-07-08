@@ -86,6 +86,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    raise RuntimeError(
+        "Downgrading past 20260706_0007 would irreversibly drop audit_events and "
+        "request_id/trace_id correlation data. Restore from a database backup instead."
+    )
     op.drop_index("ix_audit_events_trace_id", table_name="audit_events")
     op.drop_index("ix_audit_events_request_id", table_name="audit_events")
     op.drop_index("ix_audit_events_target_created", table_name="audit_events")

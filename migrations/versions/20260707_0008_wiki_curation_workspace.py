@@ -87,14 +87,14 @@ def upgrade() -> None:
         "wiki_pages",
         sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("title", sa.String(length=160), nullable=False),
-        sa.Column("state", sa.String(length=16), nullable=False),
+        sa.Column("state", sa.String(length=16), server_default=sa.text("'published'"), nullable=False),
         sa.Column("current_revision_id", sa.String(length=36), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=False), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=False), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.CheckConstraint(f"state in {_WIKI_PAGE_STATES}", name="ck_wiki_pages_state"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_wiki_pages_state_title", "wiki_pages", ["state", "title"])
+    op.create_index("ix_wiki_pages_state_updated", "wiki_pages", ["state", sa.text("updated_at DESC")])
 
     op.create_table(
         "wiki_contributions",
@@ -104,7 +104,7 @@ def upgrade() -> None:
         sa.Column("reviewed_by_user_id", sa.String(length=36), nullable=True),
         sa.Column("title", sa.String(length=160), nullable=False),
         sa.Column("body", sa.Text(), nullable=False),
-        sa.Column("state", sa.String(length=16), nullable=False),
+        sa.Column("state", sa.String(length=16), server_default=sa.text("'draft'"), nullable=False),
         sa.Column("reviewer_note", sa.String(length=500), nullable=True),
         sa.Column("submitted_at", sa.DateTime(timezone=False), nullable=True),
         sa.Column("reviewed_at", sa.DateTime(timezone=False), nullable=True),
@@ -129,6 +129,7 @@ def upgrade() -> None:
         sa.Column("body", sa.Text(), nullable=False),
         sa.Column("published_from_contribution_id", sa.String(length=36), nullable=False),
         sa.Column("published_by_user_id", sa.String(length=36), nullable=True),
+        sa.Column("published_at", sa.DateTime(timezone=False), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=False), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.CheckConstraint("revision_number >= 1", name="ck_wiki_revisions_revision_number_positive"),
         sa.ForeignKeyConstraint(["published_by_user_id"], ["users.id"], ondelete="SET NULL"),
@@ -143,6 +144,7 @@ def upgrade() -> None:
         ["published_from_contribution_id"],
         unique=True,
     )
+    op.create_index("ix_wiki_revisions_page_published", "wiki_revisions", ["wiki_page_id", sa.text("published_at DESC")])
 
     if op.get_bind().dialect.name != "sqlite":
         op.create_foreign_key(
@@ -200,6 +202,7 @@ def downgrade() -> None:
     op.drop_table("wiki_contribution_evidence_refs")
     if op.get_bind().dialect.name != "sqlite":
         op.drop_constraint("fk_wiki_pages_current_revision_id_wiki_revisions", "wiki_pages", type_="foreignkey")
+    op.drop_index("ix_wiki_revisions_page_published", table_name="wiki_revisions")
     op.drop_index("uq_wiki_revisions_published_contribution", table_name="wiki_revisions")
     op.drop_index("uq_wiki_revisions_page_revision", table_name="wiki_revisions")
     op.drop_table("wiki_revisions")
@@ -207,6 +210,6 @@ def downgrade() -> None:
     op.drop_index("ix_wiki_contributions_state_updated", table_name="wiki_contributions")
     op.drop_index("ix_wiki_contributions_created_by_state", table_name="wiki_contributions")
     op.drop_table("wiki_contributions")
-    op.drop_index("ix_wiki_pages_state_title", table_name="wiki_pages")
+    op.drop_index("ix_wiki_pages_state_updated", table_name="wiki_pages")
     op.drop_table("wiki_pages")
     _replace_audit_event_constraint(_OLD_AUDIT_EVENT_NAMES)

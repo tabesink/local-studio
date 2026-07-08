@@ -129,6 +129,20 @@ TURN_STOP_REASONS = (
     TURN_STOP_REASON_CANCELLED,
     TURN_STOP_REASON_REDACTED,
 )
+EMPTY_COMPOSER_REF_FINGERPRINT = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+COMPOSER_REF_KIND_SOURCE = "source"
+COMPOSER_REF_KIND_EVIDENCE = "evidence"
+COMPOSER_REF_KIND_WIKI = "wiki"
+COMPOSER_REF_KIND_TEMPLATE = "template"
+COMPOSER_REF_KINDS = (
+    COMPOSER_REF_KIND_SOURCE,
+    COMPOSER_REF_KIND_EVIDENCE,
+    COMPOSER_REF_KIND_WIKI,
+    COMPOSER_REF_KIND_TEMPLATE,
+)
+PROMPT_TEMPLATE_STATE_APPROVED = "approved"
+PROMPT_TEMPLATE_STATE_DISABLED = "disabled"
+PROMPT_TEMPLATE_STATES = (PROMPT_TEMPLATE_STATE_APPROVED, PROMPT_TEMPLATE_STATE_DISABLED)
 AUDIT_ACTOR_PUBLIC = "public"
 AUDIT_ACTOR_MEMBER = "member"
 AUDIT_ACTOR_ADMINISTRATOR = "administrator"
@@ -659,6 +673,11 @@ class ConversationTurn(Base):
     assistant_answer: Mapped[str | None] = mapped_column(Text(), nullable=True)
     safe_error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     safe_error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    composer_ref_fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default=EMPTY_COMPOSER_REF_FINGERPRINT,
+    )
     plan_step_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     retrieval_operation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     repair_attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -672,6 +691,12 @@ class ConversationTurn(Base):
         back_populates="turn",
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+    composer_refs: Mapped[list["ConversationTurnComposerRef"]] = relationship(
+        back_populates="turn",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="ConversationTurnComposerRef.ref_order",
     )
 
 
@@ -713,11 +738,111 @@ class ConversationTurnEvidenceRef(Base):
     turn: Mapped[ConversationTurn] = relationship(back_populates="evidence_refs")
 
 
+class PromptTemplate(Base):
+    __tablename__ = "prompt_templates"
+    __table_args__ = (
+        CheckConstraint("length(trim(name)) > 0", name="ck_prompt_templates_name_not_blank"),
+        CheckConstraint("length(body) > 0 and length(body) <= 2000", name="ck_prompt_templates_body_size"),
+        CheckConstraint(f"state in {PROMPT_TEMPLATE_STATES}", name="ck_prompt_templates_state"),
+        Index("uq_prompt_templates_name", "name", unique=True),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    body: Mapped[str] = mapped_column(Text(), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default=PROMPT_TEMPLATE_STATE_APPROVED)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now, onupdate=utc_now)
+
+
+class ComposerRefToken(Base):
+    __tablename__ = "composer_ref_tokens"
+    __table_args__ = (
+        CheckConstraint(f"ref_kind in {COMPOSER_REF_KINDS}", name="ck_composer_ref_tokens_kind"),
+        CheckConstraint("length(token_hash) = 64", name="ck_composer_ref_tokens_hash_size"),
+        Index("uq_composer_ref_tokens_hash", "token_hash", unique=True),
+        Index("ix_composer_ref_tokens_owner_expires", "owner_user_id", "expires_at"),
+        Index("ix_composer_ref_tokens_target", "ref_kind", "target_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    owner_user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    ref_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    target_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    domain_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    safe_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    safe_description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
+
+    owner: Mapped[User] = relationship()
+
+
+class ConversationTurnComposerRef(Base):
+    __tablename__ = "conversation_turn_composer_refs"
+    __table_args__ = (
+        CheckConstraint("ref_order >= 1", name="ck_conversation_turn_composer_refs_order_positive"),
+        CheckConstraint(f"ref_kind in {COMPOSER_REF_KINDS}", name="ck_conversation_turn_composer_refs_kind"),
+        CheckConstraint(
+            "(redacted_at IS NULL) OR (safe_label IS NULL AND safe_description IS NULL)",
+            name="ck_conversation_turn_composer_refs_redacted_fields",
+        ),
+        CheckConstraint(
+            "(ref_kind = 'source' AND source_document_id IS NOT NULL AND evidence_ref_id IS NULL "
+            "AND wiki_page_id IS NULL AND wiki_revision_id IS NULL AND prompt_template_id IS NULL) OR "
+            "(ref_kind = 'evidence' AND evidence_ref_id IS NOT NULL AND source_document_id IS NULL "
+            "AND source_block_id IS NULL AND wiki_page_id IS NULL AND wiki_revision_id IS NULL "
+            "AND prompt_template_id IS NULL) OR "
+            "(ref_kind = 'wiki' AND wiki_page_id IS NOT NULL AND wiki_revision_id IS NOT NULL "
+            "AND source_document_id IS NULL AND source_block_id IS NULL AND evidence_ref_id IS NULL "
+            "AND prompt_template_id IS NULL) OR "
+            "(ref_kind = 'template' AND prompt_template_id IS NOT NULL AND source_document_id IS NULL "
+            "AND source_block_id IS NULL AND evidence_ref_id IS NULL AND wiki_page_id IS NULL "
+            "AND wiki_revision_id IS NULL)",
+            name="ck_conversation_turn_composer_refs_kind_target",
+        ),
+        Index("uq_conversation_turn_composer_refs_order", "turn_id", "ref_order", unique=True),
+        Index("ix_conversation_turn_composer_refs_turn_kind", "turn_id", "ref_kind"),
+        Index("ix_conversation_turn_composer_refs_source_document", "source_document_id"),
+        Index("ix_conversation_turn_composer_refs_evidence_ref", "evidence_ref_id"),
+        Index("ix_conversation_turn_composer_refs_wiki_page", "wiki_page_id"),
+        Index("ix_conversation_turn_composer_refs_template", "prompt_template_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    turn_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("conversation_turns.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    ref_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    ref_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    safe_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    safe_description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    domain_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source_document_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    source_block_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    evidence_ref_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    wiki_page_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    wiki_revision_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    prompt_template_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    redacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
+
+    turn: Mapped[ConversationTurn] = relationship(back_populates="composer_refs")
+
+
 class WikiPage(Base):
     __tablename__ = "wiki_pages"
     __table_args__ = (
         CheckConstraint(f"state in {WIKI_PAGE_STATES}", name="ck_wiki_pages_state"),
-        Index("ix_wiki_pages_state_title", "state", "title"),
+        Index("ix_wiki_pages_state_updated", "state", text("updated_at DESC")),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -747,6 +872,7 @@ class WikiRevision(Base):
         CheckConstraint("revision_number >= 1", name="ck_wiki_revisions_revision_number_positive"),
         Index("uq_wiki_revisions_page_revision", "wiki_page_id", "revision_number", unique=True),
         Index("uq_wiki_revisions_published_contribution", "published_from_contribution_id", unique=True),
+        Index("ix_wiki_revisions_page_published", "wiki_page_id", text("published_at DESC")),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -768,6 +894,7 @@ class WikiRevision(Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
 
     page: Mapped[WikiPage] = relationship(

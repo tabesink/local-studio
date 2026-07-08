@@ -30,7 +30,7 @@ Entry point for Context Engine rebuild notes (spec-driven, phase-by-phase).
 | --- | --- | --- |
 | P0 | [[P0 Index]] | stub |
 | P1 | [[P1 Index]] | stub |
-| P2 | [[P2 Index]] | stub |
+| P2 | [[P2 Index]] | active — credentials + model profiles |
 | P3 | [[P3 Index]] | stub |
 | P4 | [[P4 Index]] | active — notes populated |
 | P5 | [[P5 Index]] | active — readiness + review notes |
@@ -38,6 +38,7 @@ Entry point for Context Engine rebuild notes (spec-driven, phase-by-phase).
 | P7 | [[P7 Index]] | stub |
 | P8 | [[P8 Index]] | stub |
 | P9 | [[P9 Index]] | stub |
+| P12 | [[P12 Index]] | active — F-012 governed context assembly |
 
 ## Repo sources
 

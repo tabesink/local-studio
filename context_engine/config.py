@@ -57,6 +57,16 @@ class Settings:
     source_index_lease_seconds: int = field(default_factory=lambda: _env_int("CE_SOURCE_INDEX_LEASE_SECONDS", 60))
     lightrag_client_kind: str = field(default_factory=lambda: _env("CE_LIGHTRAG_CLIENT_KIND", "native") or "native")
 
+    def __post_init__(self) -> None:
+        samesite = self.session_cookie_samesite.strip().lower()
+        if samesite not in {"lax", "strict", "none"}:
+            raise ValueError("session_cookie_samesite must be one of 'lax', 'strict', or 'none'.")
+        if samesite == "none" and not self.session_cookie_secure:
+            # Browsers reject SameSite=None cookies without Secure; failing fast
+            # beats silently shipping a session cookie the browser will drop.
+            raise ValueError("session_cookie_samesite='none' requires session_cookie_secure=True.")
+        object.__setattr__(self, "session_cookie_samesite", samesite)
+
     @classmethod
     def from_env(cls) -> "Settings":
         return cls()

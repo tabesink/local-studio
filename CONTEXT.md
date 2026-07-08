@@ -76,6 +76,10 @@ _Avoid_: Inline chat edit, left-panel mutation, unreviewed wiki page
 The governed right-panel workspace for drafting, revising, reviewing, and publishing Wiki Contributions from selected chat/evidence context.
 _Avoid_: Main Chat editor, generic notes pane, browser-owned wiki writer
 
+**Evidence Panel**:
+The read-only right-hand chat aside that displays the turn-scoped Evidence rows for the current or selected Turn.
+_Avoid_: Smart Composer, source inspector when asset detail is meant, context ledger when cross-turn history is meant
+
 **Administrator**:
 A user role allowed to manage domains, source documents, runtime settings, operations, and diagnostics.
 _Avoid_: Operator when referring to in-app permissions
@@ -100,6 +104,7 @@ _Avoid_: Viewer when write ownership of conversations matters
 - A **Node Environment** belongs to a Runtime Node and approved runtime recipe; it is not a Knowledge Domain or Source Document.
 - A **Wiki Page** has one current **Wiki Revision** and may have zero or more **Wiki Contributions** in draft/review.
 - A **Smart Composer** operation may read selected Evidence, Citations, Wiki Pages, and Turns, but any durable write is a backend-authorized Wiki Contribution.
+- The **Evidence Panel** displays the **Evidence** of exactly one **Turn** at a time and performs no fetch beyond the turn stream and conversation history.
 
 ## Example dialogue
 
@@ -119,3 +124,4 @@ _Avoid_: Viewer when write ownership of conversations matters
 - "Workspace" appears in some Local Studio adaptation notes as a shared-product scope, but the current Context Engine model does not define a Workspace entity. Do not add `workspaceId` to code or contracts until an approved feature changes the product model.
 - "Wiki" does not mean Source Document storage. Wiki behavior is governed curation on top of authorized evidence and review contracts.
 - "Node" does not mean a browser-configurable controller URL. Runtime Node identity, credentials, and transport are backend-owned.
+- "Right panel" in chat means the **Evidence Panel**, not **Smart Composer**. Figure/table source detail is not Evidence Panel v1 behavior; it waits for an opaque source-ref contract.

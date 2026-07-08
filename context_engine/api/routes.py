@@ -36,6 +36,12 @@ from context_engine.services.chat_turns import (
     stream_turn_events,
     conversation_turn_summaries,
 )
+from context_engine.services.composer_refs import (
+    ComposerRefError,
+    MAX_COMPOSER_REFS,
+    MAX_DISCOVERY_LIMIT,
+    discover_composer_refs,
+)
 from context_engine.services.conversations import (
     ConversationError,
     create_conversation,
@@ -175,6 +181,24 @@ class EvidenceRequest(BaseModel):
         return stripped
 
 
+class ComposerRefDiscoverRequest(BaseModel):
+    conversation_id: str | None = Field(default=None, alias="conversationId", max_length=36)
+    domain_id: str | None = Field(default=None, alias="domainId", max_length=64)
+    kinds: list[Literal["source", "evidence", "wiki", "template"]] | None = Field(default=None, max_length=4)
+    query: str | None = Field(default=None, max_length=200)
+    limit: int = Field(default=MAX_COMPOSER_REFS, ge=1, le=MAX_DISCOVERY_LIMIT)
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    @field_validator("query")
+    @classmethod
+    def strip_query(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+
 class ConversationTitleRequest(BaseModel):
     title: str | None = None
 
@@ -208,6 +232,7 @@ class TurnStreamRequest(BaseModel):
     client_request_id: str = Field(alias="clientRequestId", min_length=1, max_length=80)
     message: str = Field(min_length=1, max_length=4000)
     domain_id: str | None = Field(default=None, alias="domainId", max_length=64)
+    composer_ref_tokens: list[str] = Field(default_factory=list, alias="composerRefTokens", max_length=MAX_COMPOSER_REFS)
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -333,6 +358,10 @@ def _wiki_api_error(exc: WikiError) -> ApiError:
     return ApiError(exc.status_code, exc.code, exc.message)
 
 
+def _composer_ref_api_error(exc: ComposerRefError) -> ApiError:
+    return ApiError(exc.status_code, exc.code, exc.message)
+
+
 def _chat_turn_api_error(exc: ChatTurnError) -> ApiError:
     return ApiError(exc.status_code, exc.code, exc.message)
 
@@ -374,6 +403,29 @@ def _multipart_file_from_request(request: Request, body: bytes) -> tuple[str | N
                 raise ApiError(422, "validation_error", "Request validation failed.")
             return part.get_filename(), part.get_content_type(), payload
     raise ApiError(422, "validation_error", "Request validation failed.")
+
+
+@api_router.post("/composer-refs:discover")
+def post_composer_refs_discover(
+    payload: ComposerRefDiscoverRequest,
+    current: CurrentSession = Depends(require_current_session),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    try:
+        refs = discover_composer_refs(
+            db,
+            settings=settings,
+            owner=current.user,
+            conversation_id=payload.conversation_id,
+            domain_id=payload.domain_id,
+            kinds=payload.kinds,
+            query=payload.query,
+            limit=payload.limit,
+        )
+    except ComposerRefError as exc:
+        raise _composer_ref_api_error(exc) from exc
+    return {"refs": refs}
 
 
 @api_router.get("/conversations")
@@ -656,6 +708,7 @@ def post_conversation_turn_stream(
         client_request_id=payload.client_request_id,
         message=payload.message,
         domain_id=payload.domain_id,
+        composer_ref_tokens=payload.composer_ref_tokens,
         request_id=request_id_from(request),
         synthesis_adapter=getattr(request.app.state, "synthesis_stream_adapter", None),
         retrieval_port=getattr(request.app.state, "retrieval_port", None),

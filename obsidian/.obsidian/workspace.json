@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Reviews/ID-A Source Index Fields.md",
+                "file": "Phases/P12 Governed Context Assembly/P12 Index.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "ID-A Source Index Fields"
+              "title": "P12 Index"
             }
           }
         ]
@@ -185,6 +185,7 @@
   },
   "active": "cc3c075765840c5a",
   "lastOpenFiles": [
+    "Reviews/ID-A Source Index Fields.md",
     "Reviews/ID-A Evidence API Contract.md",
     "Reviews/ID-A Safe Evidence DTO.md",
     "Reviews/ID-A LightRAG Proof Fixture.md",
@@ -198,7 +199,6 @@
     "Reviews/ID-A Live Parser SDK Followup.md",
     "Reviews/ID-A Query Eligibility.md",
     "Reviews/ID-A Render LightRAG Input.md",
-    "Reviews/ID-A Source Index Fields.md",
     "Reviews/P4 Post Impl Review/P4 Review Index.md",
     "Reviews/P4 Post Impl Review",
     "Phases/P4 Source Documents Preparation/P4 Source Upload Flow.md",

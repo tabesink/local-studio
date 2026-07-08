@@ -21,6 +21,7 @@ Status: implemented.
 | 2026-07-02 | Patched API-001, DATA-001, F-004 spec, plan, and test plan before code to define P4 Source Document DTOs, source tables, storage, PreparedSource, and worker evidence. | Active contracts lacked the field-level P4 shape called out by the design gates. | Keep future P5 index fields and `CE_BLOCK` rendering out of P4. |
 | 2026-07-02 | Implemented P4 with standard-library multipart parsing instead of FastAPI `UploadFile` dependency. | The existing venv did not include `python-multipart`; stdlib MIME parsing preserves the contracted single `file` multipart route without adding runtime dependency churn. | Revisit only if future upload UX needs richer multipart form parsing. |
 | 2026-07-02 | Default parser adapters are deterministic local normalizers; synthetic fixtures prove Reducto and Docling native-shape mapping to `PreparedSource`. | P4 must normalize and discard parser-native payloads without persisting provider task IDs, URLs, bbox, or payload JSON; live external parser calls are not required evidence for this backend slice. | P5/P8 may add pinned provider/runtime fixture proof if approved. |
+| 2026-07-08 | Review fixes CHG-035: preparation worker claim query uses `with_for_update(skip_locked=True)`; P4 boundary test sharpened to AST import-level checks. | ce-code-review #2/#31 — claim race on multi-worker Postgres; substring test false-positived on the contract-mandated `/diagnostics/lightrag` route path. | None; see `docs/residual-review-findings/a85eb030.md`. |
 
 ## Drift Register
 

@@ -31,15 +31,53 @@ describe("F-009 foundation", () => {
       "src/app/chat/page.tsx",
       "src/app/documents/page.tsx",
       "src/app/database-visualize/page.tsx",
+      "src/app/logs/page.tsx",
+      "src/app/settings/page.tsx",
       "src/app/forbidden/page.tsx",
     ]) {
       assert.equal(existsSync(join(root, route)), true, route);
     }
   });
 
-  it("keeps direct fetch isolated to the shared API client", () => {
+  it("wires the API proxy through Next.js middleware", () => {
+    assert.equal(existsSync(join(src, "middleware.ts")), true, "src/middleware.ts must exist");
+    assert.equal(existsSync(join(src, "proxy.ts")), false, "src/proxy.ts must not shadow middleware.ts");
+    const middleware = read("src/middleware.ts");
+    assert.match(middleware, /export function middleware/);
+    assert.match(middleware, /"\/api\/v1\/:path\*"/);
+    assert.match(middleware, /CONTEXT_ENGINE_API_BASE/);
+  });
+
+  it("logs out disabled or revoked sessions on any 401 response", () => {
+    // Backend returns 401 for disabled users on every request; the client must
+    // flip the auth store to unauthenticated, and the layout must redirect.
+    const client = read("src/lib/api/client.ts");
+    assert.match(client, /response\.status === 401[^\n]*handleUnauthorized/);
+    assert.match(client, /unauthorizedHandler\?\.\(\)/);
+    const providers = read("src/app/providers.tsx");
+    assert.match(providers, /setUnauthorizedHandler\(\(\) => \{\s*markUnauthenticated\(\);/);
+    const layout = read("src/components/layout/AppLayout.tsx");
+    assert.match(layout, /status === "unauthenticated"/);
+    assert.match(layout, /router\.replace\("\/login"\)/);
+  });
+
+  it("applies persisted theme and density preferences at bootstrap", () => {
+    const providers = read("src/app/providers.tsx");
+    assert.match(providers, /dataset\.theme = readUiPreference\("ce\.theme"\)/);
+    assert.match(providers, /dataset\.density = readUiPreference\("ce\.density"\)/);
+    const preferences = read("src/features/user-preferences/PreferencesPanel.tsx");
+    assert.match(preferences, /dataset\.density = value/);
+    const css = read("src/app/globals.css");
+    assert.match(css, /\[data-density="comfortable"\]/);
+  });
+
+  it("keeps direct fetch isolated to shared API and SSE wrappers", () => {
+    const allowed = new Set([
+      join("src", "lib", "api", "client.ts"),
+      join("src", "lib", "api", "sse.ts"),
+    ]);
     const offenders = sourceFiles()
-      .filter((file) => !file.endsWith(join("src", "lib", "api", "client.ts")))
+      .filter((file) => !allowed.has(relative(root, file)))
       .filter((file) => /\bfetch\s*\(/.test(readFileSync(file, "utf8")))
       .map((file) => relative(root, file));
     assert.deepEqual(offenders, []);
@@ -79,16 +117,25 @@ describe("F-009 foundation", () => {
     assert.equal(errors.includes("raw"), false);
   });
 
-  it("preserves CE rail order", () => {
-    const rail = read("src/components/layout/AppSideRail.tsx");
-    const order = ["Chat", "Documents", "Knowledge graph", "Settings", "Logout"].map((label) =>
-      rail.indexOf(`aria-label="${label}"`),
+  it("registers the LS sidebar nav order and hides F-010 surfaces", () => {
+    const registry = read("src/features/navigation-sidebar/constants.ts");
+    const order = ['"/chat"', '"/documents"', '"/database-visualize"', '"/logs"'].map((href) =>
+      registry.indexOf(href),
     );
     assert.deepEqual(
       [...order].sort((a, b) => a - b),
       order,
-      `rail order was ${order.join(",")}`,
+      `nav order was ${order.join(",")}`,
     );
     assert.equal(order.every((index) => index >= 0), true);
+    assert.match(registry, /adminOnly: true/);
+    assert.match(registry, /"\/settings"/);
+    // F-010-gated LS routes must not be registered.
+    for (const hidden of ['"/dashboard"', '"/usage"', '"/recipes"', '"/plugins"', '"/server"']) {
+      assert.equal(registry.includes(hidden), false, hidden);
+    }
+    const sidebar = read("src/features/navigation-sidebar/NavigationSidebar.tsx");
+    assert.match(sidebar, /aria-label="Expand sidebar"/);
+    assert.match(sidebar, /Logout/);
   });
 });

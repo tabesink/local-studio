@@ -25,6 +25,7 @@ Context Engine greenfield rebuild — one phase at a time. Do not reopen earlier
 | P7 | F-007 Grounded Streaming Chat | [[P7 Index]] | `specs/04-features/F-007-grounded-streaming-chat/` |
 | P8 | F-008 Observability Pilot Gate | [[P8 Index]] | `specs/04-features/F-008-observability-pilot-gate/` |
 | P9 | F-009 Frontend Delivery | [[P9 Index]] | `specs/04-features/F-009-frontend-delivery/` |
+| P12 | F-012 Governed Context Assembly | [[P12 Index]] | `specs/04-features/F-012-governed-context-assembly/` |
 
 ## Related
 

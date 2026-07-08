@@ -1,12 +1,12 @@
-import { AppPageFrame } from "@/components/layout/AppPageFrame";
-import { PageState } from "@/components/ui/PageState";
+import { AppShell } from "@/components/layout/AppShell";
+import { ChatShell } from "@/features/chat-shell/ChatShell";
 
 export const dynamic = "force-dynamic";
 
 export default function ChatPage() {
   return (
-    <AppPageFrame>
-      <PageState title="Chat" message="No conversation selected." />
-    </AppPageFrame>
+    <AppShell>
+      <ChatShell />
+    </AppShell>
   );
 }

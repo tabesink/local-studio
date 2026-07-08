@@ -47,6 +47,7 @@ Members, Administrators, reviewers, frontend developers, backend developers, del
 - Optional evidence traceability from approved turn-scoped Evidence refs, stored as typed contribution evidence-ref rows.
 - Redaction/delete invalidation rules that block unsafe publish and hide invalidated pages from member reads.
 - Thin Next.js Smart Composer/review UI only after API/DATA contracts and backend DTOs exist.
+- F-012 may use published Wiki Pages as read-only composer refs when pages are `published` with a current revision; discovery/validation remains backend-owned and never exposes raw private ids.
 - Local Studio visual parity for any shipped UI.
 
 ## Out Of Scope
@@ -58,7 +59,7 @@ Members, Administrators, reviewers, frontend developers, backend developers, del
 - Browser model/provider/prompt controls or provider API calls.
 - Runtime Node, Node Environment, Logs, Usage, storage summaries, Docker environment UI/API, and worker container work from P10.
 - Obsidian runtime/vault/provider/OAuth/MCP/filesystem behavior.
-- Raw source text, raw Evidence, prompts, assistant answers, provider payloads, raw LightRAG hits, paths, runtime targets, Docker targets, storage targets, stack traces, credentials, or private Source Block ids in public DTOs, logs, fixtures, screenshots, or acceptance evidence.
+- Raw source text, raw Evidence, prompts, assistant answers, provider payloads, raw LightRAG hits, paths, runtime targets, Docker targets, storage targets, stack traces, credentials, private Wiki Revision ids, or private Source Block ids in public DTOs, logs, fixtures, screenshots, or acceptance evidence.
 
 ## Functional Requirements
 
@@ -86,8 +87,8 @@ Contracts patched by F-011:
 
 Contracts intentionally not changed for v1:
 
-- AI-001: no Smart Composer AI assist in F-011 v1.
-- EVT-001: no P11 streaming in F-011 v1.
+- AI-001: no Smart Composer AI assist in F-011 v1. F-012 prompt assembly may read published Wiki Page revision bodies server-side as private composer context only.
+- EVT-001: no P11 streaming in F-011 v1. F-012 chat SSE may project safe accepted Wiki ref labels in terminal/replay events.
 
 ## Primary Flows
 
@@ -168,6 +169,7 @@ Source Document or Knowledge Domain delete/redaction
 | P11-D5 | Wiki Revisions are immutable. Page current state changes through publish or redaction invalidation. | DATA |
 | P11-D6 | Evidence refs are optional and typed; raw source/Evidence text is not persisted in wiki tables. | DATA, QA |
 | P11-D7 | P10 Runtime Node/Logs/Usage/storage/Docker work remains outside P11. | scope |
+| P11-D8 | F-012 may expose published Wiki Pages as governed chat composer refs; this does not add AI-assisted Smart Composer, wiki writes from chat, or raw wiki body DTOs. | F-012, API, AI |
 
 ## Risks And Assumptions
 

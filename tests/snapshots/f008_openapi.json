@@ -358,6 +358,116 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "WikiContributionCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "evidenceRefIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Evidencerefids",
+            "type": "array"
+          },
+          "targetPageId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetpageid"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "body"
+        ],
+        "title": "WikiContributionCreateRequest",
+        "type": "object"
+      },
+      "WikiContributionPatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "evidenceRefIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidencerefids"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "WikiContributionPatchRequest",
+        "type": "object"
+      },
+      "WikiContributionRejectRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "reviewerNote": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewernote"
+          }
+        },
+        "title": "WikiContributionRejectRequest",
+        "type": "object"
       }
     }
   },
@@ -1691,6 +1801,172 @@
         "summary": "Admin Users"
       }
     },
+    "/api/v1/admin/wiki/contributions": {
+      "get": {
+        "operationId": "get_admin_wiki_contributions_api_v1_admin_wiki_contributions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Admin Wiki Contributions Api V1 Admin Wiki Contributions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Admin Wiki Contributions"
+      }
+    },
+    "/api/v1/admin/wiki/contributions/{contribution_id}": {
+      "get": {
+        "operationId": "get_admin_wiki_contribution_api_v1_admin_wiki_contributions__contribution_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 1,
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Admin Wiki Contribution Api V1 Admin Wiki Contributions  Contribution Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Admin Wiki Contribution"
+      }
+    },
+    "/api/v1/admin/wiki/contributions/{contribution_id}:publish": {
+      "post": {
+        "operationId": "publish_admin_wiki_contribution_api_v1_admin_wiki_contributions__contribution_id__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 1,
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Publish Admin Wiki Contribution Api V1 Admin Wiki Contributions  Contribution Id  Publish Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Admin Wiki Contribution"
+      }
+    },
+    "/api/v1/admin/wiki/contributions/{contribution_id}:reject": {
+      "post": {
+        "operationId": "reject_admin_wiki_contribution_api_v1_admin_wiki_contributions__contribution_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 1,
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/WikiContributionRejectRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reject Admin Wiki Contribution Api V1 Admin Wiki Contributions  Contribution Id  Reject Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Admin Wiki Contribution"
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "operationId": "login_api_v1_auth_login_post",
@@ -2081,6 +2357,307 @@
           }
         },
         "summary": "Retrieve Domain Evidence"
+      }
+    },
+    "/api/v1/wiki/contributions": {
+      "get": {
+        "operationId": "get_wiki_contributions_api_v1_wiki_contributions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Wiki Contributions Api V1 Wiki Contributions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Wiki Contributions"
+      },
+      "post": {
+        "operationId": "post_wiki_contribution_api_v1_wiki_contributions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WikiContributionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Post Wiki Contribution Api V1 Wiki Contributions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Wiki Contribution"
+      }
+    },
+    "/api/v1/wiki/contributions/{contribution_id}": {
+      "get": {
+        "operationId": "get_wiki_contribution_route_api_v1_wiki_contributions__contribution_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 1,
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Wiki Contribution Route Api V1 Wiki Contributions  Contribution Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Wiki Contribution Route"
+      },
+      "patch": {
+        "operationId": "patch_wiki_contribution_api_v1_wiki_contributions__contribution_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 1,
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WikiContributionPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Patch Wiki Contribution Api V1 Wiki Contributions  Contribution Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Wiki Contribution"
+      }
+    },
+    "/api/v1/wiki/contributions/{contribution_id}:submit": {
+      "post": {
+        "operationId": "submit_wiki_contribution_route_api_v1_wiki_contributions__contribution_id__submit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contribution_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 1,
+              "title": "Contribution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Submit Wiki Contribution Route Api V1 Wiki Contributions  Contribution Id  Submit Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Wiki Contribution Route"
+      }
+    },
+    "/api/v1/wiki/pages": {
+      "get": {
+        "operationId": "get_wiki_pages_api_v1_wiki_pages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Wiki Pages Api V1 Wiki Pages Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Wiki Pages"
+      }
+    },
+    "/api/v1/wiki/pages/{page_id}": {
+      "get": {
+        "operationId": "get_wiki_page_api_v1_wiki_pages__page_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 1,
+              "title": "Page Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Wiki Page Api V1 Wiki Pages  Page Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Wiki Page"
+      }
+    },
+    "/api/v1/wiki/pages/{page_id}/revisions": {
+      "get": {
+        "operationId": "get_wiki_page_revisions_api_v1_wiki_pages__page_id__revisions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 1,
+              "title": "Page Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Wiki Page Revisions Api V1 Wiki Pages  Page Id  Revisions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Wiki Page Revisions"
       }
     },
     "/health/live": {

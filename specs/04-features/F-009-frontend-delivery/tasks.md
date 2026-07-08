@@ -25,8 +25,9 @@ supersedes: []
   - Verification: admin/member and secret-status tests.
 - [ ] T-050 [frontend] Implement documents/upload/operations slices.
   - Verification: state-machine and upload tests.
-- [ ] T-060 [frontend] Port chat shell with ContextPanelShell + context tab; implement direct LLM and domain RAG SSE slices; wire P6/P7 per `context-panel-tabs.md`.
-  - Verification: SSE fixture/cancel tests; context tab evidence ordering; direct LLM has empty context and no hidden controls; timeline/composer/stop/retry UX is present without Local Studio terminal/filesystem/Git/browser-agent/model-controller controls.
+- [ ] T-060 [frontend] Port chat shell with the turn-scoped Evidence Panel (single-column LS aside per revised `context-panel-tabs.md`); implement direct LLM and domain RAG SSE slices; wire P6/P7.
+  - Verification: SSE fixture/cancel tests; panel shows the selected turn's evidence only and auto-opens on evidence; inline timeline evidence blocks removed; direct LLM leaves the panel closed with no hidden controls; timeline/composer/stop/retry UX is present without Local Studio terminal/filesystem/Git/browser-agent/model-controller controls.
+  - Sub-slice done 2026-07-08: EvidencePanel aside + selection/auto-open state + inline evidence removal (`frontend/src/features/chat-shell/`); live transcript fixture replay and cancel UX remain open.
 - [ ] T-070 [frontend] Implement graph/source-nav/audit diagnostics only after contracts are captured.
   - Verification: contract and visual tests.
 - [ ] T-080 [frontend] Split Settings dialog by ownership and hide post-P9 node/workspace controls unless approved contracts exist.

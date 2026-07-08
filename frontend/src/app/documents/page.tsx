@@ -1,12 +1,12 @@
-import { AppPageFrame } from "@/components/layout/AppPageFrame";
-import { PageState } from "@/components/ui/PageState";
+import { AppShell } from "@/components/layout/AppShell";
+import { DocumentsPage as DocumentsLibrary } from "@/features/documents/DocumentsPage";
 
 export const dynamic = "force-dynamic";
 
 export default function DocumentsPage() {
   return (
-    <AppPageFrame>
-      <PageState title="Documents" message="No Source Documents loaded." />
-    </AppPageFrame>
+    <AppShell>
+      <DocumentsLibrary />
+    </AppShell>
   );
 }

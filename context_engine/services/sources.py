@@ -1029,6 +1029,9 @@ class SourcePreparationWorker:
                 ),
             )
             .order_by(SourcePreparationOperation.created_at, SourcePreparationOperation.id)
+            # Row lock prevents double-claim across worker processes on Postgres;
+            # SQLAlchemy's SQLite dialect ignores FOR UPDATE, so dev/tests are unaffected.
+            .with_for_update(skip_locked=True)
         )
         if operation is None:
             return None

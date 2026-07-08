@@ -3,7 +3,7 @@ id: F-009
 title: Frontend Delivery Specification
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-08
 depends_on: [F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008]
 supersedes: []
 ---
@@ -15,7 +15,7 @@ Phase: P9
 
 ## Outcome
 
-Build the Next.js UI as a thin client over P1-P8 contracts by **porting** old Context Engine client structure (routes, shell, documents PDF split, graph workspace, chat two-column shell) and **restyling** with Local Studio visual parity.
+Build the Next.js UI as a thin client over Context Engine contracts by adopting the **Local Studio shell and slice architecture** (`.reference-LS-frontend` wide navigation sidebar, feature-slice layout, tokens, primitives) as the app frame, and **porting** old Context Engine structure for the documents (library) and graph routes only. F-012 supersedes the earlier two-column chat direction with a governed chat workbench; chat adopts Local Studio `chat-shell` ergonomics over CE conversations + EVT-001 SSE via a frontend-only adapter. LS surfaces without CE contracts (dashboard, recipes/models, setup wizard, environment controls, usage/cost) remain hidden until F-010.
 
 ## Why Now
 
@@ -27,23 +27,22 @@ Members, Administrators, frontend developers, design reviewers.
 
 ## In Scope
 
-- Next.js App Router, TypeScript, Tailwind, Local Studio-adapted primitives.
-- Public login and authenticated app shell ported from `.references/code/context-engine/client/`.
-- Compact **icon rail** (`AppSideRail`), `AppPageFrame`, global Settings dialog.
-- Routes: `/chat`, `/documents`, `/database-visualize`; optional `/operations`, `/forbidden`.
-- Documents: library table + **inline PDF preview panel** (50% split desktop, drawer mobile).
-- Graph: sigma workspace at `/database-visualize` with domain-scoped controls.
-- Chat: two-column shell with **tabbed `ContextPanelShell`** (v1 tab: `context` evidence); composer supports direct general chat and selected-domain RAG; P7 SSE.
-- Local Studio chat-shell adaptation: retain timeline scrolling, streaming state, compact composer, stop/retry/error UX, Markdown rendering, safe session actions where contracted, and right-panel contextual inspection.
-- Shared Settings dialog split by ownership: personal preferences, admin/provider/runtime settings, and future node/workspace sections stay separated by role and contract.
+- Next.js App Router, TypeScript, Tailwind, Local Studio slice architecture and primitives from `.reference-LS-frontend`.
+- Public login and authenticated app shell using the Local Studio **wide navigation sidebar** (`navigation-sidebar` slice: collapse/pin, resize 188-320px, session search) restyled for Context Engine navigation.
+- Routes: `/chat`, `/documents` (Library), `/database-visualize` (Graph), `/logs` (admin), `/settings`; optional `/forbidden`.
+- Documents: CE-ported library table + **inline PDF preview panel** (50% split desktop, drawer mobile), restyled with LS tokens.
+- Graph: sigma workspace at `/database-visualize` with domain-scoped controls (CE port).
+- Chat: Local Studio `chat-shell` slice (timeline, lifted composer, streaming reducer) wired to CE conversations + EVT-001 SSE via a frontend-only adapter; composer supports direct general chat, selected-domain RAG, governed composer refs (F-012), and P7/F-012 SSE/history state.
+- Local Studio chat-shell adaptation: retain timeline scrolling, streaming state, compact composer, stop/retry/error UX, Markdown rendering, safe session actions where contracted, and contextual evidence inspection.
+- Settings as an LS full-page `/settings` route with `SettingsLayout` section nav, split by ownership: personal preferences, admin/provider/runtime settings, and future node/workspace sections stay separated by role and contract.
+- LS slices without CE contracts (dashboard, recipes-models, setup-wizard, environment-controls, usage-cost-reporting, MCP/runtime-jobs admin sections) stay unregistered/hidden until F-010 contracts exist.
 - Typed API/SSE client and feature-owned endpoint wrappers.
 - Auth/session via HttpOnly cookie only.
 - Local Studio tokens, dark-first theme, dense rows, status grammar, visual acceptance.
 
 ## Out Of Scope
 
-- Local Studio agent runtime, terminal, filesystem, or recipe/model product routes
-- Replacing CE icon rail with Local Studio wide text sidebar
+- Local Studio agent runtime, terminal, filesystem, or recipe/model product routes as working surfaces (nav/routes stay hidden until F-010)
 - Nested `/documents/[id]` route (preview stays inline on `/documents`)
 - Electron/Pi/controller mechanics
 - frontend-owned authorization
@@ -60,9 +59,9 @@ Members, Administrators, frontend developers, design reviewers.
 | --- | --- | --- |
 | FR-001 | Frontend consumes only Context Engine API/SSE through typed wrappers. | API-001, EVT-001 |
 | FR-002 | Browser storage contains no token and 401/403 behavior is stable. | QA-002 |
-| FR-003 | Route and shell structure ports old CE client: login, w-14 icon rail, `/chat`, `/documents`, `/database-visualize`, Settings dialog, logout. | ce-client-port-and-parity.md |
+| FR-003 | Shell uses the Local Studio wide navigation sidebar and route model: login, sidebar nav (Chat, Library, Graph, Logs, Settings), logout. CE-specific routes `/documents` and `/database-visualize` are embedded as sidebar items. LS routes without CE contracts stay hidden. | ce-client-port-and-parity.md |
 | FR-004 | Documents route retains list + inline PDF preview panel pattern from old CE client. | ce-client-port-and-parity.md |
-| FR-005 | Chat route retains two-column shell; right panel uses modular tab registry with v1 `context` tab porting old CE session context and source inspector. Direct LLM turns render with empty context; domain RAG turns populate context from SSE evidence. | context-panel-tabs.md, ce-client-port-and-parity.md |
+| FR-005 | Chat route uses the LS chat-shell slice (timeline, composer, streaming reducer) over CE conversations + EVT-001 SSE through a frontend adapter. Direct LLM turns render without Evidence; domain RAG turns populate Evidence from SSE/history; accepted refs render from safe F-012 metadata. | F-012, ce-client-port-and-parity.md |
 | FR-006 | Visual implementation uses Local Studio tokens/primitives; no white-canvas CE styling in production. | DESIGN.md |
 | FR-007 | Unknown backend shape creates a fixture capture task instead of guessed UI fields. | CON-000 |
 | FR-008 | Future context-panel tabs extend via `CONTEXT_PANEL_TAB_IDS` + router without restructuring chat shell. | context-panel-tabs.md |
@@ -143,9 +142,9 @@ Settings must not expose raw controller URLs, API keys, host paths, runtime port
 
 ### Chat Layout And SSE Gate
 
-- The approved P9 chat layout remains the two-column `LightRagChatShell` plus `ContextPanelShell` until F-009 explicitly accepts a different layout.
-- The proposed three-panel `/chat` mockup is advisory and must be accepted or rejected in F-009 before `T-060` chat shell implementation.
-- Raw EVT-001 SSE transcripts must be captured before streaming UI work: direct LLM success, domain RAG success, no grounded context, evidence-only, terminal error, validation/auth pre-stream JSON errors, duplicate request, and cancel settlement.
+- F-012 explicitly accepts the three-region `/chat` workbench and supersedes the earlier two-column `LightRagChatShell` gate for the governed context assembly slice.
+- The right-side tab registry/router pattern remains required, but v1 F-012 tabs are Evidence, Refs, Source, and Wiki only.
+- Raw EVT-001/F-012 SSE transcripts or reducer fixtures must cover direct LLM success, domain RAG success, no grounded context, evidence-only, terminal error, validation/auth pre-stream JSON errors, duplicate request, cancel settlement, and accepted-ref terminal/replay projection.
 
 ### Blocked Surfaces
 
@@ -164,15 +163,15 @@ Settings must not expose raw controller URLs, API keys, host paths, runtime port
 - AC-006: no secret/path/raw payload in client errors/logs
 - AC-007: Playwright desktop/mobile key flows for login, chat, documents (incl. preview panel), graph
 - AC-008: visual checks at 1440x900, 1280x800, and narrow viewport dark/light
-- AC-009: shell nav order and routes match ce-client-port-and-parity.md
-- AC-010: chat right panel uses ContextPanelShell with `context` tab registry/router; evidence populates context tab from SSE before answer tokens
+- AC-009: shell nav order and routes match ce-client-port-and-parity.md (LS sidebar: Chat, Library, Graph, Logs, Settings; hidden F-010 surfaces absent)
+- AC-010: chat workbench uses the LS chat-shell layout with CE adapter; Evidence and accepted refs populate from CE SSE/history before unsafe browser-owned context is possible
 - AC-011: direct LLM chat turn renders without evidence rows/citations and without exposing route/model/tool controls
 - AC-012: chat shell proves Local Studio timeline/composer/streaming UX is adapted without terminal, filesystem, Git, browser automation, host-skill, Pi-runtime, raw model-controller, or local path controls
 - AC-013: settings surfaces show personal/admin/provider/runtime ownership separately and do not expose raw controller URLs/API keys, host paths, runtime ports, or secret values
 
 ## Open Decisions
 
-- Attachments, source mentions, model-profile selection, pin/archive/export, and right-panel tabs beyond `context` are blocked until API/data contracts capture their safe DTOs and permission rules.
+- Attachments, model-profile selection, pin/archive/export, and right-panel tabs beyond F-012 Evidence/Refs/Source/Wiki inspection are blocked until API/data contracts capture their safe DTOs and permission rules.
 - Workspace-scoped settings/tool registries are blocked until a Workspace product model is approved; do not introduce `workspaceId` in P9 implementation.
 
 - Safe Source Document preview blob API for PDF viewer wiring (blocked until contract captured; UI shell may port first).

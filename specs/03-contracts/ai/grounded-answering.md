@@ -17,7 +17,7 @@ Context Engine answers one user chat turn through one of two server-owned routes
 1. `direct_llm`: narrow direct LLM response for non-domain general chat only.
 2. `domain_rag`: advanced agentic RAG against one selected Knowledge Domain, using exact mapped Evidence, citations, and safe insufficiency fallbacks.
 
-The browser sends the message, optional `domain_id`, and `client_request_id`; it never chooses route, model, prompt, retrieval mode, or tools.
+The browser sends the message, optional `domain_id`, `client_request_id`, and optional F-012 `composer_ref_tokens`; it never chooses route, model, prompt, retrieval mode, tools, template body, or raw context.
 
 ## Guardrails
 
@@ -27,11 +27,30 @@ The browser sends the message, optional `domain_id`, and `client_request_id`; it
 - Intent classification and supplied-domain validation must happen before claiming a running Turn row. A missing required domain, unknown supplied domain, or unavailable supplied domain returns a normal JSON API error and must not create a half-open SSE stream.
 - No prior assistant answers in the prompt.
 - No browser model/provider/prompt/retrieval controls.
-- Domain RAG prompt uses current-turn Evidence and bounded prior user questions only; direct LLM uses bounded conversation context without Evidence or citations.
+- Domain RAG prompt uses current-turn Evidence, validated F-012 assembly context, and bounded prior user questions only; direct LLM uses bounded conversation context plus validated template assembly context when supplied, without Evidence or citations.
 - Citations must reference current-turn evidence IDs.
 - Provider failure after evidence returns evidence-only fallback, not raw provider error.
 - Provider failure after Evidence returns `evidence_only` with no answer tokens in P7. Provider failure before Evidence or during direct LLM returns a safe terminal error.
-- No web search, open tool use, local fallback vector store, or browser-selected tool choice in P7.
+- No web search, open tool use, local fallback vector store, or browser-selected tool choice in P7 or F-012.
+
+## F-012 Prompt Assembly
+
+`PromptAssemblyService` is the only approved prompt assembly path for composer refs and template refs. It runs after composer ref validation and before `TurnOrchestrator` synthesis calls. It receives only server-validated private resolution handles and returns private assembly context to the synthesis adapter; it does not change `ConversationTurn.user_message`, public route selection, retrieval controls, or public DTO shape except for safe accepted-ref metadata.
+
+Assembly order is deterministic:
+
+1. approved template instruction, when a template ref is present;
+2. selected Source context;
+3. selected Wiki context;
+4. selected current-conversation Evidence context;
+5. original user message;
+6. bounded prior user questions already allowed by P7.
+
+Default caps are max 10 refs total, max 4 per kind, template body 2000 characters, wiki revision body 4000 characters, source context 4 eligible blocks or 1000 characters per source, and total assembled context 8000 characters. If caps are exceeded during validation or assembly, the request fails closed with a safe JSON error before SSE opens.
+
+Resolved Source, Wiki, Evidence, and template bodies are server-private. API responses, SSE, logs, traces, fixtures, docs, and screenshots may contain only safe labels, counts, and accepted-ref metadata. No raw prompt, template body, raw source text, raw wiki body, raw Evidence beyond approved Evidence excerpts, private ids, provider payload, raw LightRAG hit, path, runtime URL, or stack trace may be exposed.
+
+Composer refs do not bypass the P7 route gate. Source, Evidence, and Wiki refs require a selected Knowledge Domain; template-only direct LLM is allowed only for non-domain general chat.
 
 ## Advanced Domain RAG Orchestration
 

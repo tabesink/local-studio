@@ -7,14 +7,17 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import inspect
+from sqlalchemy import create_engine, inspect
+from sqlalchemy import delete as sa_delete
 from sqlalchemy.exc import IntegrityError
 
 from context_engine.config import Settings
 from context_engine.db import create_db_engine, create_session_factory, utc_now
 from context_engine.models import (
     DOMAIN_OPERATION_DELETE,
+    DOMAIN_OPERATION_STATUS_CANCELLED,
     DOMAIN_OPERATION_STATUS_QUEUED,
+    DOMAIN_OPERATION_STATUS_SUCCEEDED,
     DOMAIN_STATE_RUNNING,
     DOMAIN_STATE_STOPPED,
     ROLE_MEMBER,
@@ -351,6 +354,65 @@ def test_delete_worker_removes_runtime_resources_and_slug_reuse_gets_fresh_fence
         assert rows == 0
         db.refresh(new_domain)
         assert new_domain.state == DOMAIN_STATE_STOPPED
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_delete_worker_finalizes_operation_when_domain_row_already_gone(app, settings: Settings) -> None:
+    with TestClient(app) as client:
+        _login_admin(client, settings)
+        _configure_openai(client)
+        _create_domain(client, "fatigue")
+        accepted = client.delete("/api/v1/admin/domains/fatigue")
+        assert accepted.status_code == 202
+        operation_id = accepted.json()["operation"]["id"]
+
+    # Plain engine without the FK pragma: remove the domain row while keeping the
+    # queued operation, simulating the domain disappearing before the worker runs.
+    plain_engine = create_engine(settings.database_url, connect_args={"check_same_thread": False}, future=True)
+    try:
+        with plain_engine.begin() as connection:
+            connection.execute(sa_delete(Domain).where(Domain.id == "fatigue"))
+    finally:
+        plain_engine.dispose()
+
+    engine, db = _session(settings)
+    try:
+        assert DomainDeleteWorker(settings).run_once(db) is True
+        operation = db.get(DomainOperation, operation_id)
+        assert operation is not None
+        assert operation.status == DOMAIN_OPERATION_STATUS_SUCCEEDED
+        assert operation.finished_at is not None
+        assert operation.message == "Domain already removed."
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_delete_worker_cancels_operation_when_generation_fence_trips(app, settings: Settings) -> None:
+    with TestClient(app) as client:
+        _login_admin(client, settings)
+        _configure_openai(client)
+        _create_domain(client, "fatigue")
+        accepted = client.delete("/api/v1/admin/domains/fatigue")
+        assert accepted.status_code == 202
+        operation_id = accepted.json()["operation"]["id"]
+
+    engine, db = _session(settings)
+    try:
+        # Simulate a newer control action superseding the queued delete.
+        domain = db.get(Domain, "fatigue")
+        assert domain is not None
+        domain.control_generation += 1
+        db.commit()
+
+        assert DomainDeleteWorker(settings).run_once(db) is True
+        operation = db.get(DomainOperation, operation_id)
+        assert operation is not None
+        assert operation.status == DOMAIN_OPERATION_STATUS_CANCELLED
+        assert operation.finished_at is not None
+        assert db.get(Domain, "fatigue") is not None
     finally:
         db.close()
         engine.dispose()

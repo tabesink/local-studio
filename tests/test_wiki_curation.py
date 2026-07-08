@@ -270,14 +270,17 @@ def test_member_can_create_update_submit_and_admin_can_publish_once(app, setting
 
     assert created.status_code == 201
     assert created.json()["contribution"]["title"] == "Startup sequence"
-    assert created.json()["contribution"]["evidenceRefs"] == [
-        {
-            "evidenceRefId": evidence_ref_id,
-            "citationLabel": "[1]",
-            "sourceLabel": "manual.md",
-            "state": "active",
-        }
-    ]
+    assert created.json()["contribution"]["publishedPageId"] is None
+    assert created.json()["contribution"]["publishedRevisionId"] is None
+    created_refs = created.json()["contribution"]["evidenceRefs"]
+    assert len(created_refs) == 1
+    assert created_refs[0]["id"]
+    assert {key: value for key, value in created_refs[0].items() if key != "id"} == {
+        "evidenceRefId": evidence_ref_id,
+        "citationLabel": "[1]",
+        "sourceLabel": "manual.md",
+        "state": "active",
+    }
     assert not _contains(created.json(), "Approved startup sequence.")
     assert patched.status_code == 200
     assert patched.json()["contribution"]["body"] == "Updated startup sequence."
@@ -302,6 +305,10 @@ def test_member_can_create_update_submit_and_admin_can_publish_once(app, setting
     assert [item["id"] for item in admin_list.json()["contributions"]] == [contribution_id]
     assert published.status_code == 200
     assert published.json()["revision"]["revisionNumber"] == 1
+    assert published.json()["revision"]["wikiPageId"] == published.json()["page"]["id"]
+    assert published.json()["revision"]["publishedAt"] is not None
+    assert published.json()["contribution"]["publishedPageId"] == published.json()["page"]["id"]
+    assert published.json()["contribution"]["publishedRevisionId"] == published.json()["revision"]["id"]
     assert replay.status_code == 200
     assert replay.json()["revision"]["id"] == published.json()["revision"]["id"]
     assert page.status_code == 200

@@ -31,6 +31,7 @@ from context_engine.models import (
     DOMAIN_OPERATION_CREATE,
     DOMAIN_OPERATION_DELETE,
     DOMAIN_OPERATION_START,
+    DOMAIN_OPERATION_STATUS_CANCELLED,
     DOMAIN_OPERATION_STATUS_FAILED,
     DOMAIN_OPERATION_STATUS_QUEUED,
     DOMAIN_OPERATION_STATUS_RUNNING,
@@ -337,6 +338,17 @@ def _finish_operation(
             target_id=operation.domain_id,
             metadata={"operationType": operation.operation_type, "operationStatus": operation.status},
         )
+    db.commit()
+
+
+def _cancel_operation(db: Session, operation: DomainOperation, message: str) -> None:
+    now = utc_now()
+    operation.status = DOMAIN_OPERATION_STATUS_CANCELLED
+    operation.message = message
+    operation.error_code = None
+    operation.error_message = None
+    operation.finished_at = now
+    operation.updated_at = now
     db.commit()
 
 
@@ -694,6 +706,14 @@ class DomainDeleteWorker:
 
         domain = db.get(Domain, operation.domain_id)
         if domain is None:
+            # Goal state already reached: finalize instead of leaving the operation RUNNING.
+            _finish_operation(
+                db,
+                operation,
+                "Domain already removed.",
+                audit_event_name=AUDIT_EVENT_DOMAIN_DELETE_SUCCEEDED,
+                audit_context=AuditContext(actor_kind=AUDIT_ACTOR_WORKER, request_id=operation.request_id),
+            )
             return True
 
         runtime_instance_id = domain.runtime_instance_id
@@ -734,8 +754,17 @@ class DomainDeleteWorker:
 
         current = db.get(Domain, domain.id)
         if current is None:
+            _finish_operation(
+                db,
+                operation,
+                "Domain already removed.",
+                audit_event_name=AUDIT_EVENT_DOMAIN_DELETE_SUCCEEDED,
+                audit_context=AuditContext(actor_kind=AUDIT_ACTOR_WORKER, request_id=operation.request_id),
+            )
             return True
         if current.runtime_instance_id != runtime_instance_id or current.control_generation != control_generation:
+            # A newer control action superseded this delete; do not touch the current runtime.
+            _cancel_operation(db, operation, "Delete superseded by a newer domain operation.")
             return True
         AuditService(db).record(
             AUDIT_EVENT_DOMAIN_DELETE_SUCCEEDED,
@@ -764,6 +793,9 @@ class DomainDeleteWorker:
                 ),
             )
             .order_by(DomainOperation.created_at, DomainOperation.id)
+            # Row lock prevents double-claim across worker processes on Postgres;
+            # SQLAlchemy's SQLite dialect ignores FOR UPDATE, so dev/tests are unaffected.
+            .with_for_update(skip_locked=True)
         )
         if operation is None:
             return None

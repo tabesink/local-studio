@@ -21,6 +21,7 @@ tags:
 ## Notes
 
 - (stub) — promote from specs as P7 work proceeds
+- [[F-012 Governed Context Assembly Overview]] — composer refs + assembly on P7 spine (F-012)
 
 ## Repo sources
 

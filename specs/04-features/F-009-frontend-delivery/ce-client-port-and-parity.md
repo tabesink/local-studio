@@ -3,7 +3,7 @@ id: F-009-PORT
 title: CE Client Port And Local Studio Parity Contract
 status: approved
 owner: Context Engine frontend team
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-08
 depends_on: [F-009, DESIGN.md]
 supersedes: []
 ---
@@ -12,56 +12,56 @@ supersedes: []
 
 ## Governing Rule
 
-P9 frontend uses a **two-source** model:
+P9 frontend uses a **three-source** model:
 
 ```text
-PORT (structure, routes, interaction geometry)
-  ←  .references/code/context-engine/client/
+SHELL + SLICES (sidebar, layout, tokens, primitives, hook/API seams)
+  ←  .reference-LS-frontend/ (Local Studio slice architecture)
 
-RESTYLE (tokens, typography, density, primitives)
-  ←  DESIGN.md + .references/code/local-studio/
+PORT (documents + graph structure and interaction geometry only)
+  ←  .references/code/context-engine/client/ (via F-009 port docs)
 
 WIRE (API/SSE DTOs, auth, eligibility)
-  ←  specs/03-contracts/ P1–P8 only
+  ←  specs/03-contracts/ P1–P8 + F-012 only
 ```
 
-Do not substitute Local Studio product routes (Status, Usage, Recipes, Models) for Context Engine navigation. Do not invent a new information architecture.
+The Local Studio shell and information architecture govern the app frame. Context Engine keeps its own routes embedded in the LS sidebar; LS product surfaces without CE contracts (Status/dashboard, Usage, Recipes/Models, Plugins, Server) stay hidden until F-010.
 
-## App Shell — Port
+## App Shell — Local Studio Sidebar
 
-Reference: `client/src/components/layout/`
+Reference: `.reference-LS-frontend/templates/nextjs-feature-demos/features/navigation-sidebar/` and `_shared/shell/`.
 
 ```text
 layout.tsx → Providers → AppLayout (auth gate)
-              └── AppPageFrame
-                    ├── AppSideRail     ← w-14 compact icon rail
+              └── LS shell
+                    ├── NavigationSidebar   ← wide text sidebar, collapse/pin, resize 188-320px
                     └── route children
-              └── SettingsDialog (global overlay)
 ```
 
-### Side rail (retain order)
+### Sidebar nav (production registry)
 
 | Item | Target | Behavior |
 | --- | --- | --- |
-| Chat | `/chat` | route link |
-| Documents | `/documents` | route link |
-| Knowledge graph | `/database-visualize` | route link; do not rename without spec change |
-| Settings | dialog | `openSettingsDialog("general")`; not a main nav route |
-| Logout | action | bottom of rail |
+| Chat | `/chat` | route link; conversation list in sidebar sessions section |
+| Library | `/documents` | route link (CE port) |
+| Graph | `/database-visualize` | route link (CE port); do not rename route without spec change |
+| Logs | `/logs` | route link; admin-only (audit events + diagnostics) |
+| Settings | `/settings` | full-page LS `SettingsLayout` route |
+| Logout | action | bottom of sidebar |
 
-Restyle rail with Local Studio tokens (`--color-sidebar`, icon `Button`). **Keep** compact icon rail geometry; do not replace with Local Studio's wide text sidebar.
+Hidden until F-010 contracts: Status (dashboard), Usage, Models (recipes), Plugins, Server (environment controls).
 
-## Route Map — Port
+## Route Map
 
-| Route | CE page | CE feature entry |
+| Route | Page | Feature entry |
 | --- | --- | --- |
 | `/` | `app/page.tsx` | redirect → `/chat` |
-| `/login` | `app/login/page.tsx` | standalone, no rail |
-| `/chat` | `app/chat/page.tsx` | `features/chat/ChatRoute.tsx` → `LightRagChatShell` |
-| `/documents` | `app/documents/page.tsx` | `features/documents/DocumentRoute.tsx` |
-| `/database-visualize` | `app/database-visualize/page.tsx` | `features/graph/GraphViewer.tsx` |
-
-Optional compat: `/settings/users` full-page users panel with rail hidden.
+| `/login` | `app/login/page.tsx` | standalone, no sidebar |
+| `/chat` | `app/chat/page.tsx` | `features/chat-shell/` (LS slice + CE adapter) |
+| `/documents` | `app/documents/page.tsx` | `features/documents/` (CE port) |
+| `/database-visualize` | `app/database-visualize/page.tsx` | `features/graph/` (CE port) |
+| `/logs` | `app/logs/page.tsx` | `features/logs-observability/` (LS slice + CE adapter, admin) |
+| `/settings` | `app/settings/page.tsx` | `features/settings-panel/` (LS slice + CE adapter) |
 
 ## Shared Route Chrome
 
@@ -104,19 +104,29 @@ Restyle panel chrome only. PDF render mechanism stays.
 
 `/database-visualize` → `GraphViewer.tsx` with sigma canvas and floating controls (`GraphControl`, `ZoomControl`, `LayoutsControl`, `Legend`, `PropertiesView`, etc.). Domain selector in route header. Restyle floating control surfaces; keep canvas behavior.
 
-## Chat — Port
+## Chat — LS chat-shell Slice + CE Adapter
 
-`LightRagChatShell.tsx` two-column layout:
+Chat uses the Local Studio `chat-shell` slice (timeline, lifted composer, streaming reducer, evidence/context chips) from `.reference-LS-frontend/templates/nextjs-feature-demos/features/chat-shell/`. The slice's `api/` module is the only CE-aware layer:
 
 ```text
-main (flex-1): header + ConversationView + ChatComposer
-ContextPanelShell (tabbed; v1: context tab only)
-  ContextTabPanel → SessionContextNavigation + SourceInspectorPane
+listSessions()          → GET  /api/v1/conversations
+createSession()         → POST /api/v1/conversations
+loadSession(id)         → GET  /api/v1/conversations/{id}   (turns → ChatMessage timeline)
+submitTurn(args)        → POST /api/v1/conversations/{id}/turns:stream (SSE)
+discoverRefs()          → POST /api/v1/composer-refs:discover (F-012)
 ```
 
-Implement tab registry + router per `context-panel-tabs.md` (pattern from Local Studio `ComputerTabPanel`; content from old CE `SidePanel`).
+EVT-001 SSE events translate to LS reducer payloads inside the adapter:
 
-Restyle composer and messages with Local Studio tokens. **Do not** flatten to single column.
+```text
+stage    → running/status indicator
+evidence → evidence chips + inspector data
+token    → text delta
+done     → finalize message (citations, acceptedRefs, budget)
+error    → safe error state
+```
+
+Pi runtime frames, Computer panel, multi-pane grid, queue/steer/compact, and abort are **not** wired (no CE contracts). Abort control stays disabled until a CE cancel contract exists.
 
 ## Local Studio Chat Shell - Adapt, Do Not Copy
 
@@ -134,13 +144,18 @@ P9 must not port Local Studio local-agent behavior:
 
 Context Engine chat remains server-authoritative: FastAPI owns conversation persistence, turn routing, domain authorization, model/profile resolution, retrieval, evidence, citations, redaction, and SSE.
 
-## Settings Dialog — Port
+## Settings — LS Full-Page Route
 
-`SettingsDialog.tsx` with route ids:
+`/settings` uses the LS `settings-panel` slice with `SettingsLayout` (200px sticky section nav). CE-contracted sections only:
 
-`general` | `account` | `knowledge-graph` | `provider` | `document-parsing`
+| Section | CE endpoint |
+| --- | --- |
+| General/Personal | `user-preferences` slice (browser-local, storage allowlist) |
+| Model Provider | `GET/PUT /api/v1/admin/runtime-settings` (admin) |
+| Domains | `GET/POST /api/v1/admin/domains` + start/stop/delete (admin) |
+| Users | `GET /api/v1/admin/users` (admin) |
 
-Admin-only panels gated in UI; backend remains authority. Restyle with Local Studio `SettingsLayout` row grammar.
+Controller, Storage, Hardware, Plugins, and Skills sections stay absent or disabled until F-010 contracts. Admin-only panels gated in UI; backend remains authority.
 
 Settings must be split by ownership even when porting compact Local Studio fact-row UI:
 
@@ -150,12 +165,13 @@ Settings must be split by ownership even when porting compact Local Studio fact-
 
 ## Forbidden
 
-- Replacing CE icon rail with Local Studio product sidebar tabs
-- Hard-coded chat right panel with no tab registry (see `context-panel-tabs.md`)
+- Registering LS product routes (Status, Usage, Recipes/Models, Plugins, Server) before F-010 contracts exist
+- Exposing Pi runtime frames, Computer panel tools, terminal/filesystem/Git/browser tabs, or queue/steer/compact controls
 - Moving PDF preview to a separate route or dropping the 50% inline split
 - Renaming `/database-visualize` without spec update
 - Shipping old CE white-canvas styling in production
 - Copying stale v1 API paths from reference client without contract reconciliation
+- Components or hooks calling CE endpoints directly; only each slice's `api/` adapter may
 
 ## Junior Dev Pack (evidence)
 

@@ -19,7 +19,7 @@ Build only P9 scope, prove it, update evidence, then stop. Do not pull later-pha
 
 | Boundary | Impact |
 | --- | --- |
-| UI | Port old CE client structure from `.references/code/context-engine/client/` (shell, routes, documents PDF split, graph, chat two-column shell with tabbed context panel). Restyle with Local Studio tokens per `DESIGN.md`, `ce-client-port-and-parity.md`, and `context-panel-tabs.md`. |
+| UI | Adopt the Local Studio shell and slice architecture from `.reference-LS-frontend` (navigation-sidebar, chat-shell, settings-panel, logs-observability, user-preferences) and port CE structure for documents/graph only, per the amended `ce-client-port-and-parity.md`. Restyle with Local Studio tokens per `DESIGN.md`. |
 | API/service | Implement only endpoints and services named by this feature. |
 | Data | Frontend owns local UI state only. It does not persist product state or credentials. |
 | Worker/runtime | Only included when named in scope; otherwise absent. |
@@ -34,18 +34,18 @@ Build only P9 scope, prove it, update evidence, then stop. Do not pull later-pha
   - Verification: unit tests, static import/storage scans, typecheck, and production build pass; full visual baseline remains part of AC-008 before feature completion.
 - [x] T-020 [frontend] Implement cookie login/logout/me and route guards.
   - Verification: cookie-native auth wrappers and storage scan pass; live backend browser auth flow remains pending.
-- [x] T-030 [frontend] Port authenticated app shell from CE client: `AppPageFrame`, w-14 `AppSideRail`, Settings dialog entry, forbidden/loading/error states; restyle with LS tokens.
-  - Verification: foundation route and nav-order tests pass; Playwright screenshot matrix remains pending.
-- [ ] T-040 [frontend] Port Settings dialog panels from CE client; restyle with LS `SettingsLayout`; wire only after relevant OpenAPI fixtures exist.
-  - Verification: admin/member and secret-status tests.
-- [ ] T-050 [frontend] Port documents route (table + inline PDF preview panel + upload dialog) from CE client; wire P4/P5 source APIs.
-  - Verification: state-machine, upload, and preview-panel layout tests.
-- [ ] T-060 [frontend] Port chat two-column shell with ContextPanelShell (v1 `context` tab) and SSE slices from CE client; wire direct LLM and domain RAG P7 contracts per `context-panel-tabs.md`.
-  - Verification: SSE fixture/cancel tests; context tab receives domain evidence before answer tokens; direct LLM renders with no evidence rows; Local Studio timeline/composer ergonomics are present without local-agent tools.
-- [ ] T-070 [frontend] Port graph workspace from CE client (`/database-visualize`); implement source-nav/audit when contracts captured.
-  - Verification: contract and visual tests.
-- [ ] T-080 [frontend] Split Settings dialog by ownership: personal preferences, admin runtime/provider configuration, and reserved post-P9 node/workspace sections.
-  - Verification: authz/visual tests show no raw controller URL/API key, host path, runtime port, or secret value in member/admin views.
+- [x] T-030 [frontend] Authenticated app shell. Superseded 2026-07-08: the compact `AppSideRail`/`AppPageFrame` port was replaced by the LS `navigation-sidebar` shell (`features/navigation-sidebar`, `components/layout/AppShell.tsx`) per amended spec/parity docs; forbidden/loading/error states retained.
+  - Verification: foundation route and sidebar nav-registry tests pass; Playwright screenshot matrix remains pending.
+- [x] T-040 [frontend] Settings as LS full-page `/settings` (`features/settings-panel` + `features/user-preferences`): General preferences, Model Provider (runtime-settings), Domains, Users; admin sections role-gated; F-010 sections absent.
+  - Verification: typecheck/build pass; write-only credentials; admin/member browser-authz proof pending.
+- [x] T-050 [frontend] Documents route (`features/documents`): admin library table + upload + source retry/cancel/delete ops; inline preview panel present but disabled pending safe preview contract.
+  - Verification: typecheck/build pass; smoke against live API (sources list 200); preview blob remains gated.
+- [x] T-060 [frontend] Chat via LS `chat-shell` slice (`features/chat-shell`): CE adapter maps conversations + EVT-001 stage/token/evidence/done/error to LS timeline blocks; composer refs (F-012) via mention picker; no local-agent tools; abort disabled (no contract).
+  - Verification: `tests/chat.test.mjs` passes (adapter isolation, EVT-001 translation, forbidden-controls scan); raw transcript fixture replay still pending.
+- [x] T-070 [frontend] Graph route shell at `/database-visualize` (`features/graph`): domain selector + canvas-unavailable state; real graph data remains contract-gated.
+  - Verification: route renders; contract/visual tests pending graph DTOs.
+- [x] T-080 [frontend] Settings ownership split shipped with T-040: personal (browser-local prefs) vs administration (provider/domains/users) sections; reserved node/workspace sections absent.
+  - Verification: no raw controller URL/API key, host path, runtime port, or secret value rendered; storage allowlist scan passes.
 
 ## Slice Gates
 

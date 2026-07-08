@@ -1,12 +1,12 @@
-import { AppPageFrame } from "@/components/layout/AppPageFrame";
-import { PageState } from "@/components/ui/PageState";
+import { AppShell } from "@/components/layout/AppShell";
+import { GraphPage } from "@/features/graph/GraphPage";
 
 export const dynamic = "force-dynamic";
 
 export default function DatabaseVisualizePage() {
   return (
-    <AppPageFrame>
-      <PageState title="Knowledge graph" message="Graph data is unavailable." />
-    </AppPageFrame>
+    <AppShell>
+      <GraphPage />
+    </AppShell>
   );
 }

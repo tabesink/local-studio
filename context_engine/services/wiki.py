@@ -129,18 +129,24 @@ def _audit(
 
 
 def _safe_evidence_ref(ref: WikiContributionEvidenceRef) -> dict[str, Any]:
+    # Invalidated refs must not expose labels as usable citations (DATA-001 redaction rules).
+    invalidated = ref.state != WIKI_CONTRIBUTION_EVIDENCE_REF_STATE_ACTIVE
     return {
+        "id": ref.id,
         "evidenceRefId": ref.conversation_turn_evidence_ref_id,
-        "citationLabel": ref.citation_label,
-        "sourceLabel": ref.source_label,
+        "citationLabel": None if invalidated else ref.citation_label,
+        "sourceLabel": None if invalidated else ref.source_label,
         "state": ref.state,
     }
 
 
 def safe_wiki_contribution(contribution: WikiContribution) -> dict[str, Any]:
+    published_revision = contribution.published_revision
     return {
         "id": contribution.id,
         "targetPageId": contribution.target_wiki_page_id,
+        "publishedPageId": published_revision.wiki_page_id if published_revision is not None else None,
+        "publishedRevisionId": published_revision.id if published_revision is not None else None,
         "title": contribution.title,
         "body": contribution.body,
         "state": contribution.state,
@@ -172,11 +178,12 @@ def _revision_evidence_refs(revision: WikiRevision) -> list[WikiContributionEvid
 def safe_wiki_revision(revision: WikiRevision) -> dict[str, Any]:
     return {
         "id": revision.id,
-        "pageId": revision.wiki_page_id,
+        "wikiPageId": revision.wiki_page_id,
         "revisionNumber": revision.revision_number,
         "title": revision.title,
         "body": revision.body,
         "publishedFromContributionId": revision.published_from_contribution_id,
+        "publishedAt": iso_utc(revision.published_at),
         "evidenceRefs": [_safe_evidence_ref(ref) for ref in _revision_evidence_refs(revision)],
         "createdAt": iso_utc(revision.created_at),
     }
@@ -193,7 +200,7 @@ def list_wiki_pages(db: Session) -> list[dict[str, Any]]:
     pages = db.scalars(
         select(WikiPage)
         .where(WikiPage.state == WIKI_PAGE_STATE_PUBLISHED)
-        .order_by(WikiPage.title, WikiPage.created_at, WikiPage.id)
+        .order_by(WikiPage.updated_at.desc(), WikiPage.created_at.desc(), WikiPage.id)
     )
     return [safe_wiki_page(page) for page in pages]
 
@@ -496,6 +503,7 @@ def publish_wiki_contribution(
         body=contribution.body,
         published_from_contribution_id=contribution.id,
         published_by_user_id=admin.id,
+        published_at=now,
         created_at=now,
     )
     db.add(revision)

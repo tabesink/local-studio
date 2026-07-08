@@ -30,6 +30,7 @@ supersedes: []
 | P6 | `POST /domains/{domain_id}/evidence` |
 | P7 | `GET /conversations`, `POST /conversations`, `GET /conversations/{conversation_id}`, `PATCH /conversations/{conversation_id}`, `DELETE /conversations/{conversation_id}`, `POST /conversations/{conversation_id}/turns:stream` |
 | P8 | `GET /admin/audit-events`, optional `GET /admin/domains/{domain_id}/diagnostics/lightrag` |
+| P12 | `POST /composer-refs:discover`, extended `POST /conversations/{conversation_id}/turns:stream` with `composerRefTokens` |
 | P9 | frontend consumes only captured P1-P8 endpoints through typed feature wrappers |
 | P10 | no new product API for the first runnable-stack gate; Runtime Node/Logs/Usage/storage/Docker environment APIs remain blocked until this contract is patched |
 | P11 | `GET /wiki/pages`, `GET /wiki/pages/{page_id}`, `GET /wiki/pages/{page_id}/revisions`, `GET /wiki/contributions`, `POST /wiki/contributions`, `GET /wiki/contributions/{contribution_id}`, `PATCH /wiki/contributions/{contribution_id}`, `POST /wiki/contributions/{contribution_id}:submit`, `GET /admin/wiki/contributions`, `GET /admin/wiki/contributions/{contribution_id}`, `POST /admin/wiki/contributions/{contribution_id}:publish`, `POST /admin/wiki/contributions/{contribution_id}:reject` |
@@ -579,6 +580,15 @@ The request body may be omitted. Response is `201 { "conversation": Conversation
       "userMessage": "What startup sequence does the manual require?",
       "assistantAnswer": "The approved startup sequence is...",
       "safeError": null,
+      "acceptedRefs": [
+        {
+          "id": "turnref_01",
+          "kind": "source",
+          "order": 1,
+          "label": "manual.md",
+          "description": "Source"
+        }
+      ],
       "evidence": [
         {
           "id": "evref_01",
@@ -609,8 +619,9 @@ Turn summary rules:
 - `assistantAnswer` is null for running, failed, redacted, `no_grounded_context`, and `evidence_only` turns.
 - `safeError` is either null or `{ "code": "safe_error_code", "message": "Safe message." }`.
 - Direct LLM turns have `domainId: null`, `route: "direct_llm"`, `evidence: []`, and `citations: []`.
-- Redacted turns keep `userMessage`, set `status: "redacted"`, `stopReason: "redacted"`, clear `assistantAnswer`, and return empty `evidence` and `citations`. Server-side evidence ref rows are retained with `redacted_at` set and public fields cleared; they are omitted from all public responses and replays.
+- Redacted turns keep `userMessage`, set `status: "redacted"`, `stopReason: "redacted"`, clear `assistantAnswer`, and return empty `acceptedRefs`, `evidence`, and `citations`. Server-side evidence and accepted-ref rows are retained with redaction/invalidation timestamps set and public fields cleared; they are omitted from all public responses and replays.
 - Evidence items expose only the turn-scoped public evidence ref id, citation label, source label, and approved excerpt. They never expose Source Document ids, Source Block ids, paths, raw source text, raw LightRAG hits, or scores.
+- Accepted refs expose only turn-scoped accepted-ref id, kind, order, safe label, and optional safe description. They never expose composer ref tokens, Source Document ids, Source Block ids, Wiki Revision ids, template bodies, prompt text, paths, raw source/wiki text, raw Evidence, raw LightRAG hits, provider payloads, or scores.
 
 `DELETE /conversations/{conversation_id}` deletes only the caller's conversation and returns `204`.
 
@@ -620,15 +631,25 @@ Turn summary rules:
 {
   "clientRequestId": "01J00000000000000000000000",
   "message": "What startup sequence does the manual require?",
-  "domainId": "manuals"
+  "domainId": "manuals",
+  "composerRefTokens": ["opaque_ref_token"]
 }
 ```
 
-`clientRequestId` is required, unique per conversation, 8-80 visible ASCII characters, and safe for logs. `message` is required, trimmed by validation, 1-4000 characters. `domainId` is optional. Domain-specific, source-specific, operational, or ambiguous knowledge questions require a selected available Knowledge Domain before a turn row is claimed.
+`clientRequestId` is required, unique per conversation, 8-80 visible ASCII characters, and safe for logs. `message` is required, trimmed by validation, 1-4000 characters. `domainId` is optional. `composerRefTokens` is optional, max 10 tokens, each 16-256 visible ASCII characters. Domain-specific, source-specific, operational, or ambiguous knowledge questions require a selected available Knowledge Domain before a turn row is claimed.
 
 If `domainId` is supplied, the API validates before claiming a turn that the domain exists, is available by backend rules, and is authorized for the caller, then runs the turn as `domain_rag` even when the message looks like a greeting or other general chat. Direct LLM turns persist `domainId: null` only when no `domainId` was supplied and the server intent gate classifies the message as non-domain general chat. Unknown or unavailable supplied domains fail before a turn row is created.
 
-Forbidden request fields include `route`, `model`, `provider`, `embeddingModel`, `systemPrompt`, `topK`, `reranker`, `hiddenFilter`, `retrievalMode`, `toolChoice`, `apiKey`, `sourcePath`, raw prompt fragments, and provider payloads. Unknown or forbidden control fields return `422`.
+F-012 composer refs:
+
+- Valid composer ref kinds are `source`, `evidence`, `wiki`, and `template`.
+- Source, Evidence, and Wiki refs require a selected `domainId`; template-only direct LLM is allowed without a domain for non-domain general chat.
+- Submitted tokens must have been issued to the caller by Context Engine discovery/catalog surfaces. The browser must not construct tokens from ids, paths, raw source text, prompt text, provider state, or host filesystem state.
+- Every token is revalidated before turn claim: existence, caller authorization, effective-domain compatibility, source query eligibility, Evidence ownership and non-redaction, Wiki published/current eligibility, template approval, and delete/redaction invalidation.
+- Invalid refs fail closed before SSE opens. Silent partial dropping is not allowed.
+- Accepted refs influence only private server prompt assembly. They do not let the browser choose route, retrieval mode, model, provider, tools, or prompt text.
+
+Forbidden request fields include `route`, `model`, `provider`, `embeddingModel`, `systemPrompt`, `topK`, `reranker`, `hiddenFilter`, `retrievalMode`, `toolChoice`, `apiKey`, `sourcePath`, raw prompt fragments, template bodies, ref target ids, source/wiki text, and provider payloads. Unknown or forbidden control fields return `422`.
 
 The server classifies the turn:
 
@@ -649,14 +670,14 @@ For an incoming `clientRequestId`, the server checks the owner-scoped conversati
 
 | Condition | HTTP / stream behavior | Code / replay |
 | --- | --- | --- |
-| Same `clientRequestId`, same message, and same effective domain as a completed turn | `200 text/event-stream` replay from persisted safe data | `done.replay = true`; no provider/retrieval call |
+| Same `clientRequestId`, same message, same effective domain, and same composer-ref fingerprint as a completed turn | `200 text/event-stream` replay from persisted safe data | `done.replay = true`; no provider/retrieval call |
 | Same `clientRequestId` as a completed `no_grounded_context`, `evidence_only`, or redacted turn | `200 text/event-stream` replay from persisted safe terminal state | `done.replay = true`; no provider/retrieval call |
 | Same `clientRequestId` as a failed turn | `200 text/event-stream` replay of persisted safe terminal `error` | `error.replay = true`; no provider/retrieval call |
-| Same `clientRequestId` but different message or different effective domain | `409` JSON error | `client_request_conflict` |
+| Same `clientRequestId` but different message, different effective domain, different route, or different composer-ref fingerprint | `409` JSON error | `client_request_conflict` |
 | Same `clientRequestId` while the original turn is still running | `409` JSON error | `conversation_turn_in_progress` |
 | Different `clientRequestId` while any turn in the conversation is running | `409` JSON error | `conversation_turn_in_progress` |
 
-Replay streams use persisted `conversation_turn_evidence_refs`, `assistant_answer`, `stop_reason`, safe counters, and safe error fields only. They do not reconstruct Evidence from rendered Markdown and do not call the provider, LightRAG, or P6 retriever.
+Replay streams use persisted `conversation_turn_evidence_refs`, `conversation_turn_composer_refs`, `assistant_answer`, `stop_reason`, safe counters, and safe error fields only. They do not revalidate expired composer tokens, reconstruct Evidence from rendered Markdown, rebuild prompt assembly, or call the provider, LightRAG, or P6 retriever.
 
 ### P7 safe errors
 
@@ -670,6 +691,7 @@ Replay streams use persisted `conversation_turn_evidence_refs`, `assistant_answe
 | Supplied domain runtime times out before turn claim | 502 | `domain_runtime_unavailable` |
 | Existing running turn blocks submit or duplicate replay | 409 | `conversation_turn_in_progress` |
 | Same request id with different message/effective domain | 409 | `client_request_conflict` |
+| Composer ref is stale, redacted, deleted, unauthorized, expired, out-of-domain, not query-eligible, or not approved | 409 | `composer_ref_unavailable` |
 | Active synthesis profile is missing or provider is not configured | 409 | `synthesis_profile_not_ready` |
 | Provider fails before any Evidence can be returned | terminal SSE `error` | `provider_failure` |
 | Client disconnect/cancel after stream starts | terminal persisted state | `turn_cancelled` |
@@ -679,6 +701,50 @@ Safe messages are bland and do not echo the submitted message, prompt text, sour
 ### P7 internal mapped evidence bridge
 
 P7 must not widen the public P6 evidence endpoint. Chat uses an internal RetrievalPort result that includes private `source_document_id` and `source_block_id` alongside the safe excerpt/source label so the service can persist `conversation_turn_evidence_refs` for citation validation and redaction. Only the turn-scoped evidence ref id is returned to the browser.
+
+## F-012 Composer Ref Discovery And Templates
+
+`POST /composer-refs:discover` is available to authenticated Members and Administrators. It issues short-lived opaque composer ref tokens for the caller and returns safe metadata only.
+
+Request:
+
+```json
+{
+  "conversationId": "conv_01",
+  "domainId": "manuals",
+  "kinds": ["source", "evidence", "wiki", "template"],
+  "query": "manual",
+  "limit": 10
+}
+```
+
+Rules:
+
+- `conversationId` is optional but required to discover active-conversation Evidence refs.
+- `domainId` is optional for template discovery and required for Source, Evidence, and Wiki discovery.
+- `kinds` defaults to all four kinds and may contain only `source`, `evidence`, `wiki`, or `template`.
+- `query` is optional safe filter text, max 120 characters, and is not persisted as product state.
+- `limit` defaults to 10 and is capped at 25.
+
+Response:
+
+```json
+{
+  "refs": [
+    {
+      "refToken": "opaque_ref_token",
+      "kind": "template",
+      "label": "Grounded answer",
+      "description": "Use the approved grounded-answer style.",
+      "disabledReason": null
+    }
+  ]
+}
+```
+
+`refToken` is opaque and must not encode readable private ids. Public discovery responses never include Source Document ids, Source Block ids, Wiki Revision ids, private Evidence ref ids, template bodies, prompt text, raw source/wiki text, Evidence excerpts beyond already approved Evidence DTOs, paths, provider payloads, raw LightRAG hits, runtime targets, stack traces, credentials, or raw request bodies.
+
+Approved prompt templates are backend catalog records. Member discovery exposes safe names and descriptions only; template body, injection position, and interaction with Evidence are server-owned. Template authoring UI is not part of F-012.
 
 ## P8 Admin Observability Routes
 
