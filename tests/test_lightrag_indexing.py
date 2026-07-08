@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import inspect, select
+from sqlalchemy import inspect
 
 from context_engine.config import Settings
 from context_engine.db import create_db_engine, create_session_factory, utc_now
@@ -39,10 +41,12 @@ from context_engine.services.lightrag_runtime import (
     purge_loaded_lightrag_modules,
 )
 from context_engine.services.indexing import (
+    LightRAGClient,
     LocalLightRAGIndexClient,
     SourceIndexError,
     SourceIndexWorker,
     compute_index_request_id,
+    index_client_from_settings,
     mark_index_ready_if_current,
     render_lightrag_input,
     source_is_query_eligible,
@@ -208,6 +212,105 @@ def test_fresh_migration_adds_source_index_fields_without_history_tables(sqlite_
     assert "ix_source_documents_domain_index_state" in indexes
     assert not {"source_index_operations", "source_index_history", "index_jobs"}.intersection(tables)
     assert not {"rendered_text", "canonical_markdown", "provider_payload", "runtime_url", "storage_path"}.intersection(columns)
+
+
+def test_production_lightrag_client_default_is_native(tmp_path: Path) -> None:
+    settings = Settings(
+        database_url="sqlite:///:memory:",
+        session_cookie_secure=False,
+        domain_runtime_root=str(tmp_path / "domain-runtimes"),
+    )
+    test_settings = Settings(
+        database_url="sqlite:///:memory:",
+        session_cookie_secure=False,
+        domain_runtime_root=str(tmp_path / "test-domain-runtimes"),
+        domain_runtime_controller_kind="local",
+        lightrag_client_kind="local",
+        testing=True,
+    )
+
+    assert isinstance(index_client_from_settings(settings), LightRAGClient)
+    assert isinstance(index_client_from_settings(test_settings), LocalLightRAGIndexClient)
+
+
+def test_native_lightrag_client_uses_global_lifecycle_guard(monkeypatch, tmp_path: Path) -> None:
+    settings = Settings(
+        database_url="sqlite:///:memory:",
+        session_cookie_secure=False,
+        domain_runtime_root=str(tmp_path / "domain-runtimes"),
+    )
+    clients = (LightRAGClient(settings), LightRAGClient(settings))
+    now = utc_now()
+    domains = (
+        Domain(
+            id="guard-a",
+            display_name="Guard A",
+            state=DOMAIN_STATE_RUNNING,
+            embedding_profile_id="openai-embedding-default",
+            runtime_instance_id="runtime-a",
+            control_generation=1,
+            created_at=now,
+            updated_at=now,
+        ),
+        Domain(
+            id="guard-b",
+            display_name="Guard B",
+            state=DOMAIN_STATE_RUNNING,
+            embedding_profile_id="openai-embedding-default",
+            runtime_instance_id="runtime-b",
+            control_generation=1,
+            created_at=now,
+            updated_at=now,
+        ),
+    )
+    rendered = "[CE_BLOCK id=block-one order=1]\nLifecycle guard proof."
+    content_hash = hashlib.sha256(rendered.encode("utf-8")).hexdigest()
+    state_lock = threading.Lock()
+    active = 0
+    max_active = 0
+    entered_domains: list[str] = []
+
+    class FakeRag:
+        async def ainsert(self, rendered_text, *, ids: str, file_paths: str, track_id: str):
+            assert rendered_text == rendered
+            assert ids == track_id
+            assert file_paths.endswith(".ce-source")
+            await asyncio.sleep(0.02)
+            return track_id
+
+    async def fake_new_rag(self, domain: Domain):
+        nonlocal active, max_active
+        with state_lock:
+            active += 1
+            max_active = max(max_active, active)
+            entered_domains.append(domain.id)
+        await asyncio.sleep(0.02)
+        return FakeRag(), {}
+
+    async def fake_close_rag(self, rag, runtime) -> None:
+        nonlocal active
+        await asyncio.sleep(0.02)
+        with state_lock:
+            active -= 1
+
+    monkeypatch.setattr(LightRAGClient, "_new_rag", fake_new_rag)
+    monkeypatch.setattr(LightRAGClient, "_close_rag", fake_close_rag)
+
+    def submit(index: int) -> str:
+        return clients[index].submit(
+            domains[index],
+            request_id=f"guard-request-{index}",
+            content_hash=content_hash,
+            rendered_text=rendered,
+        ).remote_document_id
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(submit, index) for index in range(2)]
+        results = [future.result(timeout=5) for future in futures]
+
+    assert len(results) == 2
+    assert max_active == 1
+    assert set(entered_domains) == {"guard-a", "guard-b"}
 
 
 def test_render_lightrag_input_is_deterministic_and_rejects_invalid_sources(app, settings: Settings) -> None:

@@ -118,6 +118,22 @@ Implement tab registry + router per `context-panel-tabs.md` (pattern from Local 
 
 Restyle composer and messages with Local Studio tokens. **Do not** flatten to single column.
 
+## Local Studio Chat Shell - Adapt, Do Not Copy
+
+The Local Studio chat shell is evidence for interaction quality, not runtime authority. P9 may adapt:
+
+- conversation timeline behavior: auto-scroll at bottom, "new messages" affordance when the user scrolls away, Markdown rendering, collapsible retrieval/activity rows, visible streaming state, retry, stop, and safe error recovery;
+- compact composer grammar: text entry, selected domain/context chips, disabled/running state, keyboard submit, and clear stop/retry affordances;
+- safe session actions when contracted: rename, pin/archive, and export.
+
+P9 must not port Local Studio local-agent behavior:
+
+- terminal, filesystem editor, Git panel, browser automation, host skills, Pi runtime, queue/steer/split-pane runtime controls, local JSONL session authority, or absolute `cwd` paths;
+- browser-held model/controller selection, controller URL/API key storage, runtime port display, provider credentials, prompt/model/tool/retrieval route controls;
+- attachments/source mentions/model-profile controls unless approved API/data contracts exist.
+
+Context Engine chat remains server-authoritative: FastAPI owns conversation persistence, turn routing, domain authorization, model/profile resolution, retrieval, evidence, citations, redaction, and SSE.
+
 ## Settings Dialog — Port
 
 `SettingsDialog.tsx` with route ids:
@@ -125,6 +141,12 @@ Restyle composer and messages with Local Studio tokens. **Do not** flatten to si
 `general` | `account` | `knowledge-graph` | `provider` | `document-parsing`
 
 Admin-only panels gated in UI; backend remains authority. Restyle with Local Studio `SettingsLayout` row grammar.
+
+Settings must be split by ownership even when porting compact Local Studio fact-row UI:
+
+- personal preferences: appearance, density, font, sidebar behavior, and personal chat/archive options when contracted;
+- administration: provider/model/parser settings from P2 and domain/source administration from P3-P5;
+- reserved post-P9 node/workspace settings: node access, runtime engines, diagnostics, Docker environments, shared skills/tools, and workspace policy. These are F-010/F-011 gates and must not appear as working controls in P9 without approved contracts.
 
 ## Forbidden
 

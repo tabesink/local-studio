@@ -20,6 +20,8 @@ Build one phase at a time. Do not let a later phase reopen earlier ownership dec
 | P7 | `specs/04-features/F-007-grounded-streaming-chat/` | durable conversations, direct general chat, and advanced agentic domain RAG over Context Engine SSE |
 | P8 | `specs/04-features/F-008-observability-pilot-gate/` | audit, safe logs, optional tracing, launch evidence |
 | P9 | `specs/04-features/F-009-frontend-delivery/` | thin Next.js UI: **port** old CE client layout/routes/PDF viewer/graph/chat shell; **restyle** with Local Studio parity |
+| P10 | `specs/04-features/F-010-shared-node-operations/` | shared-mode node operations: dashboard, settings split, scoped logs, usage/cost, storage summaries, and Docker environments |
+| P11 | `specs/04-features/F-011-knowledge-curation-workspace/` | wiki library and Smart Composer knowledge curation, review, and publish workflow |
 
 ## Source Of Truth
 
@@ -46,6 +48,7 @@ Use the read-only reference repos only as evidence for implementing the active s
 | `.references/code/lightrag/` | LightRAG library/runtime **read-only evidence** for contract proof and promotion seed (F-003, F-005, F-006). Editable runtime copy lives at `vendor/lightrag/` per ADR-002. |
 | `.references/code/local-studio/` | Local Studio visual parity, tokens, primitives, shell geometry, and interaction patterns |
 | `.references/controllable-rag-fastapi-replication-pkg/` | advanced controllable RAG architecture evidence for F-007 orchestration, bounded retrieval loops, SSE projection, and modular chat shell wiring |
+| `.references/obsidian-smart-composer_impl_docs/` | Smart Composer adaptation evidence for P11 wiki/composer UX, evidence/citation presentation, conversation history, prompt templates, and diff-review ideas. Do not port Obsidian runtime, vault, provider, local RAG, OAuth, MCP, or filesystem-write behavior. |
 
 Do not import behavior from these repos unless the active feature spec and affected contracts allow it.
 
@@ -59,9 +62,11 @@ The frontend is a thin Next.js App Router client over Context Engine API truth.
 
 **Data (wire):** P1–P8 contracts in `specs/03-contracts/` only. Unknown API shape → fixture capture task.
 
+**Shared-mode adaptation:** Local Studio chat, dashboard, settings, logs, usage, and Docker environment patterns are reusable only through Context Engine ownership boundaries. Keep compact timelines, composers, status sheets, fact rows, log viewers, usage tables, and operator workflows; replace browser-selected controller URLs/API keys, host paths, local filesystem/Git/terminal/browser-agent tools, URL-keyed caches, local JSONL session authority, and browser-side cost/storage calculations with server-authorized Context Engine APIs.
+
 Authoritative port contracts: `specs/04-features/F-009-frontend-delivery/ce-client-port-and-parity.md`, `context-panel-tabs.md`
 
-See also `DESIGN.md`, `specs/04-features/F-009-frontend-delivery/ux.md`, and `.references/feature-ce-api-uiux-wirering-brainstorm/` (junior dev evidence pack).
+See also `DESIGN.md`, `specs/04-features/F-009-frontend-delivery/ux.md`, `specs/04-features/F-010-shared-node-operations/`, `specs/04-features/F-011-knowledge-curation-workspace/`, `.references/feature-ce-api-uiux-wirering-brainstorm/` (junior dev evidence pack), and `.references/obsidian-smart-composer_impl_docs/` (Smart Composer adaptation pack).
 
 ## Agent Workflow
 
@@ -83,3 +88,4 @@ Stop and ask for a decision if:
 - browser code would need direct LightRAG, Docker, storage, provider, database, controller, runtime URL, or secret access;
 - a destructive delete, redaction, or migration cannot be tested;
 - any phase requires a generic workflow engine, Redis/RQ/Celery, WebSocket migration, broad plugin system, or second retrieval stack not named by the specs.
+- a UI feature needs raw controller URLs, controller API keys, host paths, runtime ports, browser-computed cost/storage, wiki writes, or review/publish behavior not captured by an approved post-P9 contract.

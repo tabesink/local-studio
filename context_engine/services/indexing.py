@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import logging
 import re
+import threading
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Protocol
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -14,6 +17,8 @@ from sqlalchemy.orm import Session
 from context_engine.config import Settings
 from context_engine.db import utc_now
 from context_engine.models import (
+    AUDIT_EVENT_SOURCE_INDEX_CANCELLED,
+    AUDIT_EVENT_SOURCE_INDEX_RETRY_QUEUED,
     DOMAIN_STATE_DELETING,
     SOURCE_INDEX_REMOTE_STATES,
     SOURCE_INDEX_STATE_ACCEPTED,
@@ -30,10 +35,16 @@ from context_engine.models import (
     SourceBlock,
     SourceDocument,
 )
-from context_engine.services.domains import LocalDomainRuntimeController, controller_from_settings, domain_available
+from context_engine.services.audit import AuditContext, AuditService
+from context_engine.services.domains import DomainRuntimeController, controller_from_settings, domain_available
+from context_engine.services.lightrag_runtime import assert_vendored_lightrag_loaded, ensure_vendored_lightrag_import_path
+from context_engine.services.structured_logging import safe_log
+
+logger = logging.getLogger(__name__)
 
 _RENDER_HEADER_RE = re.compile(r"^\[CE_BLOCK id=([^\] ]+) order=(\d+)\]$", re.MULTILINE)
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,96}$")
+_NATIVE_LIGHTRAG_LIFECYCLE_LOCK = threading.RLock()
 
 
 class SourceIndexError(Exception):
@@ -67,6 +78,18 @@ class IndexReadiness:
 @dataclass(frozen=True)
 class RawRetrievalHit:
     text: str
+
+
+class LightRAGClientProtocol(Protocol):
+    def submit(self, domain: Domain, *, request_id: str, content_hash: str, rendered_text: str) -> IndexSubmitResult: ...
+
+    def readiness(self, domain: Domain, *, request_id: str) -> IndexReadiness: ...
+
+    def delete(self, domain: Domain, *, request_id: str) -> None: ...
+
+    def is_absent(self, domain: Domain, *, request_id: str) -> bool: ...
+
+    def retrieve(self, domain: Domain, *, question: str) -> tuple[RawRetrievalHit, ...]: ...
 
 
 def _safe_error(code: str, message: str) -> SourceIndexError:
@@ -187,7 +210,7 @@ def _rendered_hit_chunks(rendered_text: str) -> list[dict[str, str]]:
 
 
 class LocalLightRAGIndexClient:
-    def __init__(self, settings: Settings, controller: LocalDomainRuntimeController | None = None) -> None:
+    def __init__(self, settings: Settings, controller: DomainRuntimeController | None = None) -> None:
         self._settings = settings
         self._controller = controller or controller_from_settings(settings)
 
@@ -293,8 +316,256 @@ class LocalLightRAGIndexClient:
         return tuple(str(value) for value in values)
 
 
-def index_client_from_settings(settings: Settings) -> LocalLightRAGIndexClient:
-    return LocalLightRAGIndexClient(settings)
+class LightRAGClient:
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+
+    def _working_dir(self, domain: Domain) -> Path:
+        return Path(self._settings.domain_runtime_root) / domain.id / domain.runtime_instance_id / "lightrag"
+
+    def _run(self, coro):
+        # LightRAG 1.4.16 uses module-level shared storage state. Keep native
+        # lifecycle calls process-serialized until per-domain concurrency is proven.
+        with _NATIVE_LIGHTRAG_LIFECYCLE_LOCK:
+            loop = asyncio.new_event_loop()
+            try:
+                asyncio.set_event_loop(loop)
+                return loop.run_until_complete(coro)
+            finally:
+                pending = [task for task in asyncio.all_tasks(loop) if not task.done()]
+                for task in pending:
+                    task.cancel()
+                if pending:
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                loop.run_until_complete(loop.shutdown_asyncgens())
+                asyncio.set_event_loop(None)
+                loop.close()
+
+    def _load_runtime(self):
+        try:
+            ensure_vendored_lightrag_import_path()
+            import lightrag
+            import numpy as np
+            from lightrag import LightRAG
+            from lightrag.base import DocStatus, QueryParam
+            from lightrag.kg.shared_storage import finalize_share_data, initialize_share_data
+            from lightrag.utils import wrap_embedding_func_with_attrs
+
+            assert_vendored_lightrag_loaded(lightrag)
+        except Exception as exc:
+            raise _safe_error("source_index_unavailable", "Source index runtime unavailable.") from exc
+        return {
+            "DocStatus": DocStatus,
+            "LightRAG": LightRAG,
+            "QueryParam": QueryParam,
+            "finalize_share_data": finalize_share_data,
+            "initialize_share_data": initialize_share_data,
+            "np": np,
+            "wrap_embedding_func_with_attrs": wrap_embedding_func_with_attrs,
+        }
+
+    async def _new_rag(self, domain: Domain):
+        runtime = self._load_runtime()
+        runtime["initialize_share_data"](workers=1)
+        np = runtime["np"]
+        wrap_embedding_func_with_attrs = runtime["wrap_embedding_func_with_attrs"]
+
+        @wrap_embedding_func_with_attrs(embedding_dim=8, max_token_size=256, model_name="ce-native-embedding")
+        async def embed(texts, **_kwargs):
+            return np.array(
+                [[float((idx + len(text)) % 7) for idx in range(8)] for text in texts],
+                dtype=np.float32,
+            )
+
+        async def llm(_prompt, system_prompt=None, history_messages=None, **_kwargs):
+            return "synthetic entity"
+
+        working_dir = self._working_dir(domain)
+        working_dir.mkdir(parents=True, exist_ok=True)
+        rag = runtime["LightRAG"](
+            working_dir=str(working_dir),
+            embedding_func=embed,
+            llm_model_func=llm,
+            chunk_token_size=256,
+            chunk_overlap_token_size=0,
+        )
+        await rag.initialize_storages()
+        return rag, runtime
+
+    async def _close_rag(self, rag, runtime) -> None:
+        try:
+            await rag.finalize_storages()
+        finally:
+            runtime["finalize_share_data"]()
+
+    def submit(self, domain: Domain, *, request_id: str, content_hash: str, rendered_text: str) -> IndexSubmitResult:
+        _safe_request_id(request_id)
+        if hashlib.sha256(rendered_text.encode("utf-8")).hexdigest() != content_hash:
+            raise SourceIndexError(409, "source_index_conflict", "Source index request conflict.")
+        if not _rendered_block_ids(rendered_text):
+            raise SourceIndexError(422, "source_index_input_invalid", "Source cannot be indexed.")
+
+        async def op() -> IndexSubmitResult:
+            rag, runtime = await self._new_rag(domain)
+            try:
+                returned = await rag.ainsert(
+                    rendered_text,
+                    ids=request_id,
+                    file_paths=f"{request_id}.ce-source",
+                    track_id=request_id,
+                )
+            finally:
+                await self._close_rag(rag, runtime)
+            if returned not in {None, request_id}:
+                raise _safe_error("source_index_unavailable", "Source index runtime unavailable.")
+            return IndexSubmitResult(remote_document_id=_private_remote_id(request_id))
+
+        try:
+            return self._run(op())
+        except SourceIndexError:
+            raise
+        except Exception as exc:
+            raise _safe_error("source_index_unavailable", "Source index runtime unavailable.") from exc
+
+    def readiness(self, domain: Domain, *, request_id: str) -> IndexReadiness:
+        _safe_request_id(request_id)
+
+        async def op() -> IndexReadiness:
+            rag, runtime = await self._new_rag(domain)
+            try:
+                status = await rag.doc_status.get_by_id(request_id)
+            finally:
+                await self._close_rag(rag, runtime)
+            if status is None:
+                return IndexReadiness(
+                    ready=False,
+                    failed=True,
+                    error_code="source_index_missing",
+                    error_message="Source index content is unavailable.",
+                )
+            raw_status = status.get("status") if isinstance(status, dict) else getattr(status, "status", None)
+            status_value = getattr(raw_status, "value", raw_status)
+            if status_value == "failed":
+                return IndexReadiness(
+                    ready=False,
+                    failed=True,
+                    error_code="source_index_failed",
+                    error_message="Source index failed.",
+                )
+            return IndexReadiness(ready=status_value == "processed")
+
+        try:
+            return self._run(op())
+        except SourceIndexError as exc:
+            return IndexReadiness(ready=False, failed=True, error_code=exc.code, error_message=exc.message)
+        except Exception:
+            return IndexReadiness(
+                ready=False,
+                failed=True,
+                error_code="source_index_unavailable",
+                error_message="Source index runtime unavailable.",
+            )
+
+    def delete(self, domain: Domain, *, request_id: str) -> None:
+        _safe_request_id(request_id)
+
+        async def op() -> None:
+            rag, runtime = await self._new_rag(domain)
+            try:
+                await rag.adelete_by_doc_id(request_id)
+            finally:
+                await self._close_rag(rag, runtime)
+
+        try:
+            self._run(op())
+        except SourceIndexError:
+            raise
+        except Exception as exc:
+            raise _safe_error("source_index_delete_failed", "Source index content could not be removed.") from exc
+
+    def is_absent(self, domain: Domain, *, request_id: str) -> bool:
+        _safe_request_id(request_id)
+
+        async def op() -> bool:
+            rag, runtime = await self._new_rag(domain)
+            try:
+                return await rag.doc_status.get_by_id(request_id) is None
+            finally:
+                await self._close_rag(rag, runtime)
+
+        try:
+            return bool(self._run(op()))
+        except Exception:
+            return False
+
+    def retrieve(self, domain: Domain, *, question: str) -> tuple[RawRetrievalHit, ...]:
+        if not question.strip():
+            raise _safe_error("source_index_unavailable", "Source index runtime unavailable.")
+
+        async def op() -> tuple[RawRetrievalHit, ...]:
+            rag, runtime = await self._new_rag(domain)
+            try:
+                QueryParam = runtime["QueryParam"]
+                result = await rag.aquery_data(question, QueryParam(mode="naive", top_k=10, chunk_top_k=10))
+            finally:
+                await self._close_rag(rag, runtime)
+            if not isinstance(result, dict) or result.get("status") != "success":
+                return ()
+            data = result.get("data")
+            if not isinstance(data, dict):
+                return ()
+            chunks = data.get("chunks")
+            if not isinstance(chunks, list):
+                return ()
+            hits: list[RawRetrievalHit] = []
+            for chunk in chunks:
+                if not isinstance(chunk, dict) or not isinstance(chunk.get("content"), str):
+                    continue
+                for rendered_chunk in _rendered_hit_chunks(chunk["content"]):
+                    hits.append(RawRetrievalHit(text=rendered_chunk["text"]))
+            return tuple(hits)
+
+        try:
+            return self._run(op())
+        except SourceIndexError:
+            raise
+        except Exception as exc:
+            raise _safe_error("source_index_unavailable", "Source index runtime unavailable.") from exc
+
+    def preserved_block_ids(self, domain: Domain, *, request_id: str) -> tuple[str, ...]:
+        _safe_request_id(request_id)
+
+        async def op() -> tuple[str, ...]:
+            rag, runtime = await self._new_rag(domain)
+            try:
+                status = await rag.doc_status.get_by_id(request_id)
+                if status is None:
+                    return ()
+                chunk_ids = status.get("chunks_list") if isinstance(status, dict) else getattr(status, "chunks_list", None)
+                if not chunk_ids:
+                    return ()
+                chunks = await rag.text_chunks.get_by_ids(list(chunk_ids))
+            finally:
+                await self._close_rag(rag, runtime)
+            block_ids: list[str] = []
+            for chunk in chunks:
+                if isinstance(chunk, dict) and isinstance(chunk.get("content"), str):
+                    block_ids.extend(_rendered_block_ids(chunk["content"]))
+            return tuple(block_ids)
+
+        try:
+            return self._run(op())
+        except Exception:
+            return ()
+
+
+def index_client_from_settings(settings: Settings, controller: DomainRuntimeController | None = None) -> LightRAGClientProtocol:
+    kind = settings.lightrag_client_kind.strip().lower()
+    if kind == "native":
+        return LightRAGClient(settings)
+    if kind == "local":
+        return LocalLightRAGIndexClient(settings, controller)
+    raise SourceIndexError(502, "source_index_unavailable", "Source index runtime unavailable.")
 
 
 def _remote_delete_required(source: SourceDocument) -> bool:
@@ -306,7 +577,7 @@ def _delete_remote_if_needed(
     settings: Settings,
     source: SourceDocument,
     request_id: str | None,
-    client: LocalLightRAGIndexClient | None = None,
+    client: LightRAGClientProtocol | None = None,
 ) -> None:
     if not request_id:
         return
@@ -325,7 +596,8 @@ def retry_source_index(
     settings: Settings,
     domain_id: str,
     source_id: str,
-    client: LocalLightRAGIndexClient | None = None,
+    client: LightRAGClientProtocol | None = None,
+    audit_context: AuditContext | None = None,
 ) -> SourceDocument:
     _domain_or_404(db, domain_id)
     source = _source_or_404(db, domain_id, source_id)
@@ -339,6 +611,14 @@ def retry_source_index(
         _delete_remote_if_needed(db, settings, source, old_request_id, client)
 
     _queue_new_generation(db, source)
+    if audit_context is not None:
+        AuditService(db).record(
+            AUDIT_EVENT_SOURCE_INDEX_RETRY_QUEUED,
+            context=audit_context,
+            target_kind="source_document",
+            target_id=source.id,
+            metadata={"indexState": SOURCE_INDEX_STATE_QUEUED},
+        )
     db.commit()
     db.refresh(source)
     return source
@@ -350,7 +630,8 @@ def cancel_source_index(
     settings: Settings,
     domain_id: str,
     source_id: str,
-    client: LocalLightRAGIndexClient | None = None,
+    client: LightRAGClientProtocol | None = None,
+    audit_context: AuditContext | None = None,
 ) -> SourceDocument:
     _domain_or_404(db, domain_id)
     source = _source_or_404(db, domain_id, source_id)
@@ -393,6 +674,14 @@ def cancel_source_index(
     source.index_ready_at = None
     source.index_updated_at = utc_now()
     source.updated_at = source.index_updated_at
+    if audit_context is not None:
+        AuditService(db).record(
+            AUDIT_EVENT_SOURCE_INDEX_CANCELLED,
+            context=audit_context,
+            target_kind="source_document",
+            target_id=source.id,
+            metadata={"indexState": SOURCE_INDEX_STATE_CANCELLED},
+        )
     db.commit()
     db.refresh(source)
     return source
@@ -403,7 +692,7 @@ def cleanup_index_before_source_delete(
     *,
     settings: Settings,
     source: SourceDocument,
-    client: LocalLightRAGIndexClient | None = None,
+    client: LightRAGClientProtocol | None = None,
 ) -> None:
     old_request_id = source.index_request_id
     needs_remote_delete = _remote_delete_required(source) or source.index_state == SOURCE_INDEX_STATE_SUBMITTING
@@ -514,7 +803,7 @@ def mark_index_failed_if_current(db: Session, *, source_id: str, generation: int
 
 
 class SourceIndexWorker:
-    def __init__(self, settings: Settings, client: LocalLightRAGIndexClient | None = None) -> None:
+    def __init__(self, settings: Settings, client: LightRAGClientProtocol | None = None) -> None:
         self._settings = settings
         self._client = client or index_client_from_settings(settings)
 
@@ -594,6 +883,14 @@ class SourceIndexWorker:
             source.updated_at = now
             db.commit()
             db.refresh(source)
+            safe_log(
+                logger,
+                "source_index_worker.claimed",
+                domain_id=source.domain_id,
+                source_id=source.id,
+                index_request_id=source.index_request_id,
+                outcome="succeeded",
+            )
         return source
 
 
@@ -603,7 +900,7 @@ def source_is_query_eligible(
     domain: Domain,
     *,
     settings: Settings | None = None,
-    controller: LocalDomainRuntimeController | None = None,
+    controller: DomainRuntimeController | None = None,
 ) -> bool:
     controller = controller or (controller_from_settings(settings) if settings is not None else None)
     if controller is None or not domain_available(db, domain, controller):

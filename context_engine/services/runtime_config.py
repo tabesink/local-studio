@@ -11,6 +11,11 @@ from sqlalchemy.orm import Session
 from context_engine.config import Settings
 from context_engine.db import utc_now
 from context_engine.models import (
+    AUDIT_EVENT_RUNTIME_DEFAULTS_UPDATED,
+    AUDIT_EVENT_RUNTIME_MODEL_PROFILE_CREATED,
+    AUDIT_EVENT_RUNTIME_MODEL_PROFILE_DELETED,
+    AUDIT_EVENT_RUNTIME_MODEL_PROFILE_UPDATED,
+    AUDIT_EVENT_RUNTIME_PROVIDER_CONFIG_ROTATED,
     MODEL_PROVIDER_KINDS,
     PARSER_DOCLING,
     PARSER_KINDS,
@@ -27,6 +32,7 @@ from context_engine.models import (
     ProviderConfig,
     RuntimeSettings,
 )
+from context_engine.services.audit import AuditContext, AuditService
 
 TEST_CONFIG_ENCRYPTION_KEY = "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
 RUNTIME_SETTINGS_ID = 1
@@ -239,7 +245,13 @@ def _provider_or_error(db: Session, provider_kind: str) -> ProviderConfig:
     return provider
 
 
-def rotate_provider_credential(db: Session, provider_kind: str, credential: str, crypto: SecretCrypto) -> ProviderConfig:
+def rotate_provider_credential(
+    db: Session,
+    provider_kind: str,
+    credential: str,
+    crypto: SecretCrypto,
+    audit_context: AuditContext | None = None,
+) -> ProviderConfig:
     provider = _provider_or_error(db, provider_kind)
     if not provider.requires_credentials:
         raise RuntimeConfigError(422, "provider_credentials_unsupported", "Provider does not accept credentials.")
@@ -247,6 +259,8 @@ def rotate_provider_credential(db: Session, provider_kind: str, credential: str,
     provider.credential_updated_at = utc_now()
     provider.updated_at = provider.credential_updated_at
     _activate_default_synthesis_if_ready(db)
+    if audit_context is not None:
+        AuditService(db).record(AUDIT_EVENT_RUNTIME_PROVIDER_CONFIG_ROTATED, context=audit_context)
     db.commit()
     db.refresh(provider)
     return provider
@@ -316,6 +330,7 @@ def create_model_profile(
     provider_kind: str,
     model_name: str,
     vector_dimensions: int | None,
+    audit_context: AuditContext | None = None,
 ) -> ModelProfile:
     _validate_model_profile(provider_kind, profile_kind, vector_dimensions)
     _validate_model_catalog(provider_kind, profile_kind, model_name, vector_dimensions)
@@ -328,12 +343,19 @@ def create_model_profile(
         vector_dimensions=vector_dimensions,
     )
     db.add(profile)
+    if audit_context is not None:
+        AuditService(db).record(AUDIT_EVENT_RUNTIME_MODEL_PROFILE_CREATED, context=audit_context)
     db.commit()
     db.refresh(profile)
     return profile
 
 
-def update_model_profile(db: Session, profile_id: str, updates: dict[str, Any]) -> ModelProfile:
+def update_model_profile(
+    db: Session,
+    profile_id: str,
+    updates: dict[str, Any],
+    audit_context: AuditContext | None = None,
+) -> ModelProfile:
     profile = db.get(ModelProfile, profile_id)
     if profile is None:
         raise RuntimeConfigError(404, "model_profile_not_found", "Model profile not found.")
@@ -352,12 +374,14 @@ def update_model_profile(db: Session, profile_id: str, updates: dict[str, Any]) 
     if "model_name" in updates:
         profile.model_name = next_model_name
     profile.updated_at = utc_now()
+    if audit_context is not None:
+        AuditService(db).record(AUDIT_EVENT_RUNTIME_MODEL_PROFILE_UPDATED, context=audit_context)
     db.commit()
     db.refresh(profile)
     return profile
 
 
-def delete_model_profile(db: Session, profile_id: str) -> None:
+def delete_model_profile(db: Session, profile_id: str, audit_context: AuditContext | None = None) -> None:
     profile = db.get(ModelProfile, profile_id)
     if profile is None:
         raise RuntimeConfigError(404, "model_profile_not_found", "Model profile not found.")
@@ -366,6 +390,8 @@ def delete_model_profile(db: Session, profile_id: str) -> None:
         raise RuntimeConfigError(409, "model_profile_in_use", "Model profile is in use.")
     _reject_if_embedding_profile_in_use(db, profile)
     db.delete(profile)
+    if audit_context is not None:
+        AuditService(db).record(AUDIT_EVENT_RUNTIME_MODEL_PROFILE_DELETED, context=audit_context)
     db.commit()
 
 
@@ -374,7 +400,11 @@ def _provider_ready_or_error(provider: ProviderConfig) -> None:
         raise RuntimeConfigError(409, "provider_not_ready", "Provider is not configured.")
 
 
-def update_runtime_settings(db: Session, updates: dict[str, Any]) -> RuntimeSettings:
+def update_runtime_settings(
+    db: Session,
+    updates: dict[str, Any],
+    audit_context: AuditContext | None = None,
+) -> RuntimeSettings:
     if not updates:
         raise RuntimeConfigError(422, "empty_runtime_settings_patch", "At least one runtime setting is required.")
 
@@ -402,6 +432,8 @@ def update_runtime_settings(db: Session, updates: dict[str, Any]) -> RuntimeSett
         settings.active_parser_kind = parser_kind
 
     settings.updated_at = utc_now()
+    if audit_context is not None:
+        AuditService(db).record(AUDIT_EVENT_RUNTIME_DEFAULTS_UPDATED, context=audit_context)
     db.commit()
     db.refresh(settings)
     return settings

@@ -25,6 +25,8 @@ def settings(sqlite_url: str, tmp_path: Path) -> Settings:
         session_cookie_secure=False,
         session_ttl_seconds=3600,
         domain_runtime_root=str(tmp_path / "domain-runtimes"),
+        domain_runtime_controller_kind="local",
+        lightrag_client_kind="local",
         source_storage_root=str(tmp_path / "source-storage"),
         testing=True,
     )

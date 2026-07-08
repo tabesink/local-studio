@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import inspect, select
+from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
 from context_engine.config import Settings
@@ -21,7 +22,13 @@ from context_engine.models import (
     DomainOperation,
 )
 from context_engine.services.auth import create_user
-from context_engine.services.domains import DomainDeleteWorker, LocalDomainRuntimeController, update_domain_state_if_current
+from context_engine.services.domains import (
+    DockerDomainRuntimeController,
+    DomainDeleteWorker,
+    LocalDomainRuntimeController,
+    controller_from_settings,
+    update_domain_state_if_current,
+)
 from tests.conftest import run_migrations
 
 
@@ -354,3 +361,77 @@ def test_api_layer_has_no_docker_socket_dependency() -> None:
     assert "docker" not in api_source
     assert "subprocess" not in api_source
     assert LocalDomainRuntimeController.uses_docker_socket is False
+    assert DockerDomainRuntimeController.uses_docker_socket is False
+
+
+def test_production_runtime_controller_default_is_docker_boundary(tmp_path: Path) -> None:
+    settings = Settings(
+        database_url="sqlite:///:memory:",
+        session_cookie_secure=False,
+        domain_runtime_root=str(tmp_path / "domain-runtimes"),
+    )
+
+    assert isinstance(controller_from_settings(settings), DockerDomainRuntimeController)
+
+
+def test_docker_controller_delegates_to_private_command_boundary(tmp_path: Path) -> None:
+    command_script = tmp_path / "controller_command.py"
+    command_script.write_text(
+        "\n".join(
+            [
+                "import json",
+                "import shutil",
+                "import sys",
+                "from pathlib import Path",
+                "action = sys.argv[1]",
+                "payload = json.loads(sys.stdin.read())",
+                "runtime_dir = Path(payload['runtimeDir'])",
+                "state_path = runtime_dir / 'state.json'",
+                "if action in {'provision', 'start'}:",
+                "    runtime_dir.mkdir(parents=True, exist_ok=True)",
+                "    state_path.write_text(json.dumps({'healthy': action == 'start'}), encoding='utf-8')",
+                "    print('{}')",
+                "elif action == 'health':",
+                "    print(state_path.read_text(encoding='utf-8') if state_path.exists() else json.dumps({'healthy': False}))",
+                "elif action == 'stop':",
+                "    runtime_dir.mkdir(parents=True, exist_ok=True)",
+                "    state_path.write_text(json.dumps({'healthy': False}), encoding='utf-8')",
+                "    print('{}')",
+                "elif action == 'delete':",
+                "    shutil.rmtree(runtime_dir, ignore_errors=True)",
+                "    print('{}')",
+                "else:",
+                "    raise SystemExit(2)",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        database_url="sqlite:///:memory:",
+        session_cookie_secure=False,
+        domain_runtime_root=str(tmp_path / "domain-runtimes"),
+        domain_controller_command=f"{sys.executable} {command_script}",
+    )
+    controller = DockerDomainRuntimeController(settings)
+    now = utc_now()
+    domain = Domain(
+        id="commanded",
+        display_name="Commanded",
+        state=DOMAIN_STATE_STOPPED,
+        embedding_profile_id="openai-embedding-default",
+        runtime_instance_id="11111111-1111-4111-8111-111111111111",
+        control_generation=1,
+        created_at=now,
+        updated_at=now,
+    )
+
+    controller.provision(domain)
+    assert controller.health(domain).healthy is False
+    controller.start(domain)
+    assert controller.health(domain).healthy is True
+    controller.stop(domain)
+    assert controller.health(domain).healthy is False
+    runtime_dir = controller.runtime_dir(domain.id, domain.runtime_instance_id)
+    assert runtime_dir.exists()
+    controller.delete(domain)
+    assert not runtime_dir.exists()

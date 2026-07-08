@@ -20,6 +20,7 @@ Thumbs.db
 # Logs and temp
 *.log
 tmp/
+_tmp/
 
 # code references
 .references/code/
@@ -27,6 +28,7 @@ tmp/
 # env files
 .env
 .env.local
+.env.p10.local
 
 # Dependencies and build output
 node_modules/
@@ -46,6 +48,8 @@ next-env.d.ts
 .venv/
 __pycache__/
 .pytest_cache/
+.pytest-tmp*/
+tests/.pytest-tmp/
 *.pyc
 *.sqlite3
 *.egg-info/

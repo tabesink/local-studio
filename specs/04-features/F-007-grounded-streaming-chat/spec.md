@@ -3,7 +3,7 @@ id: F-007
 title: Agentic Chat And Streaming Specification
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-06
 depends_on: [F-006]
 supersedes: []
 ---
@@ -72,6 +72,8 @@ Members, Administrators as chat users, synthesis provider, retrieval service.
 | FR-005 | Missing Evidence in domain RAG returns no-grounded-context and never falls back to direct LLM. | AI-001 |
 | FR-006 | Provider failure after evidence returns evidence-only fallback; no raw provider error. | AI-001 |
 | FR-007 | Source/domain delete redacts derived answer/citations but keeps user question. | DATA-001 |
+| FR-008 | Pre-stream validation, auth, idempotency, and domain errors return canonical JSON errors before SSE opens; completed/failed duplicate requests replay persisted safe turn state without provider or retrieval calls. | API-001, EVT-001 |
+| FR-009 | Chat uses an internal mapped-evidence bridge for private Source Document/Block ids; public API/SSE exposes only turn-scoped evidence refs. | API-001, DATA-001, AI-001 |
 
 ## Contracts And Data
 
@@ -93,7 +95,10 @@ Members, Administrators as chat users, synthesis provider, retrieval service.
 - AC-011: advanced RAG closes over allowed operations and budgets; invalid operation/plan fails closed without LangChain/LangGraph
 - AC-012: SSE stage events expose labels only, never planning text or reasoning
 - AC-013: `fact`, `overview`, and `verbatim` are proven as intent labels over one RetrievalPort/P6 LightRAG path, not separate retrievers
+- AC-014: validation, missing required domain, unknown supplied domain, running-turn, and request-conflict failures return JSON errors before SSE opens
+- AC-015: completed/failed duplicate `clientRequestId` requests replay persisted safe state and do not call provider, LightRAG, or retrieval
+- AC-016: public conversation detail and SSE evidence payloads expose only turn-scoped evidence refs, citation labels, safe source labels, and approved excerpts
 
 ## Open Decisions
 
-No open product decisions are allowed before implementation starts. If a backend/runtime/frontend contract is unknown, create a fixture-capture task and keep the feature blocked until evidence exists.
+No open product decisions are allowed before implementation starts. API/SSE/data edge details for turn summaries, idempotency replay, terminal SSE outcomes, safe errors, title validation, and the private mapped-evidence bridge are closed in API-001, EVT-001, DATA-001, and AI-001.

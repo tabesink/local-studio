@@ -14,7 +14,7 @@ repository/
 │   ├── 01-product/                   # product brief, domain model, business rules, roles
 │   ├── 02-architecture/              # system context, boundaries, data ownership, flows, NFRs, ADRs
 │   ├── 03-contracts/                 # API, SSE, data, and AI contracts
-│   ├── 04-features/                  # P0-P9 phase feature folders
+│   ├── 04-features/                  # P0-P11 phase feature folders
 │   │   ├── F-000-shared-contract/
 │   │   ├── F-001-trusted-application-foundation/
 │   │   ├── F-002-trusted-runtime-config/
@@ -24,7 +24,9 @@ repository/
 │   │   ├── F-006-scoped-evidence-retrieval/
 │   │   ├── F-007-grounded-streaming-chat/
 │   │   ├── F-008-observability-pilot-gate/
-│   │   └── F-009-frontend-delivery/
+│   │   ├── F-009-frontend-delivery/
+│   │   ├── F-010-shared-node-operations/
+│   │   └── F-011-knowledge-curation-workspace/
 │   ├── 05-quality/                   # tests, security/privacy, observability, performance, AI eval
 │   ├── 06-delivery/                  # environments, release/rollback, runbooks
 │   ├── 07-traceability/              # feature register, traceability matrix, change log
@@ -41,7 +43,7 @@ repository/
 2. `specs/00-governance/constitution.md`
 3. `CONTEXT.md`
 4. `DESIGN.md` for frontend work
-5. the relevant P0-P9 feature folder in `specs/04-features/`
+5. the relevant P0-P11 feature folder in `specs/04-features/`
 6. touched contracts in `specs/03-contracts/`
 7. architecture, quality, delivery, and traceability docs as needed
 8. existing code and tests
@@ -63,3 +65,5 @@ Each phase feature contains:
 - `frontend-slice-map.md` — 17 ordered frontend slices
 - `ce-client-port-and-parity.md` — port old CE client structure + Local Studio restyle contract
 - `context-panel-tabs.md` — modular chat right-panel tabs (v1: context/evidence)
+
+`F-010-shared-node-operations/` and `F-011-knowledge-curation-workspace/` are draft post-P9 packages. They include feature-local draft contracts because their behavior introduces new API/data surfaces that must be promoted into `specs/03-contracts/` before implementation starts.

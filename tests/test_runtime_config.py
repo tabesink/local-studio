@@ -9,7 +9,7 @@ from sqlalchemy import func, inspect, select, text
 from context_engine.app import create_app
 from context_engine.config import Settings
 from context_engine.db import create_db_engine, create_session_factory
-from context_engine.models import ModelProfile, ProviderConfig, ROLE_MEMBER
+from context_engine.models import ProviderConfig, ROLE_MEMBER
 from context_engine.services.auth import create_user
 from context_engine.services.runtime_config import (
     DEFAULT_SYNTHESIS_PROFILE_ID,

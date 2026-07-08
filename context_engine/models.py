@@ -101,6 +101,130 @@ SOURCE_INDEX_REMOTE_STATES = (
     SOURCE_INDEX_STATE_ACCEPTED,
     SOURCE_INDEX_STATE_READY,
 )
+TURN_ROUTE_DIRECT_LLM = "direct_llm"
+TURN_ROUTE_DOMAIN_RAG = "domain_rag"
+TURN_ROUTES = (TURN_ROUTE_DIRECT_LLM, TURN_ROUTE_DOMAIN_RAG)
+TURN_STATUS_RUNNING = "running"
+TURN_STATUS_COMPLETED = "completed"
+TURN_STATUS_FAILED = "failed"
+TURN_STATUS_REDACTED = "redacted"
+TURN_STATUSES = (TURN_STATUS_RUNNING, TURN_STATUS_COMPLETED, TURN_STATUS_FAILED, TURN_STATUS_REDACTED)
+TURN_STOP_REASON_DIRECT_LLM = "direct_llm"
+TURN_STOP_REASON_GROUNDED = "grounded"
+TURN_STOP_REASON_NO_GROUNDED_CONTEXT = "no_grounded_context"
+TURN_STOP_REASON_EVIDENCE_ONLY = "evidence_only"
+TURN_STOP_REASON_TURN_BUDGET_EXHAUSTED = "turn_budget_exhausted"
+TURN_STOP_REASON_PROVIDER_FAILURE = "provider_failure"
+TURN_STOP_REASON_CITATION_VALIDATION_FAILED = "citation_validation_failed"
+TURN_STOP_REASON_CANCELLED = "cancelled"
+TURN_STOP_REASON_REDACTED = "redacted"
+TURN_STOP_REASONS = (
+    TURN_STOP_REASON_DIRECT_LLM,
+    TURN_STOP_REASON_GROUNDED,
+    TURN_STOP_REASON_NO_GROUNDED_CONTEXT,
+    TURN_STOP_REASON_EVIDENCE_ONLY,
+    TURN_STOP_REASON_TURN_BUDGET_EXHAUSTED,
+    TURN_STOP_REASON_PROVIDER_FAILURE,
+    TURN_STOP_REASON_CITATION_VALIDATION_FAILED,
+    TURN_STOP_REASON_CANCELLED,
+    TURN_STOP_REASON_REDACTED,
+)
+AUDIT_ACTOR_PUBLIC = "public"
+AUDIT_ACTOR_MEMBER = "member"
+AUDIT_ACTOR_ADMINISTRATOR = "administrator"
+AUDIT_ACTOR_WORKER = "worker"
+AUDIT_ACTOR_SYSTEM = "system"
+AUDIT_ACTOR_KINDS = (
+    AUDIT_ACTOR_PUBLIC,
+    AUDIT_ACTOR_MEMBER,
+    AUDIT_ACTOR_ADMINISTRATOR,
+    AUDIT_ACTOR_WORKER,
+    AUDIT_ACTOR_SYSTEM,
+)
+AUDIT_OUTCOME_SUCCEEDED = "succeeded"
+AUDIT_OUTCOME_FAILED = "failed"
+AUDIT_OUTCOME_DENIED = "denied"
+AUDIT_OUTCOMES = (AUDIT_OUTCOME_SUCCEEDED, AUDIT_OUTCOME_FAILED, AUDIT_OUTCOME_DENIED)
+AUDIT_EVENT_RUNTIME_PROVIDER_CONFIG_ROTATED = "runtime_settings.provider_config_rotated"
+AUDIT_EVENT_RUNTIME_MODEL_PROFILE_CREATED = "runtime_settings.model_profile_created"
+AUDIT_EVENT_RUNTIME_MODEL_PROFILE_UPDATED = "runtime_settings.model_profile_updated"
+AUDIT_EVENT_RUNTIME_MODEL_PROFILE_DELETED = "runtime_settings.model_profile_deleted"
+AUDIT_EVENT_RUNTIME_DEFAULTS_UPDATED = "runtime_settings.defaults_updated"
+AUDIT_EVENT_DOMAIN_CREATED = "domain.created"
+AUDIT_EVENT_DOMAIN_STARTED = "domain.started"
+AUDIT_EVENT_DOMAIN_STOPPED = "domain.stopped"
+AUDIT_EVENT_DOMAIN_DELETE_QUEUED = "domain.delete_queued"
+AUDIT_EVENT_DOMAIN_DELETE_SUCCEEDED = "domain.delete_succeeded"
+AUDIT_EVENT_DOMAIN_DELETE_FAILED = "domain.delete_failed"
+AUDIT_EVENT_SOURCE_UPLOADED = "source.uploaded"
+AUDIT_EVENT_SOURCE_PREPARATION_RETRIED = "source.preparation_retried"
+AUDIT_EVENT_SOURCE_PREPARATION_CANCELLED = "source.preparation_cancelled"
+AUDIT_EVENT_SOURCE_DELETED = "source.deleted"
+AUDIT_EVENT_SOURCE_INDEX_RETRY_QUEUED = "source.index_retry_queued"
+AUDIT_EVENT_SOURCE_INDEX_CANCELLED = "source.index_cancelled"
+AUDIT_EVENT_CHAT_TURN_REDACTED = "chat.turn_redacted"
+AUDIT_EVENT_WIKI_CONTRIBUTION_CREATED = "wiki.contribution_created"
+AUDIT_EVENT_WIKI_CONTRIBUTION_UPDATED = "wiki.contribution_updated"
+AUDIT_EVENT_WIKI_CONTRIBUTION_SUBMITTED = "wiki.contribution_submitted"
+AUDIT_EVENT_WIKI_CONTRIBUTION_PUBLISHED = "wiki.contribution_published"
+AUDIT_EVENT_WIKI_CONTRIBUTION_REJECTED = "wiki.contribution_rejected"
+AUDIT_EVENT_WIKI_CONTRIBUTION_BLOCKED = "wiki.contribution_blocked"
+AUDIT_EVENT_WIKI_PAGE_INVALIDATED = "wiki.page_invalidated"
+AUDIT_EVENT_AUDIT_EVENTS_READ = "audit_events.read"
+AUDIT_EVENT_DIAGNOSTICS_READ = "diagnostics.read"
+AUDIT_EVENT_SECURITY_ADMIN_ROUTE_DENIED = "security.admin_route_denied"
+AUDIT_EVENT_NAMES = (
+    AUDIT_EVENT_RUNTIME_PROVIDER_CONFIG_ROTATED,
+    AUDIT_EVENT_RUNTIME_MODEL_PROFILE_CREATED,
+    AUDIT_EVENT_RUNTIME_MODEL_PROFILE_UPDATED,
+    AUDIT_EVENT_RUNTIME_MODEL_PROFILE_DELETED,
+    AUDIT_EVENT_RUNTIME_DEFAULTS_UPDATED,
+    AUDIT_EVENT_DOMAIN_CREATED,
+    AUDIT_EVENT_DOMAIN_STARTED,
+    AUDIT_EVENT_DOMAIN_STOPPED,
+    AUDIT_EVENT_DOMAIN_DELETE_QUEUED,
+    AUDIT_EVENT_DOMAIN_DELETE_SUCCEEDED,
+    AUDIT_EVENT_DOMAIN_DELETE_FAILED,
+    AUDIT_EVENT_SOURCE_UPLOADED,
+    AUDIT_EVENT_SOURCE_PREPARATION_RETRIED,
+    AUDIT_EVENT_SOURCE_PREPARATION_CANCELLED,
+    AUDIT_EVENT_SOURCE_DELETED,
+    AUDIT_EVENT_SOURCE_INDEX_RETRY_QUEUED,
+    AUDIT_EVENT_SOURCE_INDEX_CANCELLED,
+    AUDIT_EVENT_CHAT_TURN_REDACTED,
+    AUDIT_EVENT_WIKI_CONTRIBUTION_CREATED,
+    AUDIT_EVENT_WIKI_CONTRIBUTION_UPDATED,
+    AUDIT_EVENT_WIKI_CONTRIBUTION_SUBMITTED,
+    AUDIT_EVENT_WIKI_CONTRIBUTION_PUBLISHED,
+    AUDIT_EVENT_WIKI_CONTRIBUTION_REJECTED,
+    AUDIT_EVENT_WIKI_CONTRIBUTION_BLOCKED,
+    AUDIT_EVENT_WIKI_PAGE_INVALIDATED,
+    AUDIT_EVENT_AUDIT_EVENTS_READ,
+    AUDIT_EVENT_DIAGNOSTICS_READ,
+    AUDIT_EVENT_SECURITY_ADMIN_ROUTE_DENIED,
+)
+WIKI_PAGE_STATE_PUBLISHED = "published"
+WIKI_PAGE_STATE_NEEDS_REVIEW = "needs_review"
+WIKI_PAGE_STATE_ARCHIVED = "archived"
+WIKI_PAGE_STATES = (WIKI_PAGE_STATE_PUBLISHED, WIKI_PAGE_STATE_NEEDS_REVIEW, WIKI_PAGE_STATE_ARCHIVED)
+WIKI_CONTRIBUTION_STATE_DRAFT = "draft"
+WIKI_CONTRIBUTION_STATE_SUBMITTED = "submitted"
+WIKI_CONTRIBUTION_STATE_PUBLISHED = "published"
+WIKI_CONTRIBUTION_STATE_REJECTED = "rejected"
+WIKI_CONTRIBUTION_STATE_BLOCKED = "blocked"
+WIKI_CONTRIBUTION_STATES = (
+    WIKI_CONTRIBUTION_STATE_DRAFT,
+    WIKI_CONTRIBUTION_STATE_SUBMITTED,
+    WIKI_CONTRIBUTION_STATE_PUBLISHED,
+    WIKI_CONTRIBUTION_STATE_REJECTED,
+    WIKI_CONTRIBUTION_STATE_BLOCKED,
+)
+WIKI_CONTRIBUTION_EVIDENCE_REF_STATE_ACTIVE = "active"
+WIKI_CONTRIBUTION_EVIDENCE_REF_STATE_INVALIDATED = "invalidated"
+WIKI_CONTRIBUTION_EVIDENCE_REF_STATES = (
+    WIKI_CONTRIBUTION_EVIDENCE_REF_STATE_ACTIVE,
+    WIKI_CONTRIBUTION_EVIDENCE_REF_STATE_INVALIDATED,
+)
 
 
 class User(Base):
@@ -260,6 +384,7 @@ class DomainOperation(Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
+    request_id: Mapped[str | None] = mapped_column(String(80), index=True, nullable=True)
     message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -380,6 +505,7 @@ class SourcePreparationOperation(Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
+    request_id: Mapped[str | None] = mapped_column(String(80), index=True, nullable=True)
     message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -460,3 +586,352 @@ class SourceImage(Base):
 
     source_document: Mapped[SourceDocument] = relationship(back_populates="images")
     source_block: Mapped[SourceBlock] = relationship(back_populates="images")
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+    __table_args__ = (Index("ix_conversations_owner_updated", "owner_user_id", text("updated_at DESC")),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    owner_user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    title: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now, onupdate=utc_now)
+
+    owner: Mapped[User] = relationship()
+    turns: Mapped[list["ConversationTurn"]] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class ConversationTurn(Base):
+    __tablename__ = "conversation_turns"
+    __table_args__ = (
+        CheckConstraint(f"route in {TURN_ROUTES}", name="ck_conversation_turns_route"),
+        CheckConstraint(f"status in {TURN_STATUSES}", name="ck_conversation_turns_status"),
+        CheckConstraint(
+            "stop_reason is null or stop_reason in "
+            "('direct_llm', 'grounded', 'no_grounded_context', 'evidence_only', "
+            "'turn_budget_exhausted', 'provider_failure', 'citation_validation_failed', "
+            "'cancelled', 'redacted')",
+            name="ck_conversation_turns_stop_reason",
+        ),
+        CheckConstraint("plan_step_count >= 0", name="ck_conversation_turns_plan_step_count_nonnegative"),
+        CheckConstraint(
+            "retrieval_operation_count >= 0",
+            name="ck_conversation_turns_retrieval_operation_count_nonnegative",
+        ),
+        CheckConstraint("repair_attempt_count >= 0", name="ck_conversation_turns_repair_attempt_count_nonnegative"),
+        CheckConstraint(
+            "(route = 'domain_rag' and domain_id is not null) or (route = 'direct_llm' and domain_id is null)",
+            name="ck_conversation_turns_route_domain",
+        ),
+        Index("ix_conversation_turns_conversation_created", "conversation_id", text("created_at DESC")),
+        Index("uq_conversation_turns_client_request", "conversation_id", "client_request_id", unique=True),
+        Index(
+            "uq_conversation_turns_one_running",
+            "conversation_id",
+            unique=True,
+            sqlite_where=text("status = 'running'"),
+            postgresql_where=text("status = 'running'"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    conversation_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    client_request_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    trace_id: Mapped[str | None] = mapped_column(String(80), index=True, nullable=True)
+    domain_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+    route: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    stop_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    user_message: Mapped[str] = mapped_column(Text(), nullable=False)
+    assistant_answer: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    safe_error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    safe_error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    plan_step_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    retrieval_operation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    repair_attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now, onupdate=utc_now)
+
+    conversation: Mapped[Conversation] = relationship(back_populates="turns")
+    evidence_refs: Mapped[list["ConversationTurnEvidenceRef"]] = relationship(
+        back_populates="turn",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class ConversationTurnEvidenceRef(Base):
+    __tablename__ = "conversation_turn_evidence_refs"
+    __table_args__ = (
+        CheckConstraint("evidence_order >= 1", name="ck_conversation_turn_evidence_refs_order_positive"),
+        CheckConstraint(
+            "(redacted_at IS NULL) OR (citation_label IS NULL AND source_label IS NULL AND excerpt IS NULL)",
+            name="ck_conversation_turn_evidence_refs_redacted_fields",
+        ),
+        Index("uq_conversation_turn_evidence_refs_order", "turn_id", "evidence_order", unique=True),
+        Index(
+            "uq_conversation_turn_evidence_refs_citation_label",
+            "turn_id",
+            "citation_label",
+            unique=True,
+            sqlite_where=text("redacted_at IS NULL"),
+            postgresql_where=text("redacted_at IS NULL"),
+        ),
+        Index("ix_conversation_turn_evidence_refs_source_document", "source_document_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    turn_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("conversation_turns.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    evidence_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_document_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    source_block_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    citation_label: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    source_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    excerpt: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    redacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
+
+    turn: Mapped[ConversationTurn] = relationship(back_populates="evidence_refs")
+
+
+class WikiPage(Base):
+    __tablename__ = "wiki_pages"
+    __table_args__ = (
+        CheckConstraint(f"state in {WIKI_PAGE_STATES}", name="ck_wiki_pages_state"),
+        Index("ix_wiki_pages_state_title", "state", "title"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default=WIKI_PAGE_STATE_PUBLISHED)
+    current_revision_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("wiki_revisions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now, onupdate=utc_now)
+
+    current_revision: Mapped["WikiRevision | None"] = relationship(
+        foreign_keys=[current_revision_id],
+        post_update=True,
+    )
+    revisions: Mapped[list["WikiRevision"]] = relationship(
+        back_populates="page",
+        foreign_keys="WikiRevision.wiki_page_id",
+    )
+
+
+class WikiRevision(Base):
+    __tablename__ = "wiki_revisions"
+    __table_args__ = (
+        CheckConstraint("revision_number >= 1", name="ck_wiki_revisions_revision_number_positive"),
+        Index("uq_wiki_revisions_page_revision", "wiki_page_id", "revision_number", unique=True),
+        Index("uq_wiki_revisions_published_contribution", "published_from_contribution_id", unique=True),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    wiki_page_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("wiki_pages.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    body: Mapped[str] = mapped_column(Text(), nullable=False)
+    published_from_contribution_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("wiki_contributions.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    published_by_user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
+
+    page: Mapped[WikiPage] = relationship(
+        back_populates="revisions",
+        foreign_keys=[wiki_page_id],
+    )
+    published_from_contribution: Mapped["WikiContribution"] = relationship(
+        back_populates="published_revision",
+        foreign_keys=[published_from_contribution_id],
+    )
+    published_by: Mapped[User | None] = relationship(foreign_keys=[published_by_user_id])
+
+
+class WikiContribution(Base):
+    __tablename__ = "wiki_contributions"
+    __table_args__ = (
+        CheckConstraint(f"state in {WIKI_CONTRIBUTION_STATES}", name="ck_wiki_contributions_state"),
+        Index("ix_wiki_contributions_created_by_state", "created_by_user_id", "state"),
+        Index("ix_wiki_contributions_state_updated", "state", text("updated_at DESC")),
+        Index("ix_wiki_contributions_target_page", "target_wiki_page_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    target_wiki_page_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("wiki_pages.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_by_user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    reviewed_by_user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    body: Mapped[str] = mapped_column(Text(), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default=WIKI_CONTRIBUTION_STATE_DRAFT)
+    reviewer_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now, onupdate=utc_now)
+
+    target_page: Mapped[WikiPage | None] = relationship(foreign_keys=[target_wiki_page_id])
+    created_by: Mapped[User] = relationship(foreign_keys=[created_by_user_id])
+    reviewed_by: Mapped[User | None] = relationship(foreign_keys=[reviewed_by_user_id])
+    evidence_refs: Mapped[list["WikiContributionEvidenceRef"]] = relationship(
+        back_populates="contribution",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="WikiContributionEvidenceRef.ref_order",
+    )
+    published_revision: Mapped[WikiRevision | None] = relationship(
+        back_populates="published_from_contribution",
+        foreign_keys="WikiRevision.published_from_contribution_id",
+        uselist=False,
+    )
+
+
+class WikiContributionEvidenceRef(Base):
+    __tablename__ = "wiki_contribution_evidence_refs"
+    __table_args__ = (
+        CheckConstraint("ref_order >= 1", name="ck_wiki_contribution_evidence_refs_order_positive"),
+        CheckConstraint(
+            f"state in {WIKI_CONTRIBUTION_EVIDENCE_REF_STATES}",
+            name="ck_wiki_contribution_evidence_refs_state",
+        ),
+        Index("uq_wiki_contribution_evidence_refs_order", "wiki_contribution_id", "ref_order", unique=True),
+        Index(
+            "uq_wiki_contribution_evidence_refs_conversation_ref",
+            "wiki_contribution_id",
+            "conversation_turn_evidence_ref_id",
+            unique=True,
+        ),
+        Index("ix_wiki_contribution_evidence_refs_conversation_ref", "conversation_turn_evidence_ref_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    wiki_contribution_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("wiki_contributions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    conversation_turn_evidence_ref_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("conversation_turn_evidence_refs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    ref_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    citation_label: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    source_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default=WIKI_CONTRIBUTION_EVIDENCE_REF_STATE_ACTIVE)
+    invalidated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
+
+    contribution: Mapped[WikiContribution] = relationship(back_populates="evidence_refs")
+    conversation_turn_evidence_ref: Mapped[ConversationTurnEvidenceRef] = relationship()
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "event_name in ("
+            "'runtime_settings.provider_config_rotated', "
+            "'runtime_settings.model_profile_created', "
+            "'runtime_settings.model_profile_updated', "
+            "'runtime_settings.model_profile_deleted', "
+            "'runtime_settings.defaults_updated', "
+            "'domain.created', "
+            "'domain.started', "
+            "'domain.stopped', "
+            "'domain.delete_queued', "
+            "'domain.delete_succeeded', "
+            "'domain.delete_failed', "
+            "'source.uploaded', "
+            "'source.preparation_retried', "
+            "'source.preparation_cancelled', "
+            "'source.deleted', "
+            "'source.index_retry_queued', "
+            "'source.index_cancelled', "
+            "'chat.turn_redacted', "
+            "'wiki.contribution_created', "
+            "'wiki.contribution_updated', "
+            "'wiki.contribution_submitted', "
+            "'wiki.contribution_published', "
+            "'wiki.contribution_rejected', "
+            "'wiki.contribution_blocked', "
+            "'wiki.page_invalidated', "
+            "'audit_events.read', "
+            "'diagnostics.read', "
+            "'security.admin_route_denied'"
+            ")",
+            name="ck_audit_events_event_name",
+        ),
+        CheckConstraint("actor_kind in ('public', 'member', 'administrator', 'worker', 'system')", name="ck_audit_events_actor_kind"),
+        CheckConstraint("outcome in ('succeeded', 'failed', 'denied')", name="ck_audit_events_outcome"),
+        Index("ix_audit_events_created_at", text("created_at DESC")),
+        Index("ix_audit_events_event_created", "event_name", text("created_at DESC")),
+        Index("ix_audit_events_actor_created", "actor_user_id", text("created_at DESC")),
+        Index("ix_audit_events_target_created", "target_kind", "target_id", text("created_at DESC")),
+        Index("ix_audit_events_request_id", "request_id"),
+        Index("ix_audit_events_trace_id", "trace_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    event_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    actor_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    actor_user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    target_kind: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    target_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    trace_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    safe_error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, default=utc_now)
+
+    actor: Mapped[User | None] = relationship()

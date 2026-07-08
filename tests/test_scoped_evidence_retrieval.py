@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from context_engine.app import create_app
 from context_engine.config import Settings
 from context_engine.db import create_db_engine, create_session_factory
 from context_engine.models import (
@@ -19,7 +22,7 @@ from context_engine.models import (
 from context_engine.services.auth import create_user
 from context_engine.services.domains import LocalDomainRuntimeController
 from context_engine.services.evidence import map_retrieval_hits_to_evidence, parse_ce_block_marker
-from context_engine.services.indexing import LocalLightRAGIndexClient, RawRetrievalHit, SourceIndexWorker
+from context_engine.services.indexing import LocalLightRAGIndexClient, RawRetrievalHit, SourceIndexWorker, index_client_from_settings
 from context_engine.services.sources import SourcePreparationWorker
 
 
@@ -80,7 +83,7 @@ def _prepare_source(settings: Settings, source_id: str) -> None:
 
 def _ready_source(settings: Settings, source_id: str) -> str:
     engine, db = _session(settings)
-    client = LocalLightRAGIndexClient(settings)
+    client = index_client_from_settings(settings)
     try:
         assert SourceIndexWorker(settings, client).run_once(db) is True
         assert SourceIndexWorker(settings, client).run_once(db) is True
@@ -181,6 +184,33 @@ def test_app_boundary_retrieval_returns_raw_hit_with_usable_ce_block(app, settin
     markers = [parse_ce_block_marker(hit.text) for hit in hits]
     assert all(marker is not None for marker in markers)
     assert {marker.block_id for marker in markers if marker is not None}.issubset(block_ids)
+
+
+def test_native_lightrag_app_boundary_upload_prepare_index_and_evidence(settings: Settings, migrated_db: str) -> None:
+    pytest.importorskip("json_repair")
+    pytest.importorskip("nano_vectordb")
+    pytest.importorskip("numpy")
+    pytest.importorskip("tiktoken")
+    native_settings = replace(
+        settings,
+        domain_runtime_controller_kind="local",
+        lightrag_client_kind="native",
+    )
+    native_app = create_app(native_settings)
+
+    source_id, _ = _setup_ready_domain(native_app, native_settings, "native", "native.md")
+
+    with TestClient(native_app) as client:
+        _login_admin(client, native_settings)
+        response = client.post("/api/v1/domains/native/evidence", json={"question": "What sequence is required?"})
+
+    assert migrated_db
+    assert source_id
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["result"] == "evidence_found"
+    assert payload["evidence"]
+    _assert_safe_evidence_payload(payload)
 
 
 def test_mapper_discards_foreign_unknown_malformed_and_ineligible_hits(app, settings: Settings) -> None:

@@ -3,7 +3,7 @@ id: EVT-001
 title: Context Engine SSE v1
 status: approved
 owner: Context Engine chat team
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-06
 depends_on: [CON-000, API-001]
 supersedes: []
 ---
@@ -37,16 +37,90 @@ event: error
 `stage` payload:
 
 ```json
-{ "stage": "classifying" }
+{ "turnId": "turn_01", "stage": "classifying" }
 ```
 
 Allowed stage values are `classifying`, `planning`, `retrieving`, `verifying`, `answering`, and `direct_answering`.
 
-`done` payloads include a safe `route` of `direct_llm` or `domain_rag` and a safe `stopReason` such as `direct_llm`, `grounded`, `no_grounded_context`, `evidence_only`, `turn_budget_exhausted`, `provider_failure`, or `citation_validation_failed`.
+`evidence` payload:
+
+```json
+{
+  "turnId": "turn_01",
+  "evidence": [
+    {
+      "id": "evref_01",
+      "citationLabel": "[1]",
+      "sourceLabel": "manual.md",
+      "excerpt": "Bounded evidence excerpt."
+    }
+  ]
+}
+```
+
+`id` is the turn-scoped public evidence reference id, not a Source Document or Source Block id. `citationLabel` is stable for the turn and is the only label that `done.citations` may reference.
+
+`token` payload:
+
+```json
+{ "turnId": "turn_01", "text": "answer text" }
+```
+
+`done` payload:
+
+```json
+{
+  "turnId": "turn_01",
+  "route": "domain_rag",
+  "status": "completed",
+  "stopReason": "grounded",
+  "citations": [
+    { "evidenceRefId": "evref_01", "citationLabel": "[1]" }
+  ],
+  "budget": {
+    "planStepCount": 1,
+    "retrievalOperationCount": 1,
+    "repairAttemptCount": 0
+  },
+  "replay": false
+}
+```
+
+`done.route` is `direct_llm` or `domain_rag`. `done.status` is `completed` or `redacted`. `done.stopReason` is one of `direct_llm`, `grounded`, `no_grounded_context`, `evidence_only`, `turn_budget_exhausted`, or `redacted`. Direct LLM `done` events have an empty `citations` array.
+
+`error` payload:
+
+```json
+{
+  "turnId": "turn_01",
+  "code": "provider_failure",
+  "message": "The answer could not be completed.",
+  "replay": false
+}
+```
+
+`error` is terminal and maps to `conversation_turns.status = failed` unless the request failed before a turn row was created. Validation, authentication, authorization, duplicate-running-turn, and other pre-stream failures return the canonical JSON API error envelope instead of SSE.
+
+## Terminal Outcome Rules
+
+| Outcome | Events | Data result |
+| --- | --- | --- |
+| Direct LLM success | `stage` -> `token`* -> `done` | `route=direct_llm`, `status=completed`, `stopReason=direct_llm`, no Evidence/citations |
+| Grounded domain answer | `stage`* -> `evidence` -> `token`* -> `done` | `route=domain_rag`, `status=completed`, `stopReason=grounded` |
+| No grounded context | `stage`* -> optional empty `evidence` -> `done` | `status=completed`, `stopReason=no_grounded_context`, no answer tokens |
+| Provider failure after Evidence | `stage`* -> `evidence` -> `done` | `status=completed`, `stopReason=evidence_only`, no answer tokens after failure |
+| Provider failure before Evidence or direct LLM failure | `stage`* -> `error` | `status=failed`, safe error code/message |
+| Client disconnect/cancel | stream closes, no further client event required | persisted `status=failed`, `stopReason=cancelled`, `safeErrorCode=turn_cancelled` |
+| Idempotent completed replay | persisted safe events -> `done` | `replay=true`, no provider/retrieval call |
+| Idempotent failed replay | persisted safe terminal `error` | `replay=true`, no provider/retrieval call |
+
+`token`* and `stage`* mean zero or more events. `domain_rag` must emit all non-empty Evidence before any grounded answer token. `no_grounded_context` and `evidence_only` do not emit answer tokens in P7.
 
 ## Safety Rules
 
 SSE payloads must not include raw prompt, raw evidence source text beyond approved excerpts, raw provider payload, raw LightRAG hit, secret, path, runtime URL, stack trace, private source/block IDs, planning text, or chain-of-thought unless a later approved source-ref contract allows it.
+
+P8 request/log/trace context must not change SSE event names, ordering, or payload shape. `trace_id` is private operational metadata and is never emitted in SSE payloads in P8.
 
 ## Fixture Requirement
 

@@ -3,7 +3,7 @@ id: API-001
 title: Context Engine API v1
 status: approved
 owner: Context Engine API team
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-07
 depends_on: [CON-000, ARCH-001]
 supersedes: []
 ---
@@ -28,9 +28,11 @@ supersedes: []
 | P4 | `POST /admin/domains/{domain_id}/sources`, `GET /admin/domains/{domain_id}/sources`, `GET /admin/domains/{domain_id}/sources/{source_id}`, `GET /admin/domains/{domain_id}/sources/{source_id}/outline`, `GET /admin/domains/{domain_id}/sources/{source_id}/operations`, `POST /admin/domains/{domain_id}/sources/{source_id}/retry`, `POST /admin/domains/{domain_id}/sources/{source_id}/cancel`, `DELETE /admin/domains/{domain_id}/sources/{source_id}` |
 | P5 | `POST /admin/domains/{domain_id}/sources/{source_id}/index/retry`, `POST /admin/domains/{domain_id}/sources/{source_id}/index/cancel` |
 | P6 | `POST /domains/{domain_id}/evidence` |
-| P7 | `GET /conversations`, `POST /conversations`, `GET /conversations/{conversation_id}`, `DELETE /conversations/{conversation_id}`, `POST /conversations/{conversation_id}/turns:stream` |
-| P8 | `GET /admin/audit-events`, optional `GET /admin/domains/{domain_id}/diagnostics/lightrag?tail=200` |
+| P7 | `GET /conversations`, `POST /conversations`, `GET /conversations/{conversation_id}`, `PATCH /conversations/{conversation_id}`, `DELETE /conversations/{conversation_id}`, `POST /conversations/{conversation_id}/turns:stream` |
+| P8 | `GET /admin/audit-events`, optional `GET /admin/domains/{domain_id}/diagnostics/lightrag` |
 | P9 | frontend consumes only captured P1-P8 endpoints through typed feature wrappers |
+| P10 | no new product API for the first runnable-stack gate; Runtime Node/Logs/Usage/storage/Docker environment APIs remain blocked until this contract is patched |
+| P11 | `GET /wiki/pages`, `GET /wiki/pages/{page_id}`, `GET /wiki/pages/{page_id}/revisions`, `GET /wiki/contributions`, `POST /wiki/contributions`, `GET /wiki/contributions/{contribution_id}`, `PATCH /wiki/contributions/{contribution_id}`, `POST /wiki/contributions/{contribution_id}:submit`, `GET /admin/wiki/contributions`, `GET /admin/wiki/contributions/{contribution_id}`, `POST /admin/wiki/contributions/{contribution_id}:publish`, `POST /admin/wiki/contributions/{contribution_id}:reject` |
 
 ## Contract Capture Rule
 
@@ -264,7 +266,7 @@ After delete is accepted, the domain is fenced as `deleting`, omitted from membe
 }
 ```
 
-Operation DTOs omit `controlGenerationAtStart`, `leaseOwner`, and `requestedByUserId` in P3.
+Operation DTOs omit `controlGenerationAtStart`, `leaseOwner`, `requestedByUserId`, and P8 `requestId` in P3.
 
 ### Member domain list
 
@@ -378,7 +380,7 @@ content types:
 }
 ```
 
-`GET /admin/domains/{domain_id}/sources/{source_id}/operations` returns `{ "operations": [SourcePreparationOperation] }` ordered by newest first. `SourcePreparationOperation` uses the safe operation DTO from the upload response and omits `preparationGenerationAtStart`, lease fields, and `requestedByUserId`.
+`GET /admin/domains/{domain_id}/sources/{source_id}/operations` returns `{ "operations": [SourcePreparationOperation] }` ordered by newest first. `SourcePreparationOperation` uses the safe operation DTO from the upload response and omits `preparationGenerationAtStart`, lease fields, `requestedByUserId`, and P8 `requestId`.
 
 ### Source actions
 
@@ -529,14 +531,16 @@ Safe messages are bland and suitable for a later UI toast. They never disclose w
 
 All `/conversations*` routes require an authenticated Member or Administrator. Conversation rows are owner-scoped; another user's conversation returns 404, not ownership details.
 
-`GET /conversations` returns:
+Conversation titles are optional user-provided labels. P7 does not auto-generate titles from prompts or answers. A missing, null, or blank title is stored as `null`; UI may render a local "Untitled conversation" fallback. A provided title is trimmed, must be 1-120 characters after trimming, and must not contain control characters. Unknown fields are rejected.
+
+`GET /conversations` returns newest-updated first:
 
 ```json
 {
   "conversations": [
     {
       "id": "conv_01",
-      "title": "Safe generated title",
+      "title": "Manual startup",
       "createdAt": "2026-07-02T12:00:00Z",
       "updatedAt": "2026-07-02T12:05:00Z"
     }
@@ -544,7 +548,71 @@ All `/conversations*` routes require an authenticated Member or Administrator. C
 }
 ```
 
-`POST /conversations` accepts an optional safe title and returns the same safe conversation DTO. `GET /conversations/{conversation_id}` returns the conversation plus safe turn summaries owned by the caller. `DELETE /conversations/{conversation_id}` deletes only the caller's conversation and returns `204`.
+`POST /conversations` accepts:
+
+```json
+{ "title": "Manual startup" }
+```
+
+The request body may be omitted. Response is `201 { "conversation": ConversationSummary }`.
+
+`PATCH /conversations/{conversation_id}` accepts the same `title` field and returns `200 { "conversation": ConversationSummary }`. Setting `title` to null or blank clears the stored title. Other users' conversations return 404.
+
+`GET /conversations/{conversation_id}` returns the conversation plus safe turn summaries owned by the caller:
+
+```json
+{
+  "conversation": {
+    "id": "conv_01",
+    "title": "Manual startup",
+    "createdAt": "2026-07-02T12:00:00Z",
+    "updatedAt": "2026-07-02T12:05:00Z"
+  },
+  "turns": [
+    {
+      "id": "turn_01",
+      "clientRequestId": "01J00000000000000000000000",
+      "domainId": "manuals",
+      "route": "domain_rag",
+      "status": "completed",
+      "stopReason": "grounded",
+      "userMessage": "What startup sequence does the manual require?",
+      "assistantAnswer": "The approved startup sequence is...",
+      "safeError": null,
+      "evidence": [
+        {
+          "id": "evref_01",
+          "citationLabel": "[1]",
+          "sourceLabel": "manual.md",
+          "excerpt": "Bounded evidence excerpt."
+        }
+      ],
+      "citations": [
+        { "evidenceRefId": "evref_01", "citationLabel": "[1]" }
+      ],
+      "budget": {
+        "planStepCount": 1,
+        "retrievalOperationCount": 1,
+        "repairAttemptCount": 0
+      },
+      "createdAt": "2026-07-02T12:00:00Z",
+      "startedAt": "2026-07-02T12:00:01Z",
+      "completedAt": "2026-07-02T12:00:05Z",
+      "updatedAt": "2026-07-02T12:00:05Z"
+    }
+  ]
+}
+```
+
+Turn summary rules:
+
+- `assistantAnswer` is null for running, failed, redacted, `no_grounded_context`, and `evidence_only` turns.
+- `safeError` is either null or `{ "code": "safe_error_code", "message": "Safe message." }`.
+- Direct LLM turns have `domainId: null`, `route: "direct_llm"`, `evidence: []`, and `citations: []`.
+- Redacted turns keep `userMessage`, set `status: "redacted"`, `stopReason: "redacted"`, clear `assistantAnswer`, and return empty `evidence` and `citations`. Server-side evidence ref rows are retained with `redacted_at` set and public fields cleared; they are omitted from all public responses and replays.
+- Evidence items expose only the turn-scoped public evidence ref id, citation label, source label, and approved excerpt. They never expose Source Document ids, Source Block ids, paths, raw source text, raw LightRAG hits, or scores.
+
+`DELETE /conversations/{conversation_id}` deletes only the caller's conversation and returns `204`.
 
 `POST /conversations/{conversation_id}/turns:stream` accepts `application/json` and returns `text/event-stream`.
 
@@ -556,7 +624,9 @@ All `/conversations*` routes require an authenticated Member or Administrator. C
 }
 ```
 
-`domainId` is optional only for direct LLM general chat. Domain-specific, source-specific, operational, or ambiguous knowledge questions require a selected available Knowledge Domain before domain RAG begins.
+`clientRequestId` is required, unique per conversation, 8-80 visible ASCII characters, and safe for logs. `message` is required, trimmed by validation, 1-4000 characters. `domainId` is optional. Domain-specific, source-specific, operational, or ambiguous knowledge questions require a selected available Knowledge Domain before a turn row is claimed.
+
+If `domainId` is supplied, the API validates before claiming a turn that the domain exists, is available by backend rules, and is authorized for the caller, then runs the turn as `domain_rag` even when the message looks like a greeting or other general chat. Direct LLM turns persist `domainId: null` only when no `domainId` was supplied and the server intent gate classifies the message as non-domain general chat. Unknown or unavailable supplied domains fail before a turn row is created.
 
 Forbidden request fields include `route`, `model`, `provider`, `embeddingModel`, `systemPrompt`, `topK`, `reranker`, `hiddenFilter`, `retrievalMode`, `toolChoice`, `apiKey`, `sourcePath`, raw prompt fragments, and provider payloads. Unknown or forbidden control fields return `422`.
 
@@ -567,6 +637,358 @@ The server classifies the turn:
 | `direct_llm` | non-domain general chat | no retrieval, no Evidence, no citations |
 | `domain_rag` | selected available Knowledge Domain | advanced agentic RAG through P6 RetrievalPort |
 
-Missing Evidence in `domain_rag` returns a safe no-grounded-context result and does not retry as direct LLM.
+Missing Evidence in `domain_rag`, including a domain with no query-eligible sources, creates a completed turn with `stopReason: "no_grounded_context"` and does not retry as direct LLM. Provider failure after Evidence creates a completed turn with `stopReason: "evidence_only"` and returns the Evidence without answer tokens. Provider failure before Evidence or during direct LLM emits a safe terminal error.
 
 SSE events follow EVT-001. Public payloads never expose prompts, raw answers before safe projection, raw LightRAG hits, provider payloads, private source/block IDs, runtime URLs, storage paths, stack traces, or tool reasoning.
+
+The route must resolve pre-stream errors before returning `text/event-stream`. Validation, auth, missing/unknown conversation, missing required domain, unknown/unavailable supplied domain, request conflict, and one-running-turn errors return the canonical JSON error envelope instead of a half-open SSE stream.
+
+### P7 idempotency and replay
+
+For an incoming `clientRequestId`, the server checks the owner-scoped conversation before provider or retrieval calls:
+
+| Condition | HTTP / stream behavior | Code / replay |
+| --- | --- | --- |
+| Same `clientRequestId`, same message, and same effective domain as a completed turn | `200 text/event-stream` replay from persisted safe data | `done.replay = true`; no provider/retrieval call |
+| Same `clientRequestId` as a completed `no_grounded_context`, `evidence_only`, or redacted turn | `200 text/event-stream` replay from persisted safe terminal state | `done.replay = true`; no provider/retrieval call |
+| Same `clientRequestId` as a failed turn | `200 text/event-stream` replay of persisted safe terminal `error` | `error.replay = true`; no provider/retrieval call |
+| Same `clientRequestId` but different message or different effective domain | `409` JSON error | `client_request_conflict` |
+| Same `clientRequestId` while the original turn is still running | `409` JSON error | `conversation_turn_in_progress` |
+| Different `clientRequestId` while any turn in the conversation is running | `409` JSON error | `conversation_turn_in_progress` |
+
+Replay streams use persisted `conversation_turn_evidence_refs`, `assistant_answer`, `stop_reason`, safe counters, and safe error fields only. They do not reconstruct Evidence from rendered Markdown and do not call the provider, LightRAG, or P6 retriever.
+
+### P7 safe errors
+
+| Situation | HTTP | Code |
+| --- | --- | --- |
+| Unknown conversation or another user's conversation | 404 | `conversation_not_found` |
+| Bad title, message, request id, or forbidden field | 422 | `validation_error` |
+| Domain-specific or ambiguous request has no selected domain | 422 | `domain_required` |
+| Supplied domain does not exist | 404 | `domain_not_found` |
+| Supplied domain is stopped, deleting, unavailable, or has active lifecycle operation | 409 | `domain_state_conflict` |
+| Supplied domain runtime times out before turn claim | 502 | `domain_runtime_unavailable` |
+| Existing running turn blocks submit or duplicate replay | 409 | `conversation_turn_in_progress` |
+| Same request id with different message/effective domain | 409 | `client_request_conflict` |
+| Active synthesis profile is missing or provider is not configured | 409 | `synthesis_profile_not_ready` |
+| Provider fails before any Evidence can be returned | terminal SSE `error` | `provider_failure` |
+| Client disconnect/cancel after stream starts | terminal persisted state | `turn_cancelled` |
+
+Safe messages are bland and do not echo the submitted message, prompt text, source text, provider payload, runtime URL, storage path, stack trace, private ids, or route reasoning.
+
+### P7 internal mapped evidence bridge
+
+P7 must not widen the public P6 evidence endpoint. Chat uses an internal RetrievalPort result that includes private `source_document_id` and `source_block_id` alongside the safe excerpt/source label so the service can persist `conversation_turn_evidence_refs` for citation validation and redaction. Only the turn-scoped evidence ref id is returned to the browser.
+
+## P8 Admin Observability Routes
+
+P8 adds admin observability routes only. It does not change P1-P7 DTOs, SSE event names, retrieval behavior, redaction behavior, or lifecycle state machines. `conversation_turns.trace_id` is private operational metadata and is not returned by conversation APIs or SSE events. Operation `request_id` fields are backend correlation metadata and are not added to existing operation DTOs in P8.
+
+All P8 admin routes are Administrator-only:
+
+| Caller | Result |
+| --- | --- |
+| Public/no session | `401 unauthenticated` |
+| Authenticated Member | `403 forbidden` and `security.admin_route_denied` audit event |
+| Administrator | route-specific response |
+
+Public unauthenticated auth failures remain safe-log only and do not create audit rows.
+
+### Admin audit events
+
+`GET /admin/audit-events` returns newest-first immutable audit rows with bounded filters. It is the only audit route in P8. There is no audit create, update, delete, export, or retention API.
+
+The read itself is audited before returning. By default, list responses hide `audit_events.read` rows so the route does not fill its first page with self-read events.
+
+Query parameters:
+
+| Parameter | Rule |
+| --- | --- |
+| `limit` | Optional integer, default `50`, min `1`, max `100`. |
+| `cursor` | Optional opaque pagination cursor. |
+| `eventName` | Optional closed `AuditEventName`. |
+| `actorKind` | Optional `public`, `member`, `administrator`, `worker`, or `system`. |
+| `targetKind` | Optional safe target kind. |
+| `targetId` | Optional safe target id. |
+| `requestId` | Optional request id. |
+| `traceId` | Optional trace id. |
+| `createdFrom` | Optional ISO timestamp. |
+| `createdTo` | Optional ISO timestamp. |
+| `includeSelfReads` | Optional boolean, default `false`. When `false`, omit `audit_events.read` rows unless `eventName=audit_events.read` is supplied. When `true`, include self-read rows that match the other filters. |
+
+Response:
+
+```json
+{
+  "auditEvents": [
+    {
+      "id": "audit-event-id",
+      "eventName": "domain.delete_queued",
+      "actorKind": "administrator",
+      "actorUserId": "user-id-or-null",
+      "targetKind": "domain",
+      "targetId": "domain-id",
+      "requestId": "request-id-or-null",
+      "traceId": "trace-id-or-null",
+      "outcome": "succeeded",
+      "safeErrorCode": null,
+      "metadata": { "operationType": "delete" },
+      "createdAt": "2026-07-06T12:00:00Z"
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+Audit DTOs never include usernames, emails, filenames, titles, display names, user questions, assistant answers, prompts, source text, evidence excerpts, Source Block ids, private evidence ref ids, provider payloads, runtime targets, storage targets, stack traces, credentials, or raw request bodies.
+
+Errors:
+
+| Situation | HTTP | Code |
+| --- | --- | --- |
+| Unauthenticated | 401 | `unauthenticated` |
+| Authenticated non-admin | 403 | `forbidden` |
+| Bad filter, cursor, timestamp, enum, or limit | 422 | `validation_error` |
+| Audit write/read unavailable | 503 | `audit_unavailable` |
+
+### Admin LightRAG diagnostics
+
+`GET /admin/domains/{domain_id}/diagnostics/lightrag` is an optional P8 route. If shipped, this is its only approved contract. If the private diagnostics boundary cannot be proven, do not implement a raw proxy; record deferred or blocked evidence in F-008 acceptance instead.
+
+Query parameters:
+
+| Parameter | Rule |
+| --- | --- |
+| `tail` | Optional integer, default `100`, min `1`, max `200`. |
+
+The browser never supplies a path, URL, container id, provider target, runtime target, storage target, or credential. The server resolves the Knowledge Domain and private runtime boundary. Implementations may use a backend-owned redacted per-domain LightRAG runtime log/tail as the source material; raw host logs, container logs, paths, runtime URLs, and controller targets are never proxied to the browser.
+
+Response:
+
+```json
+{
+  "diagnostics": {
+    "domainId": "domain-id",
+    "kind": "lightrag",
+    "capturedAt": "2026-07-06T12:00:00Z",
+    "lineCount": 10,
+    "truncated": false,
+    "lines": [
+      { "message": "redacted diagnostic line" }
+    ]
+  }
+}
+```
+
+Caps:
+
+```text
+max tail lines: 200
+max serialized diagnostics body: 64 KiB
+```
+
+Diagnostics lines are post-redaction safe strings only. They must not include raw provider payloads, raw LightRAG payloads, prompts, user questions, assistant answers, source text, evidence excerpts, credentials, runtime URLs, storage paths, private runtime targets, stack traces, filenames, titles, or display names.
+
+Errors:
+
+| Situation | HTTP | Code |
+| --- | --- | --- |
+| Unauthenticated | 401 | `unauthenticated` |
+| Authenticated non-admin | 403 | `forbidden` |
+| Unknown domain | 404 | `domain_not_found` |
+| Domain state cannot support diagnostics | 409 | `domain_state_conflict` |
+| Bad `tail` or path parameter | 422 | `validation_error` |
+| Diagnostics boundary unavailable | 502 | `diagnostics_unavailable` |
+| Audit write unavailable | 503 | `audit_unavailable` |
+
+Diagnostics reads are audited as `diagnostics.read` with `outcome=succeeded` or `outcome=failed`. A failed diagnostics read uses `safe_error_code=diagnostics_unavailable` when the private boundary cannot answer safely.
+
+## P11 Wiki And Smart Composer Routes
+
+P11 adds manual Wiki Contribution and Wiki Page routes. Smart Composer v1 is a UI workflow over these JSON APIs. P11 does not add AI-assisted drafting, SSE streams, source apply, exports, attachments, archive/delete, or direct source navigation.
+
+All `/wiki*` routes require an authenticated Member or Administrator. All `/admin/wiki*` routes are Administrator-only.
+
+| Caller | Non-admin wiki routes | Admin wiki routes |
+| --- | --- | --- |
+| Public/no session | `401 unauthenticated` | `401 unauthenticated` |
+| Authenticated Member | owner-scoped contribution routes and published Wiki Page reads | `403 forbidden` and `security.admin_route_denied` audit event |
+| Administrator | owner-scoped contribution routes, published/admin Wiki Page reads, and admin review routes | route-specific response |
+
+### Wiki Page reads
+
+`GET /wiki/pages` returns published Wiki Pages for Members and Administrators ordered by newest update first:
+
+```json
+{
+  "pages": [
+    {
+      "id": "wiki_page_01",
+      "title": "Startup checklist",
+      "state": "published",
+      "currentRevisionId": "wiki_rev_01",
+      "updatedAt": "2026-07-07T12:00:00Z"
+    }
+  ]
+}
+```
+
+Members only receive pages where `state = "published"`. Administrators may filter by `state` after this contract captures the query shape; P11 v1 may implement an admin review route instead of widening the member page list.
+
+`GET /wiki/pages/{page_id}` returns a published page and its current immutable revision:
+
+```json
+{
+  "page": {
+    "id": "wiki_page_01",
+    "title": "Startup checklist",
+    "state": "published",
+    "currentRevisionId": "wiki_rev_01",
+    "updatedAt": "2026-07-07T12:00:00Z"
+  },
+  "currentRevision": {
+    "id": "wiki_rev_01",
+    "wikiPageId": "wiki_page_01",
+    "revisionNumber": 1,
+    "title": "Startup checklist",
+    "body": "Curated wiki text.",
+    "publishedFromContributionId": "wiki_contrib_01",
+    "publishedAt": "2026-07-07T12:00:00Z",
+    "evidenceRefs": [
+      {
+        "id": "wiki_evref_01",
+        "evidenceRefId": "evref_01",
+        "citationLabel": "[1]",
+        "sourceLabel": "manual.md",
+        "state": "active"
+      }
+    ]
+  }
+}
+```
+
+`GET /wiki/pages/{page_id}/revisions` returns immutable revision summaries for a published page. Revision body is returned only by page detail in P11 v1. Members do not receive pages or revisions when the page state is `needs_review` or `archived`.
+
+Wiki Page and Revision DTOs never include raw source text, raw Evidence, prompts, assistant answers, provider payloads, raw LightRAG hits, storage paths, runtime targets, Docker targets, stack traces, credentials, private Source Block ids, or private Source Document ids.
+
+### Wiki Contribution owner routes
+
+`GET /wiki/contributions` returns the caller's own contributions ordered by newest update first. It does not list another user's drafts or submitted contributions.
+
+`POST /wiki/contributions` creates a draft contribution.
+
+Request:
+
+```json
+{
+  "targetPageId": null,
+  "title": "Startup checklist",
+  "body": "Draft curated text.",
+  "evidenceRefIds": ["evref_01"]
+}
+```
+
+Rules:
+
+- `targetPageId` is optional. Null means publish will create a new Wiki Page.
+- `title` is required, trimmed, 1-160 characters, and cannot contain control characters.
+- `body` is required, trimmed, 1-20000 characters, and is curated wiki text, not raw source storage.
+- `evidenceRefIds` is optional, max 50 ids. Each id must be an authorized, owner-scoped, non-redacted `conversation_turn_evidence_refs.id` from a completed domain-grounded Turn owned by the caller.
+- Unknown fields are rejected.
+
+Response: `201 { "contribution": WikiContributionDetail }`.
+
+`GET /wiki/contributions/{contribution_id}` returns the caller's own contribution. Another user's contribution returns `404 wiki_contribution_not_found`.
+
+`PATCH /wiki/contributions/{contribution_id}` updates only a draft contribution owned by the caller. It accepts `title`, `body`, and `evidenceRefIds`, each following the create rules. Updating evidence refs replaces the contribution evidence-ref set transactionally. Submitted, published, rejected, or blocked contributions return `409 wiki_contribution_state_conflict`.
+
+`POST /wiki/contributions/{contribution_id}:submit` submits a caller-owned draft for review. It validates that stored evidence refs are still authorized and not redacted, then returns `200 { "contribution": WikiContributionDetail }` with `state = "submitted"`.
+
+Safe contribution detail:
+
+```json
+{
+  "id": "wiki_contrib_01",
+  "targetPageId": null,
+  "publishedPageId": null,
+  "publishedRevisionId": null,
+  "title": "Startup checklist",
+  "body": "Draft curated text.",
+  "state": "draft",
+  "reviewerNote": null,
+  "evidenceRefs": [
+    {
+      "id": "wiki_evref_01",
+      "evidenceRefId": "evref_01",
+      "citationLabel": "[1]",
+      "sourceLabel": "manual.md",
+      "state": "active"
+    }
+  ],
+  "createdAt": "2026-07-07T11:00:00Z",
+  "updatedAt": "2026-07-07T11:05:00Z",
+  "submittedAt": null,
+  "reviewedAt": null
+}
+```
+
+Safe contribution DTOs never include another user's private draft, usernames, emails, raw user questions, raw assistant answers, raw source text, raw Evidence excerpts, private Source Document ids, private Source Block ids, provider payloads, prompts, storage paths, runtime targets, Docker targets, stack traces, credentials, or raw request bodies.
+
+### Admin review routes
+
+`GET /admin/wiki/contributions` returns submitted, blocked, published, or rejected contribution summaries for review. P11 v1 requires bounded pagination if implementation can return more than 100 rows; otherwise `limit` defaults to 50 and maxes at 100.
+
+`GET /admin/wiki/contributions/{contribution_id}` returns a safe contribution detail for Administrator review. Draft contributions that have never been submitted remain owner-private in P11 v1 and return `404 wiki_contribution_not_found` to this admin route unless this contract is later patched.
+
+`POST /admin/wiki/contributions/{contribution_id}:publish` publishes a submitted contribution in one backend transaction:
+
+1. Validate Administrator role.
+2. Validate contribution state is `submitted`.
+3. Validate evidence refs are still active and authorized.
+4. Lock or version-check the target Wiki Page/contribution.
+5. Create one immutable Wiki Revision.
+6. Create a Wiki Page if `targetPageId` is null, otherwise update the existing page's current revision pointer.
+7. Mark the contribution `published`.
+8. Write a safe audit row in the same transaction.
+
+Request body may be omitted. Response is `200 { "page": WikiPageSummary, "revision": WikiRevisionDetail, "contribution": WikiContributionDetail }`.
+
+Publishing an already published contribution returns the existing safe publish result and does not create a second revision. Publishing a rejected, draft, blocked, unauthorized, stale, or conflicting contribution fails safely.
+
+`POST /admin/wiki/contributions/{contribution_id}:reject` rejects a submitted contribution.
+
+Request:
+
+```json
+{ "reviewerNote": "Needs additional support." }
+```
+
+`reviewerNote` is optional, trimmed, max 500 characters, safe text only, and must not contain prompts, source text, provider payloads, stack traces, paths, or private ids. Response is `200 { "contribution": WikiContributionDetail }`.
+
+Protected admin review mutations record audit rows. If audit write fails, the product mutation is rolled back and the API returns `503 audit_unavailable`.
+
+### Redaction and invalidation behavior
+
+When a Source Document or Knowledge Domain delete/redaction invalidates a `conversation_turn_evidence_refs` row referenced by P11:
+
+- draft or submitted Wiki Contributions with that ref become `blocked` and cannot be submitted or published until a later contract defines repair behavior;
+- published Wiki Revisions remain immutable;
+- the affected Wiki Page state becomes `needs_review` when its current revision references invalidated context;
+- Members no longer receive `needs_review` pages from `/wiki/pages` or `/wiki/pages/{page_id}`;
+- Administrators can still inspect safe metadata through admin review surfaces after the admin route is implemented.
+
+### P11 safe errors
+
+| Situation | HTTP | Code |
+| --- | --- | --- |
+| Unauthenticated | 401 | `unauthenticated` |
+| Authenticated Member on admin wiki route | 403 | `forbidden` |
+| Unknown page, unavailable page, or page hidden by role/state | 404 | `wiki_page_not_found` |
+| Unknown contribution, another user's contribution, or private draft on admin route | 404 | `wiki_contribution_not_found` |
+| Invalid title, body, reviewer note, evidence ref list, filter, cursor, enum, or forbidden field | 422 | `validation_error` |
+| Invalid contribution state transition | 409 | `wiki_contribution_state_conflict` |
+| Evidence context is unavailable, redacted, unauthorized, stale, or not a completed domain-grounded evidence ref | 409 | `wiki_contribution_context_unavailable` |
+| Concurrent/stale page publish conflict | 409 | `wiki_page_conflict` |
+| Audit write unavailable for protected admin mutation | 503 | `audit_unavailable` |
+
+All P11 messages are safe and bland. They never echo submitted body text, raw source text, user questions, assistant answers, prompts, provider payloads, runtime targets, storage targets, Docker targets, stack traces, private Source Block ids, credentials, or raw request bodies.

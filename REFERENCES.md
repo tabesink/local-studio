@@ -14,6 +14,7 @@ These files were used to populate the active spec-driven scaffold. They remain r
 | `.references/code/lightrag/` | external LightRAG library/runtime **read-only evidence** for private Context Engine runtime integration (F-003, F-005, F-006); promotion seed only — editable runtime copy lives at `vendor/lightrag/` per ADR-002 |
 | `.references/code/local-studio/` | Local Studio visual restyle: tokens, primitives, density, interaction patterns |
 | `.references/controllable-rag-fastapi-replication-pkg/` | advanced controllable RAG FastAPI architecture evidence for F-007 TurnOrchestrator, RetrievalPort reuse, bounded agent loops, and safe SSE projection |
+| `.references/obsidian-smart-composer_impl_docs/` | Smart Composer adaptation evidence for F-011 wiki/composer UX, evidence/citation presentation, conversation history, prompt-template, and diff-review ideas; not runtime authority |
 | `.references/local-studio-tab-patterns.md` | LS tab systems (Computer panel tabs, PaneGrid, ui/tabs) — junior dev reference |
 | `.references/context_engine_fullstack_impl_docs/phase_plan/*.md` | F-000 through F-009 feature plans |
 | `.references/context_engine_fullstack_impl_docs/slices/*.md` | frontend vertical-slice build order inside F-009 |
@@ -25,4 +26,5 @@ These files were used to populate the active spec-driven scaffold. They remain r
 - Do not edit `.references/`.
 - Do not copy stale v1 API paths blindly. Active specs and reconciled phase plans win when they conflict with reference code.
 - **Port** layout, routes, and interaction geometry from `context-engine/client/`. **Restyle** with Local Studio tokens per `DESIGN.md`. **Wire** data from `specs/03-contracts/` only.
+- From Smart Composer docs, reuse interaction ideas only after spec promotion; do not port Obsidian APIs, local vault persistence, direct provider calls, local RAG, OAuth, MCP, or filesystem write behavior.
 - Capture runtime/OpenAPI fixtures before wiring any API shape marked verify or unknown.

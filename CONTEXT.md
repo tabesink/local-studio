@@ -48,6 +48,34 @@ _Avoid_: Message when the domain/retrieval boundary matters
 Removal of derived answer and citation content from chat history after a source or domain hard delete, while preserving the user's original question.
 _Avoid_: Soft delete, hide citation, archive
 
+**Runtime Node**:
+A server-registered execution node that may host model runtimes, controller diagnostics, Docker-backed environments, and operator-only telemetry. The browser selects only authorized node IDs; it never supplies node URLs or credentials.
+_Avoid_: Browser controller URL, raw controller target, local GPU server when discussing shared deployment authority
+
+**Node Environment**:
+An operator-managed Docker execution option for a model/runtime recipe on a Runtime Node, including engine family, approved image/version, lifecycle state, and safe operational status.
+_Avoid_: Model, Knowledge Domain, container URL
+
+**Usage Event**:
+A server-recorded operational measurement for model, parser, indexing, retrieval, or chat work, scoped by approved actor/domain/node dimensions and labeled as reported, estimated, or unavailable for cost.
+_Avoid_: Browser cost estimate, UI-only metric, inferred user count
+
+**Wiki Page**:
+A curated published knowledge page derived from authorized domain evidence and review workflow, available for users to browse and cite in chat when allowed.
+_Avoid_: Source Document, raw note, unreviewed draft
+
+**Wiki Revision**:
+An immutable published version of a Wiki Page with review metadata and evidence traceability.
+_Avoid_: Editable page row, draft overwrite
+
+**Wiki Contribution**:
+A private or submitted draft change that can become a Wiki Revision only through the approved review/publish workflow.
+_Avoid_: Inline chat edit, left-panel mutation, unreviewed wiki page
+
+**Smart Composer**:
+The governed right-panel workspace for drafting, revising, reviewing, and publishing Wiki Contributions from selected chat/evidence context.
+_Avoid_: Main Chat editor, generic notes pane, browser-owned wiki writer
+
 **Administrator**:
 A user role allowed to manage domains, source documents, runtime settings, operations, and diagnostics.
 _Avoid_: Operator when referring to in-app permissions
@@ -68,6 +96,10 @@ _Avoid_: Viewer when write ownership of conversations matters
 - A **Turn** belongs to exactly one **Conversation** and records either exactly one **Knowledge Domain** for domain-grounded RAG or no Knowledge Domain for direct LLM general chat.
 - A **LightRAG Runtime** belongs to exactly one **Knowledge Domain**.
 - **Redaction** applies to domain-grounded **Turns** when cited sources or selected domains are deleted.
+- A **Runtime Node** is selected through backend authorization and may report safe status, logs, usage, and environment state to administrator/operator surfaces.
+- A **Node Environment** belongs to a Runtime Node and approved runtime recipe; it is not a Knowledge Domain or Source Document.
+- A **Wiki Page** has one current **Wiki Revision** and may have zero or more **Wiki Contributions** in draft/review.
+- A **Smart Composer** operation may read selected Evidence, Citations, Wiki Pages, and Turns, but any durable write is a backend-authorized Wiki Contribution.
 
 ## Example dialogue
 
@@ -84,3 +116,6 @@ _Avoid_: Viewer when write ownership of conversations matters
 - "Parser profile" is not a pilot concept; the pilot stores frozen `parser_kind` and resolves current credentials privately.
 - "Chat" has two explicit routes: domain-scoped agentic RAG for Knowledge Domain questions, and narrow direct LLM general chat for non-domain conversation. Browser code cannot choose the route.
 - "Hard delete" means retrieval is blocked and derived chat content is redacted, not merely that current source storage is removed.
+- "Workspace" appears in some Local Studio adaptation notes as a shared-product scope, but the current Context Engine model does not define a Workspace entity. Do not add `workspaceId` to code or contracts until an approved feature changes the product model.
+- "Wiki" does not mean Source Document storage. Wiki behavior is governed curation on top of authorized evidence and review contracts.
+- "Node" does not mean a browser-configurable controller URL. Runtime Node identity, credentials, and transport are backend-owned.

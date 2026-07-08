@@ -16,8 +16,8 @@ from context_engine.models import (
     SourceBlock,
     SourceDocument,
 )
-from context_engine.services.domains import LocalDomainRuntimeController, controller_from_settings, domain_available
-from context_engine.services.indexing import LocalLightRAGIndexClient, RawRetrievalHit, SourceIndexError, source_is_query_eligible
+from context_engine.services.domains import DomainRuntimeController, controller_from_settings, domain_available
+from context_engine.services.indexing import RawRetrievalHit, SourceIndexError, index_client_from_settings, source_is_query_eligible
 
 EVIDENCE_RESULT_FOUND = "evidence_found"
 EVIDENCE_RESULT_NO_CONTEXT = "no_grounded_context"
@@ -45,6 +45,15 @@ class CEBlockMarker:
 class EvidenceItem:
     excerpt: str
     source_label: str
+
+
+@dataclass(frozen=True)
+class InternalMappedEvidence:
+    source_document_id: str
+    source_block_id: str
+    source_label: str
+    excerpt: str
+    retrieval_order: int
 
 
 class RetrievalClient(Protocol):
@@ -92,8 +101,8 @@ def resolve_available_domain(
     *,
     settings: Settings,
     domain_id: str,
-    controller: LocalDomainRuntimeController | None = None,
-) -> tuple[Domain, LocalDomainRuntimeController]:
+    controller: DomainRuntimeController | None = None,
+) -> tuple[Domain, DomainRuntimeController]:
     domain = db.get(Domain, domain_id)
     if domain is None:
         raise EvidenceRetrievalError(404, "domain_not_found", "Domain not found.")
@@ -110,7 +119,7 @@ def eligible_sources_for_domain(
     *,
     settings: Settings,
     domain: Domain,
-    controller: LocalDomainRuntimeController,
+    controller: DomainRuntimeController,
 ) -> list[SourceDocument]:
     sources = list(
         db.scalars(
@@ -128,10 +137,30 @@ def map_retrieval_hits_to_evidence(
     settings: Settings,
     domain: Domain,
     hits: tuple[RawRetrievalHit, ...] | list[RawRetrievalHit],
-    controller: LocalDomainRuntimeController | None = None,
+    controller: DomainRuntimeController | None = None,
 ) -> list[EvidenceItem]:
+    return [
+        EvidenceItem(excerpt=item.excerpt, source_label=item.source_label)
+        for item in map_retrieval_hits_to_internal_evidence(
+            db,
+            settings=settings,
+            domain=domain,
+            hits=hits,
+            controller=controller,
+        )
+    ]
+
+
+def map_retrieval_hits_to_internal_evidence(
+    db: Session,
+    *,
+    settings: Settings,
+    domain: Domain,
+    hits: tuple[RawRetrievalHit, ...] | list[RawRetrievalHit],
+    controller: DomainRuntimeController | None = None,
+) -> list[InternalMappedEvidence]:
     controller = controller or controller_from_settings(settings)
-    evidence: list[EvidenceItem] = []
+    evidence: list[InternalMappedEvidence] = []
     seen_blocks: set[str] = set()
     current_domain = db.get(Domain, domain.id)
     if current_domain is None or not domain_available(db, current_domain, controller):
@@ -153,7 +182,15 @@ def map_retrieval_hits_to_evidence(
         if item is None:
             continue
         seen_blocks.add(block.id)
-        evidence.append(item)
+        evidence.append(
+            InternalMappedEvidence(
+                source_document_id=source.id,
+                source_block_id=block.id,
+                source_label=item.source_label,
+                excerpt=item.excerpt,
+                retrieval_order=len(evidence) + 1,
+            )
+        )
     return evidence
 
 
@@ -164,7 +201,7 @@ def retrieve_scoped_evidence(
     domain_id: str,
     question: str,
     client: RetrievalClient | None = None,
-    controller: LocalDomainRuntimeController | None = None,
+    controller: DomainRuntimeController | None = None,
 ) -> dict[str, object]:
     domain, controller = resolve_available_domain(db, settings=settings, domain_id=domain_id, controller=controller)
     if not eligible_sources_for_domain(db, settings=settings, domain=domain, controller=controller):
@@ -175,7 +212,7 @@ def retrieve_scoped_evidence(
         )
 
     db.commit()
-    client = client or LocalLightRAGIndexClient(settings, controller)
+    client = client or index_client_from_settings(settings, controller)
     try:
         hits = client.retrieve(domain, question=question)
     except SourceIndexError as exc:

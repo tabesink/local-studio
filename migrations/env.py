@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -18,6 +19,8 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
+    if os.getenv("CONTEXT_ENGINE_DATABASE_URL"):
+        return Settings.from_env().database_url
     configured = config.get_main_option("sqlalchemy.url")
     if configured and configured != "driver://user:pass@localhost/dbname":
         return configured

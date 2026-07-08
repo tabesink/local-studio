@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import shutil
+import shlex
+import subprocess
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
@@ -16,6 +19,14 @@ from sqlalchemy.orm import Session
 from context_engine.config import Settings
 from context_engine.db import utc_now
 from context_engine.models import (
+    AUDIT_ACTOR_WORKER,
+    AUDIT_EVENT_DOMAIN_CREATED,
+    AUDIT_EVENT_DOMAIN_DELETE_FAILED,
+    AUDIT_EVENT_DOMAIN_DELETE_QUEUED,
+    AUDIT_EVENT_DOMAIN_DELETE_SUCCEEDED,
+    AUDIT_EVENT_DOMAIN_STARTED,
+    AUDIT_EVENT_DOMAIN_STOPPED,
+    AUDIT_OUTCOME_FAILED,
     DOMAIN_OPERATION_ACTIVE_STATUSES,
     DOMAIN_OPERATION_CREATE,
     DOMAIN_OPERATION_DELETE,
@@ -32,7 +43,11 @@ from context_engine.models import (
     DomainOperation,
     User,
 )
+from context_engine.services.audit import AuditContext, AuditService
 from context_engine.services.auth import iso_utc
+from context_engine.services.structured_logging import safe_log
+
+logger = logging.getLogger(__name__)
 
 DOMAIN_ID_PATTERN = r"^[a-z0-9][a-z0-9_-]{1,62}$"
 _DOMAIN_ID_RE = re.compile(DOMAIN_ID_PATTERN)
@@ -53,6 +68,24 @@ class DomainControllerError(Exception):
 @dataclass(frozen=True)
 class RuntimeHealth:
     healthy: bool
+
+
+class DomainRuntimeController(Protocol):
+    uses_docker_socket: bool
+
+    def runtime_dir(self, domain_id: str, runtime_instance_id: str) -> Path: ...
+
+    def provision(self, domain: Domain) -> None: ...
+
+    def start(self, domain: Domain) -> None: ...
+
+    def stop(self, domain: Domain) -> None: ...
+
+    def delete(self, domain: Domain) -> None: ...
+
+    def health(self, domain: Domain) -> RuntimeHealth: ...
+
+    def runtime_name(self, domain: Domain) -> str: ...
 
 
 class LocalDomainRuntimeController:
@@ -143,8 +176,84 @@ class LocalDomainRuntimeController:
         (runtime_dir / "runtime.json").write_text(json.dumps(record, sort_keys=True), encoding="utf-8")
 
 
-def controller_from_settings(settings: Settings) -> LocalDomainRuntimeController:
-    return LocalDomainRuntimeController(settings)
+class DockerDomainRuntimeController:
+    """Production controller adapter that delegates Docker access to a private command."""
+
+    uses_docker_socket = False
+
+    def __init__(self, settings: Settings) -> None:
+        self._root = Path(settings.domain_runtime_root)
+        self._command = settings.domain_controller_command
+        self._timeout_seconds = settings.domain_controller_timeout_seconds
+
+    def runtime_dir(self, domain_id: str, runtime_instance_id: str) -> Path:
+        return self._root / domain_id / runtime_instance_id
+
+    def provision(self, domain: Domain) -> None:
+        self._run_action("provision", domain)
+
+    def start(self, domain: Domain) -> None:
+        self._run_action("start", domain)
+
+    def stop(self, domain: Domain) -> None:
+        self._run_action("stop", domain)
+
+    def delete(self, domain: Domain) -> None:
+        self._run_action("delete", domain)
+
+    def health(self, domain: Domain) -> RuntimeHealth:
+        try:
+            payload = self._run_action("health", domain)
+        except DomainControllerError:
+            return RuntimeHealth(healthy=False)
+        return RuntimeHealth(healthy=payload.get("healthy") is True)
+
+    def runtime_name(self, domain: Domain) -> str:
+        return f"ce_domain_{domain.id}_{domain.runtime_instance_id[:12]}"
+
+    def _run_action(self, action: str, domain: Domain) -> dict[str, Any]:
+        if not self._command:
+            raise DomainControllerError("Runtime controller command is not configured.")
+        runtime_dir = self.runtime_dir(domain.id, domain.runtime_instance_id)
+        request = {
+            "action": action,
+            "domainId": domain.id,
+            "runtimeInstanceId": domain.runtime_instance_id,
+            "runtimeName": self.runtime_name(domain),
+            "runtimeDir": str(runtime_dir),
+        }
+        try:
+            result = subprocess.run(
+                [*shlex.split(self._command, posix=False), action],
+                input=json.dumps(request),
+                text=True,
+                capture_output=True,
+                timeout=self._timeout_seconds,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise DomainControllerError("Runtime controller unavailable.") from exc
+        if result.returncode != 0:
+            raise DomainControllerError("Runtime controller action failed.")
+        stdout = result.stdout.strip()
+        if not stdout:
+            return {}
+        try:
+            parsed = json.loads(stdout)
+        except ValueError as exc:
+            raise DomainControllerError("Runtime controller returned invalid data.") from exc
+        if not isinstance(parsed, dict):
+            raise DomainControllerError("Runtime controller returned invalid data.")
+        return parsed
+
+
+def controller_from_settings(settings: Settings) -> DomainRuntimeController:
+    kind = settings.domain_runtime_controller_kind.strip().lower()
+    if kind == "docker":
+        return DockerDomainRuntimeController(settings)
+    if kind == "local":
+        return LocalDomainRuntimeController(settings)
+    raise DomainControllerError("Runtime controller configuration is invalid.")
 
 
 def _validate_domain_id(domain_id: str) -> None:
@@ -186,6 +295,7 @@ def _operation(
     operation_type: str,
     status: str,
     requested_by_user: User | None,
+    request_id: str | None = None,
     message: str,
 ) -> DomainOperation:
     now = utc_now()
@@ -196,6 +306,7 @@ def _operation(
         status=status,
         control_generation_at_start=domain.control_generation,
         requested_by_user_id=requested_by_user.id if requested_by_user is not None else None,
+        request_id=request_id,
         message=message,
         started_at=now if status == DOMAIN_OPERATION_STATUS_RUNNING else None,
         created_at=now,
@@ -203,7 +314,14 @@ def _operation(
     )
 
 
-def _finish_operation(db: Session, operation: DomainOperation, message: str) -> None:
+def _finish_operation(
+    db: Session,
+    operation: DomainOperation,
+    message: str,
+    *,
+    audit_event_name: str | None = None,
+    audit_context: AuditContext | None = None,
+) -> None:
     now = utc_now()
     operation.status = DOMAIN_OPERATION_STATUS_SUCCEEDED
     operation.message = message
@@ -211,10 +329,26 @@ def _finish_operation(db: Session, operation: DomainOperation, message: str) -> 
     operation.error_message = None
     operation.finished_at = now
     operation.updated_at = now
+    if audit_event_name is not None and audit_context is not None:
+        AuditService(db).record(
+            audit_event_name,
+            context=audit_context,
+            target_kind="domain",
+            target_id=operation.domain_id,
+            metadata={"operationType": operation.operation_type, "operationStatus": operation.status},
+        )
     db.commit()
 
 
-def _fail_operation(db: Session, operation: DomainOperation, code: str, message: str) -> None:
+def _fail_operation(
+    db: Session,
+    operation: DomainOperation,
+    code: str,
+    message: str,
+    *,
+    audit_event_name: str | None = None,
+    audit_context: AuditContext | None = None,
+) -> None:
     now = utc_now()
     operation.status = DOMAIN_OPERATION_STATUS_FAILED
     operation.message = message
@@ -222,6 +356,16 @@ def _fail_operation(db: Session, operation: DomainOperation, code: str, message:
     operation.error_message = message
     operation.finished_at = now
     operation.updated_at = now
+    if audit_event_name is not None:
+        AuditService(db).record(
+            audit_event_name,
+            context=audit_context or AuditContext(actor_kind=AUDIT_ACTOR_WORKER, request_id=operation.request_id),
+            target_kind="domain_operation",
+            target_id=operation.id,
+            outcome=AUDIT_OUTCOME_FAILED,
+            safe_error_code=code,
+            metadata={"operationType": operation.operation_type, "operationStatus": operation.status},
+        )
     db.commit()
 
 
@@ -233,7 +377,8 @@ def create_domain(
     display_name: str | None,
     embedding_profile_id: str,
     requested_by_user: User,
-    controller: LocalDomainRuntimeController | None = None,
+    controller: DomainRuntimeController | None = None,
+    audit_context: AuditContext | None = None,
 ) -> Domain:
     _validate_domain_id(domain_id)
     if db.get(Domain, domain_id) is not None:
@@ -258,6 +403,7 @@ def create_domain(
         operation_type=DOMAIN_OPERATION_CREATE,
         status=DOMAIN_OPERATION_STATUS_RUNNING,
         requested_by_user=requested_by_user,
+        request_id=audit_context.request_id if audit_context is not None else None,
         message="Creating domain.",
     )
     db.add(domain)
@@ -268,13 +414,19 @@ def create_domain(
         db.rollback()
         raise DomainError(409, "domain_id_conflict", "Domain id already exists.") from exc
 
-    controller = controller or controller_from_settings(settings)
     try:
+        controller = controller or controller_from_settings(settings)
         controller.provision(domain)
     except DomainControllerError as exc:
         _fail_operation(db, operation, "domain_runtime_unavailable", "Runtime resources could not be prepared.")
         raise DomainError(502, "domain_runtime_unavailable", "Runtime unavailable.") from exc
-    _finish_operation(db, operation, "Domain created.")
+    _finish_operation(
+        db,
+        operation,
+        "Domain created.",
+        audit_event_name=AUDIT_EVENT_DOMAIN_CREATED,
+        audit_context=audit_context,
+    )
     db.refresh(domain)
     return domain
 
@@ -285,7 +437,8 @@ def start_domain(
     settings: Settings,
     domain_id: str,
     requested_by_user: User,
-    controller: LocalDomainRuntimeController | None = None,
+    controller: DomainRuntimeController | None = None,
+    audit_context: AuditContext | None = None,
 ) -> Domain:
     domain = _domain_or_404(db, domain_id)
     _ensure_no_active_operation(db, domain.id)
@@ -296,6 +449,7 @@ def start_domain(
         operation_type=DOMAIN_OPERATION_START,
         status=DOMAIN_OPERATION_STATUS_RUNNING,
         requested_by_user=requested_by_user,
+        request_id=audit_context.request_id if audit_context is not None else None,
         message="Starting domain.",
     )
     db.add(operation)
@@ -305,15 +459,21 @@ def start_domain(
         db.rollback()
         raise DomainError(409, "domain_operation_in_progress", "Another operation is already in progress for this domain.") from exc
 
-    controller = controller or controller_from_settings(settings)
     try:
+        controller = controller or controller_from_settings(settings)
         controller.start(domain)
     except DomainControllerError as exc:
         _fail_operation(db, operation, "domain_runtime_unavailable", "Runtime did not become ready.")
         raise DomainError(502, "domain_runtime_unavailable", "Runtime unavailable.") from exc
     domain.state = DOMAIN_STATE_RUNNING
     domain.updated_at = utc_now()
-    _finish_operation(db, operation, "Domain started.")
+    _finish_operation(
+        db,
+        operation,
+        "Domain started.",
+        audit_event_name=AUDIT_EVENT_DOMAIN_STARTED,
+        audit_context=audit_context,
+    )
     db.refresh(domain)
     return domain
 
@@ -324,7 +484,8 @@ def stop_domain(
     settings: Settings,
     domain_id: str,
     requested_by_user: User,
-    controller: LocalDomainRuntimeController | None = None,
+    controller: DomainRuntimeController | None = None,
+    audit_context: AuditContext | None = None,
 ) -> Domain:
     domain = _domain_or_404(db, domain_id)
     _ensure_no_active_operation(db, domain.id)
@@ -335,6 +496,7 @@ def stop_domain(
         operation_type=DOMAIN_OPERATION_STOP,
         status=DOMAIN_OPERATION_STATUS_RUNNING,
         requested_by_user=requested_by_user,
+        request_id=audit_context.request_id if audit_context is not None else None,
         message="Stopping domain.",
     )
     db.add(operation)
@@ -344,20 +506,32 @@ def stop_domain(
         db.rollback()
         raise DomainError(409, "domain_operation_in_progress", "Another operation is already in progress for this domain.") from exc
 
-    controller = controller or controller_from_settings(settings)
     try:
+        controller = controller or controller_from_settings(settings)
         controller.stop(domain)
     except DomainControllerError as exc:
         _fail_operation(db, operation, "domain_runtime_unavailable", "Runtime could not be stopped.")
         raise DomainError(502, "domain_runtime_unavailable", "Runtime unavailable.") from exc
     domain.state = DOMAIN_STATE_STOPPED
     domain.updated_at = utc_now()
-    _finish_operation(db, operation, "Domain stopped.")
+    _finish_operation(
+        db,
+        operation,
+        "Domain stopped.",
+        audit_event_name=AUDIT_EVENT_DOMAIN_STOPPED,
+        audit_context=audit_context,
+    )
     db.refresh(domain)
     return domain
 
 
-def enqueue_delete_domain(db: Session, *, domain_id: str, requested_by_user: User) -> DomainOperation:
+def enqueue_delete_domain(
+    db: Session,
+    *,
+    domain_id: str,
+    requested_by_user: User,
+    audit_context: AuditContext | None = None,
+) -> DomainOperation:
     domain = _domain_or_404(db, domain_id)
     _ensure_no_active_operation(db, domain.id)
     now = utc_now()
@@ -369,10 +543,19 @@ def enqueue_delete_domain(db: Session, *, domain_id: str, requested_by_user: Use
         operation_type=DOMAIN_OPERATION_DELETE,
         status=DOMAIN_OPERATION_STATUS_QUEUED,
         requested_by_user=requested_by_user,
+        request_id=audit_context.request_id if audit_context is not None else None,
         message="Delete queued.",
     )
     operation.control_generation_at_start = domain.control_generation
     db.add(operation)
+    if audit_context is not None:
+        AuditService(db).record(
+            AUDIT_EVENT_DOMAIN_DELETE_QUEUED,
+            context=audit_context,
+            target_kind="domain",
+            target_id=domain.id,
+            metadata={"operationType": DOMAIN_OPERATION_DELETE, "operationStatus": DOMAIN_OPERATION_STATUS_QUEUED},
+        )
     try:
         db.commit()
     except IntegrityError as exc:
@@ -403,7 +586,7 @@ def update_domain_state_if_current(
     return int(result.rowcount or 0)
 
 
-def domain_available(db: Session, domain: Domain, controller: LocalDomainRuntimeController) -> bool:
+def domain_available(db: Session, domain: Domain, controller: DomainRuntimeController) -> bool:
     if domain.state != DOMAIN_STATE_RUNNING:
         return False
     if _active_operation(db, domain.id) is not None:
@@ -411,7 +594,7 @@ def domain_available(db: Session, domain: Domain, controller: LocalDomainRuntime
     return controller.health(domain).healthy
 
 
-def safe_domain_admin(db: Session, domain: Domain, controller: LocalDomainRuntimeController) -> dict[str, Any]:
+def safe_domain_admin(db: Session, domain: Domain, controller: DomainRuntimeController) -> dict[str, Any]:
     return {
         "id": domain.id,
         "displayName": domain.display_name,
@@ -427,7 +610,7 @@ def safe_member_domain(domain: Domain) -> dict[str, Any]:
     return {"id": domain.id, "displayName": domain.display_name, "available": True}
 
 
-def safe_domain_status(db: Session, domain: Domain, controller: LocalDomainRuntimeController) -> dict[str, Any]:
+def safe_domain_status(db: Session, domain: Domain, controller: DomainRuntimeController) -> dict[str, Any]:
     return {
         "id": domain.id,
         "displayName": domain.display_name,
@@ -500,7 +683,7 @@ def domain_operations(db: Session, domain_id: str) -> list[dict[str, Any]]:
 
 
 class DomainDeleteWorker:
-    def __init__(self, settings: Settings, controller: LocalDomainRuntimeController | None = None) -> None:
+    def __init__(self, settings: Settings, controller: DomainRuntimeController | None = None) -> None:
         self._settings = settings
         self._controller = controller or controller_from_settings(settings)
 
@@ -516,22 +699,37 @@ class DomainDeleteWorker:
         runtime_instance_id = domain.runtime_instance_id
         control_generation = operation.control_generation_at_start
         try:
+            from context_engine.services.chat_turns import redact_turns_for_domain
             from context_engine.services.indexing import SourceIndexError
             from context_engine.services.sources import SourceStorageError, purge_domain_sources_local
 
-            purge_domain_sources_local(db, self._settings, domain.id)
+            context = AuditContext(actor_kind=AUDIT_ACTOR_WORKER, request_id=operation.request_id)
+            redact_turns_for_domain(db, domain.id, audit_context=context)
+            purge_domain_sources_local(db, self._settings, domain.id, audit_context=context)
             self._controller.delete(domain)
         except SourceIndexError as exc:
             db.rollback()
-            _fail_operation(db, operation, exc.code, exc.message)
+            _fail_operation(db, operation, exc.code, exc.message, audit_event_name=AUDIT_EVENT_DOMAIN_DELETE_FAILED)
             return True
         except SourceStorageError:
             db.rollback()
-            _fail_operation(db, operation, "source_delete_failed", "Source resources could not be removed.")
+            _fail_operation(
+                db,
+                operation,
+                "source_delete_failed",
+                "Source resources could not be removed.",
+                audit_event_name=AUDIT_EVENT_DOMAIN_DELETE_FAILED,
+            )
             return True
         except DomainControllerError:
             db.rollback()
-            _fail_operation(db, operation, "domain_runtime_unavailable", "Runtime resources could not be removed.")
+            _fail_operation(
+                db,
+                operation,
+                "domain_runtime_unavailable",
+                "Runtime resources could not be removed.",
+                audit_event_name=AUDIT_EVENT_DOMAIN_DELETE_FAILED,
+            )
             return True
 
         current = db.get(Domain, domain.id)
@@ -539,6 +737,13 @@ class DomainDeleteWorker:
             return True
         if current.runtime_instance_id != runtime_instance_id or current.control_generation != control_generation:
             return True
+        AuditService(db).record(
+            AUDIT_EVENT_DOMAIN_DELETE_SUCCEEDED,
+            context=AuditContext(actor_kind=AUDIT_ACTOR_WORKER, request_id=operation.request_id),
+            target_kind="domain_operation",
+            target_id=operation.id,
+            metadata={"operationType": operation.operation_type, "operationStatus": DOMAIN_OPERATION_STATUS_SUCCEEDED},
+        )
         db.delete(current)
         db.commit()
         return True
@@ -570,4 +775,12 @@ class DomainDeleteWorker:
         operation.updated_at = now
         db.commit()
         db.refresh(operation)
+        safe_log(
+            logger,
+            "domain_delete_worker.claimed",
+            request_id=operation.request_id,
+            domain_id=operation.domain_id,
+            operation_id=operation.id,
+            outcome="succeeded",
+        )
         return operation

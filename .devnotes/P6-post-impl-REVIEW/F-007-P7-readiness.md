@@ -191,6 +191,13 @@ source/domain delete
 
 ## Questions MUST Answer Before Coding
 
+Status on 2026-07-06: the P7 API/SSE/data edge questions below are resolved by CHG-017. Use the active contracts as implementation authority:
+
+- `specs/03-contracts/api/context-engine-v1.md` for conversation DTOs, title validation/update, idempotent replay, pre-stream JSON errors, safe error codes, and internal mapped-evidence bridge.
+- `specs/03-contracts/events/context-engine-sse-v1.md` for `stage`, `evidence`, `token`, `done`, and `error` payloads and terminal outcome rules.
+- `specs/03-contracts/data/context-engine-data.md` for turn/evidence-ref fields, status mapping, replay persistence, and redaction support.
+- `specs/03-contracts/ai/grounded-answering.md` for pre-claim validation, evidence-only behavior, and the private mapped-evidence bridge.
+
 ### A. Contract/data/API blockers
 
 | # | Question | Owner patch |
@@ -345,4 +352,4 @@ What reference code does not answer:
 
 Verdict for junior dev: use the reference for control-flow intuition only. Implement against F-007, API-001, EVT-001, DATA-001, AI-001, and the P6 callable.
 
-One-line summary: P7 is ready to implement after the turn/SSE/citation replay shapes are patched or confirmed; do not invent those shapes in route code.
+One-line summary: P7 API/SSE/data edge shapes are now contract-closed; implement route code against API-001, EVT-001, DATA-001, and AI-001 without inventing turn, citation, replay, or terminal-event shapes.

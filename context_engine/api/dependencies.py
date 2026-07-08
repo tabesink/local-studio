@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
 from collections.abc import Generator
+from dataclasses import dataclass
 
 from fastapi import Depends, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from context_engine.api.errors import ApiError
+from context_engine.api.errors import ApiError, request_id_from
 from context_engine.config import Settings
 from context_engine.db import session_scope, utc_now
-from context_engine.models import AuthSession, ROLE_ADMINISTRATOR, User
+from context_engine.models import AUDIT_EVENT_SECURITY_ADMIN_ROUTE_DENIED, AUDIT_OUTCOME_DENIED, AuthSession, ROLE_ADMINISTRATOR, User
 from context_engine.security import hash_session_token
+from context_engine.services.audit import AuditContext, AuditService
 
 
 @dataclass(frozen=True)
@@ -54,6 +54,8 @@ def require_current_session(
 
     auth_session.last_used_at = now
     db.commit()
+    request.state.actor_kind = user.role
+    request.state.actor_user_id = user.id
     return CurrentSession(user=user, auth_session=auth_session)
 
 
@@ -61,7 +63,18 @@ def require_current_user(current: CurrentSession = Depends(require_current_sessi
     return current.user
 
 
-def require_admin(current: CurrentSession = Depends(require_current_session)) -> User:
+def require_admin(
+    request: Request,
+    current: CurrentSession = Depends(require_current_session),
+    db: Session = Depends(get_db),
+) -> User:
     if current.user.role != ROLE_ADMINISTRATOR:
+        AuditService(db).record(
+            AUDIT_EVENT_SECURITY_ADMIN_ROUTE_DENIED,
+            context=AuditContext(actor_user=current.user, request_id=request_id_from(request)),
+            outcome=AUDIT_OUTCOME_DENIED,
+            safe_error_code="forbidden",
+        )
+        db.commit()
         raise ApiError(403, "forbidden", "Forbidden.")
     return current.user

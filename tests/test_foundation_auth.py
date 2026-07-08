@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from datetime import timedelta
 from typing import Any
 
@@ -261,16 +262,18 @@ def test_health_and_error_envelope_include_request_id(app) -> None:
     with TestClient(app) as client:
         live = client.get("/health/live", headers={"X-Request-ID": "req-test-1"})
         assert live.status_code == 200
-        assert live.headers["X-Request-ID"] == "req-test-1"
+        assert live.headers["X-Request-ID"] != "req-test-1"
+        uuid.UUID(live.headers["X-Request-ID"])
 
         error = client.get("/api/v1/auth/me", headers={"X-Request-ID": "req-test-2"})
         assert error.status_code == 401
-        assert error.headers["X-Request-ID"] == "req-test-2"
+        assert error.headers["X-Request-ID"] != "req-test-2"
+        uuid.UUID(error.headers["X-Request-ID"])
         assert error.json() == {
             "error": {
                 "code": "unauthenticated",
                 "message": "Authentication required.",
-                "requestId": "req-test-2",
+                "requestId": error.headers["X-Request-ID"],
             }
         }
 
@@ -281,5 +284,5 @@ def test_openapi_snapshot_matches() -> None:
 
     app = create_app(Settings(database_url="sqlite:///:memory:", session_cookie_secure=False, testing=True))
     current = json.dumps(app.openapi(), indent=2, sort_keys=True) + "\n"
-    expected = Path("tests/snapshots/f006_openapi.json").read_text()
+    expected = Path("tests/snapshots/f008_openapi.json").read_text()
     assert current == expected

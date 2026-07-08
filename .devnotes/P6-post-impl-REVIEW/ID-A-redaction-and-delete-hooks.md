@@ -44,10 +44,14 @@ stop_reason = redacted
 safe_error_code = null or approved redaction code
 safe_error_message = null or approved safe message
 user_message remains unchanged
-evidence refs removed, cleared, or marked according to DATA-001/API-001 patch
+evidence refs retained with redacted_at set; citation_label, source_label, excerpt cleared
 ```
 
-Open decision: exact API DTO for redacted Turn and whether `conversation_turn_evidence_refs` rows are deleted or retained with safe fields cleared.
+**Locked decision (2026-07-06): Option C — retain rows with `redacted_at`.**
+
+- Public API DTO for redacted turns: keep `userMessage`; `status=redacted`; `stopReason=redacted`; `assistantAnswer=null`; `evidence=[]`; `citations=[]`.
+- Do not delete `conversation_turn_evidence_refs` rows on redaction. Set `redacted_at`, clear public fields, keep private source/block ids for internal audit until source rows are removed.
+- Public mappers and SSE replay omit rows where `redacted_at IS NOT NULL`.
 
 ## Delete Ordering Rule
 
