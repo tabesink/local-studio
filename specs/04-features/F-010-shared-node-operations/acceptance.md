@@ -3,52 +3,55 @@ id: F-010
 title: Shared Node Operations And Runnable Stack Acceptance Evidence
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-07-06
+last_reviewed: 2026-07-10
 depends_on: [F-010]
 supersedes: []
 ---
 
 # F-010 - Acceptance Evidence
 
-Status: first runnable-stack gate implemented. Runtime Node, Logs, Usage, storage, Docker environment UI/API surfaces remain contract-blocked until API-001 and DATA-001 are patched.
+Status: runnable-stack gate implemented with workers-in-stack and hard-cut `stack` naming. Full pilot-path HTTP smoke is the acceptance gate. Runtime Node, Logs, Usage, storage, Docker environment UI/API surfaces remain contract-blocked until API-001 and DATA-001 are patched.
 
 | Criterion | Evidence | Result | Notes |
 | --- | --- | --- | --- |
-| AC-001 | `compose.p10.yml`; `python scripts/p10_stack_smoke.py --env-file _tmp/p10-smoke.env --project-name context_engine_p10_codex --reset-state --write-evidence _tmp/p10-stack-smoke.json` | pass | smoke passed `postgres_health` and `alembic_head`; stock `postgres:16` was used |
-| AC-002 | P10 stack smoke safe evidence `_tmp/p10-stack-smoke.json` | pass | API `http://127.0.0.1:8000` returned `200` for `api_live` and `api_ready`; frontend `http://127.0.0.1:3000/login` returned `200` |
-| AC-003 | P10 stack smoke safe evidence `_tmp/p10-stack-smoke.json` | pass | `api_admin_login` and `api_auth_me` returned `200`; auth response safety checked for no token/password/hash keys |
-| AC-004 | P10 stack smoke safe evidence `_tmp/p10-stack-smoke.json` | pass | `frontend_proxy_admin_login` and `frontend_proxy_auth_me` returned `200`; no `ECONNREFUSED`; Playwright remains F-009 AC-007 |
-| AC-005 | `python scripts/p10_safety_scan.py --smoke-evidence _tmp/p10-stack-smoke.json` | pass | scan covers compose, env example, Dockerfiles, runbook, F-010 docs, traceability, scripts, and safe smoke evidence |
-| AC-006 | `compose.p10.yml`; `python scripts/p10_safety_scan.py --smoke-evidence _tmp/p10-stack-smoke.json` | pass | first gate has no Redis/RQ/Celery, worker, status-poller, deployment-control, old custom Postgres image, or old app entrypoint |
+| AC-001 | `compose.stack.yml`; stack smoke with `--reset-state` | pass | smoke passed `postgres_health`, `alembic_head`, and `worker_running`; stock `postgres:16`; services include postgres, migrate, api, worker, frontend |
+| AC-002 | stack smoke safe evidence `_tmp/stack-smoke.json` | pass | API and frontend reachable; ports may be overridden via `STACK_API_PORT` / `STACK_FRONTEND_PORT` (evidence run used `18000` / `13000` due to host conflict) |
+| AC-003 | stack smoke safe evidence `_tmp/stack-smoke.json` | pass | `api_admin_login` and `api_auth_me` returned success; auth response safety checked for no token/password/hash keys |
+| AC-004 | stack smoke safe evidence `_tmp/stack-smoke.json` | pass | frontend proxy admin login and auth/me succeeded; no `ECONNREFUSED`; Playwright remains F-009 AC-007 |
+| AC-005 | `python scripts/stack_safety_scan.py --smoke-evidence _tmp/stack-smoke.json` | pass | scan covers compose, env example, Dockerfiles, runbook, F-010 docs, traceability, scripts, and safe smoke evidence |
+| AC-006 | `compose.stack.yml`; `python scripts/stack_safety_scan.py --smoke-evidence _tmp/stack-smoke.json` | pass | no Redis/RQ/Celery, status-poller, or deployment-control; exactly one CE lease worker (`python -m context_engine.worker`) is present and allowed |
 | AC-007 | F-010 docs and implementation log review | pass | Logs/Usage/Node/storage UI/API work remains blocked until API-001 and DATA-001 are patched |
+| AC-008 | stack smoke safe evidence `_tmp/stack-smoke.json` | pass | full path: `provider_config`, `domain_ready`, `source_upload`, `source_prepared_indexed` (`state=prepared`; `indexState=ready`), `evidence_retrieve`, `domain_chat` (`stopReason=grounded`), `source_delete_redaction` (`turnStatus=redacted`), `domain_delete`; compose worker advanced state; no in-process `run_once` in smoke |
 
 ## Completion Rule
 
-F-010 foundation is implemented because the stack was started from an explicit reset state and a real frontend-to-API auth flow was proven by HTTP smoke against listening services.
+F-010 stack gate is implemented because the stack was started from an explicit reset state, one CE lease worker advanced prepare/index/delete work, and a real frontend-to-API auth plus full pilot path was proven by HTTP smoke against listening services.
 
 ## Verification Commands
 
 ```text
-docker compose -f compose.p10.yml config --quiet
-npm.cmd run test:foundation
-npm.cmd run typecheck
-npm.cmd run build
-.\.venv\Scripts\python.exe -m py_compile scripts\p10_stack_smoke.py scripts\p10_safety_scan.py migrations\env.py
-.\.venv\Scripts\python.exe -m pytest tests\test_foundation_auth.py -q
-.\.venv\Scripts\python.exe scripts\p10_stack_smoke.py --env-file _tmp\p10-smoke.env --project-name context_engine_p10_codex --reset-state --write-evidence _tmp\p10-stack-smoke.json
-.\.venv\Scripts\python.exe scripts\p10_safety_scan.py --smoke-evidence _tmp\p10-stack-smoke.json
+docker compose --env-file .env.stack.local -f compose.stack.yml config --quiet
+pytest tests/test_stack_worker_loop.py tests/test_stack_safety_scan.py tests/test_stack_smoke_helpers.py -q
+STACK_API_PORT=18000 STACK_FRONTEND_PORT=13000 .venv/bin/python scripts/stack_smoke.py --env-file .env.stack.local --project-name context_engine_stack_smoke --reset-state --write-evidence _tmp/stack-smoke.json
+python scripts/stack_safety_scan.py --smoke-evidence _tmp/stack-smoke.json
 ```
+
+Default ports (`STACK_API_PORT=8000`, `STACK_FRONTEND_PORT=3000`) and project `context_engine_stack` are the canonical operator defaults when the host is free. The evidence run above overrode ports and used project `context_engine_stack_smoke` due to host conflict.
 
 Notes:
 
-- `_tmp/p10-smoke.env` used local throwaway values and is ignored.
-- `_tmp/p10-stack-smoke.json` is safe local evidence and is ignored.
-- `docker compose -f compose.p10.yml config --quiet` exited successfully with sandbox warnings about Docker config file access; the compose render itself passed.
+- `.env.stack.local` used local throwaway values and is ignored.
+- `_tmp/stack-smoke.json` is safe local evidence and is ignored.
+- Unit: `pytest tests/test_stack_worker_loop.py tests/test_stack_safety_scan.py tests/test_stack_smoke_helpers.py` → 13 passed.
+- Safety scan → ok.
+- Stack fixture uses local domain-runtime and LightRAG client kinds for this gate; production Settings default remains native (LD-006).
+- Hard-cut volume rename to `stack-*` implies a fresh local database unless the operator migrates former `p10` volumes.
 
-## First-Gate Decision Lock
+## Decision Lock
 
-- Compose shape: one combined compose file or clearly named local fixture.
+- Compose shape: one combined fixture `compose.stack.yml` (hard-cut rename from former `compose.p10.yml`).
 - Postgres: stock `postgres:16`; AGE/vector/custom image deferred until evidence requires it.
 - Frontend: production build/start in compose; `next dev` optional outside compose.
-- Workers: deferred for T-010 through T-040; T-050 records deferral.
-- Browser proof: HTTP smoke for P10 AC-001 through AC-004; Playwright remains F-009 AC-007 unless later P10 UI surfaces require it.
+- Workers: exactly one CE lease worker in stack; Redis/RQ/Celery/status-poller/deployment-control forbidden. Earlier T-050 deferral is superseded.
+- Browser proof: HTTP smoke for AC-001 through AC-004 and AC-008; Playwright remains F-009 AC-007 unless later P10 UI surfaces require it.
+- Client kinds: local for this gate; native production default unchanged (LD-006).
