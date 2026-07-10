@@ -12,6 +12,8 @@ supersedes: []
 
 Status: runnable-stack gate implemented with workers-in-stack, hard-cut `stack` naming, and full pilot-path smoke. Contracted Runtime Node, Logs, Usage, storage, Docker environment UI/API surfaces remain deferred.
 
+**Compound learning:** `docs/solutions/architecture-patterns/runnable-stack-postgres-lease-workers.md` — Postgres lease poll loop, shared compose volumes, HTTP-only stack smoke, and `stack` rename guidance for future agents.
+
 ## Decisions And Deviations
 
 | Date | Decision/deviation | Reason | Follow-up |
@@ -28,6 +30,8 @@ Status: runnable-stack gate implemented with workers-in-stack, hard-cut `stack` 
 | 2026-07-10 | Deepened stack smoke to full pilot path: upload → prepare → index → evidence → domain chat → delete → redaction. Smoke never calls `run_once` in-process. | Auth/proxy-only smoke left the product looking like a login shell rather than a RAG app. | Live Docker LightRAG remains a separate proof. |
 | 2026-07-10 | Stack acceptance keeps `CE_DOMAIN_RUNTIME_CONTROLLER_KIND=local` and `CE_LIGHTRAG_CLIENT_KIND=local`. Production Settings default remains native (LD-006). | Deterministic Slice 0 gate without changing production defaults. | Optional live Docker LightRAG compose profile deferred. |
 | 2026-07-10 | Safety scan allows the CE lease worker service name while still rejecting Redis, status-poller, deployment-control, Celery/RQ, and old entrypoints. | Former scan forbade any compose `worker:` service; that blocked the lease poller. | Keep job-platform bans. |
+
+| 2026-07-10 | Documented runnable-stack workers pattern in `docs/solutions/architecture-patterns/runnable-stack-postgres-lease-workers.md` via `/ce-compound`. | Institutional memory for compose worker, shared volumes, stack smoke, and rename gotchas. | Cross-linked from this log; discoverability added to `AGENTS.md`. |
 
 ## Drift Register
 

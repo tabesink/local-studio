@@ -33,6 +33,8 @@ Reference files under `.references/` are evidence only. Use `README.md` for sour
 9. Tests prove behavior. Each acceptance criterion needs automated or explicit manual evidence.
 10. Docs and code move together. Update feature evidence, contracts, acceptance, implementation logs, and traceability in the same change when practical.
 
+`docs/solutions/` holds searchable compound learnings (bugs, patterns, workflow notes) with YAML frontmatter (`module`, `tags`, `problem_type`). Relevant when implementing or debugging in documented areas such as the runnable stack, Postgres lease workers, or compose fixtures.
+
 ## Required Workflow
 
 ### 1. Discover
