@@ -87,9 +87,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        CONTEXT_ENGINE_API_BASE: ${CONTEXT_ENGINE_API_BASE:-http://api:8000}
+        # Always the compose service DNS name — do not inherit host-native API bases.
+        CONTEXT_ENGINE_API_BASE: http://api:8000
     environment:
-      CONTEXT_ENGINE_API_BASE: ${CONTEXT_ENGINE_API_BASE:-http://api:8000}
+      CONTEXT_ENGINE_API_BASE: http://api:8000
     ports:
       - "127.0.0.1:${STACK_FRONTEND_PORT:-3000}:3000"
     healthcheck:

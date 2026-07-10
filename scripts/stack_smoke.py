@@ -7,6 +7,8 @@ import os
 import subprocess
 import sys
 import time
+import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -19,6 +21,10 @@ DEFAULT_COMPOSE_FILE = ROOT / "compose.stack.yml"
 DEFAULT_ENV_FILE = ROOT / ".env.stack.local"
 DEFAULT_PROJECT_NAME = "context_engine_stack"
 FORBIDDEN_RESPONSE_KEYS = {"token", "password", "password_hash", "hash"}
+STACK_SMOKE_DOMAIN_ID = "stack"
+STACK_SMOKE_PROVIDER_CREDENTIAL = "stack-smoke-credential"
+STACK_SMOKE_SOURCE_BYTES = b"# Stack Smoke Manual\nUse lockout and inspection before startup.\n"
+STACK_SMOKE_QUESTION = "What does startup require?"
 
 
 class SmokeFailure(Exception):
@@ -179,19 +185,60 @@ def wait_for_service_exit_success(compose: list[str], service: str, *, timeout_s
     raise SmokeFailure(service, "service_did_not_complete")
 
 
+def wait_for_service_running(compose: list[str], service: str, *, timeout_seconds: int) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        state = compose_service_state(compose, service)
+        if state and state.get("Status") == "running":
+            return
+        if state and state.get("Status") == "exited" and state.get("ExitCode") not in {0, None}:
+            raise SmokeFailure(service, "service_exited")
+        time.sleep(2)
+    raise SmokeFailure(service, "service_not_running")
+
+
+def encode_multipart_file(
+    field_name: str,
+    filename: str,
+    content: bytes,
+    content_type: str,
+) -> tuple[bytes, str]:
+    boundary = f"----CEStackSmokeBoundary{uuid.uuid4().hex}"
+    disposition = f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"'
+    parts = [
+        f"--{boundary}".encode("ascii"),
+        disposition.encode("utf-8"),
+        f"Content-Type: {content_type}".encode("utf-8"),
+        b"",
+        content,
+        f"--{boundary}--".encode("ascii"),
+        b"",
+    ]
+    body = b"\r\n".join(parts)
+    return body, f"multipart/form-data; boundary={boundary}"
+
+
 def request_raw(
     method: str,
     url: str,
     *,
     jar: http.cookiejar.CookieJar | None = None,
     body: dict[str, Any] | None = None,
+    multipart_file: tuple[str, str, bytes, str] | None = None,
+    accept: str = "application/json",
     timeout: int = 20,
 ) -> tuple[int, dict[str, str], bytes, int]:
+    if body is not None and multipart_file is not None:
+        raise SmokeFailure("http_request", "conflicting_body_and_multipart")
     data = None
-    headers = {"Accept": "application/json"}
+    headers = {"Accept": accept}
     if body is not None:
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"
+    elif multipart_file is not None:
+        field_name, filename, content, content_type = multipart_file
+        data, content_type_header = encode_multipart_file(field_name, filename, content, content_type)
+        headers["Content-Type"] = content_type_header
     opener = build_opener(HTTPCookieProcessor(jar)) if jar is not None else build_opener()
     request = Request(url, data=data, headers=headers, method=method)
     started = time.perf_counter()
@@ -211,6 +258,46 @@ def parse_json(payload: bytes) -> Any:
         return json.loads(payload.decode("utf-8"))
     except Exception as exc:
         raise SmokeFailure("http_response", "invalid_json") from exc
+
+
+def parse_sse_events(text: str) -> list[tuple[str, dict[str, Any]]]:
+    events: list[tuple[str, dict[str, Any]]] = []
+    for block in text.strip().split("\n\n"):
+        if not block:
+            continue
+        event_name = ""
+        data = ""
+        for line in block.splitlines():
+            if line.startswith("event: "):
+                event_name = line.removeprefix("event: ")
+            elif line.startswith("data: "):
+                data = line.removeprefix("data: ")
+        if not data:
+            continue
+        events.append((event_name, json.loads(data)))
+    return events
+
+
+def source_is_prepared_and_indexed(source: dict[str, Any]) -> bool:
+    return source.get("state") == "prepared" and source.get("indexState") == "ready"
+
+
+def poll_until(
+    predicate: Callable[[Any], bool],
+    fetch: Callable[[], Any],
+    *,
+    timeout_seconds: float,
+    interval_seconds: float,
+    sleep_fn: Callable[[float], None] = time.sleep,
+) -> Any:
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        value = fetch()
+        if predicate(value):
+            return value
+        if time.monotonic() >= deadline:
+            raise TimeoutError("poll_until_timeout")
+        sleep_fn(interval_seconds)
 
 
 def contains_forbidden_key(value: Any) -> bool:
@@ -233,14 +320,296 @@ def assert_safe_auth_body(body: Any) -> None:
         raise SmokeFailure("auth_response_safety", "administrator_role_missing")
 
 
-def check_json_endpoint(evidence: Evidence, name: str, method: str, url: str, *, jar: http.cookiejar.CookieJar | None = None, body: dict[str, Any] | None = None, expect: int = 200) -> Any:
-    status, headers, payload, elapsed = request_raw(method, url, jar=jar, body=body)
+def assert_safe_json(body: Any, check: str) -> None:
+    if contains_forbidden_key(body):
+        raise SmokeFailure(check, "forbidden_response_key")
+    serialized = json.dumps(body, sort_keys=True)
+    if STACK_SMOKE_PROVIDER_CREDENTIAL in serialized:
+        raise SmokeFailure(check, "credential_leaked")
+
+
+def check_json_endpoint(
+    evidence: Evidence,
+    name: str,
+    method: str,
+    url: str,
+    *,
+    jar: http.cookiejar.CookieJar | None = None,
+    body: dict[str, Any] | None = None,
+    expect: int = 200,
+    timeout: int = 20,
+) -> Any:
+    status, headers, payload, elapsed = request_raw(method, url, jar=jar, body=body, timeout=timeout)
     request_id = headers.get("X-Request-ID")
     if status != expect:
         raise SmokeFailure(name, f"unexpected_http_status:{status}")
     parsed = parse_json(payload)
     evidence.record(CheckResult(name=name, status="passed", http_status=status, request_id=request_id, elapsed_ms=elapsed))
     return parsed
+
+
+def check_empty_endpoint(
+    evidence: Evidence,
+    name: str,
+    method: str,
+    url: str,
+    *,
+    jar: http.cookiejar.CookieJar | None = None,
+    expect: int = 204,
+    timeout: int = 20,
+) -> None:
+    status, headers, _payload, elapsed = request_raw(method, url, jar=jar, timeout=timeout)
+    request_id = headers.get("X-Request-ID")
+    if status != expect:
+        raise SmokeFailure(name, f"unexpected_http_status:{status}")
+    evidence.record(CheckResult(name=name, status="passed", http_status=status, request_id=request_id, elapsed_ms=elapsed))
+
+
+def run_pilot_path_http(
+    evidence: Evidence,
+    *,
+    api_url: str,
+    jar: http.cookiejar.CookieJar,
+    compose: list[str] | None = None,
+    pilot_timeout_seconds: int = 180,
+    poll_interval_seconds: float = 2.0,
+) -> None:
+    if compose is not None:
+        wait_for_service_running(compose, "worker", timeout_seconds=min(60, pilot_timeout_seconds))
+        evidence.record(CheckResult(name="worker_running", status="passed"))
+
+    provider = check_json_endpoint(
+        evidence,
+        "provider_config",
+        "PUT",
+        f"{api_url}/api/v1/admin/runtime-settings/providers/openai",
+        jar=jar,
+        body={"credential": STACK_SMOKE_PROVIDER_CREDENTIAL},
+    )
+    assert_safe_json(provider, "provider_config")
+
+    created = check_json_endpoint(
+        evidence,
+        "domain_create",
+        "POST",
+        f"{api_url}/api/v1/admin/domains",
+        jar=jar,
+        body={
+            "id": STACK_SMOKE_DOMAIN_ID,
+            "displayName": "Stack Smoke",
+            "embeddingProfileId": "openai-embedding-default",
+        },
+        expect=201,
+    )
+    assert_safe_json(created, "domain_create")
+
+    started = check_json_endpoint(
+        evidence,
+        "domain_ready",
+        "POST",
+        f"{api_url}/api/v1/admin/domains/{STACK_SMOKE_DOMAIN_ID}/start",
+        jar=jar,
+    )
+    assert_safe_json(started, "domain_ready")
+
+    status, headers, payload, elapsed = request_raw(
+        "POST",
+        f"{api_url}/api/v1/admin/domains/{STACK_SMOKE_DOMAIN_ID}/sources",
+        jar=jar,
+        multipart_file=("file", "manual.md", STACK_SMOKE_SOURCE_BYTES, "text/markdown"),
+        timeout=60,
+    )
+    if status != 201:
+        raise SmokeFailure("source_upload", f"unexpected_http_status:{status}")
+    uploaded = parse_json(payload)
+    assert_safe_json(uploaded, "source_upload")
+    source = uploaded.get("source") if isinstance(uploaded, dict) else None
+    if not isinstance(source, dict) or not source.get("id"):
+        raise SmokeFailure("source_upload", "source_id_missing")
+    source_id = str(source["id"])
+    evidence.record(
+        CheckResult(
+            name="source_upload",
+            status="passed",
+            http_status=status,
+            request_id=headers.get("X-Request-ID"),
+            elapsed_ms=elapsed,
+        )
+    )
+
+    def fetch_source() -> dict[str, Any]:
+        get_status, _get_headers, get_payload, _get_elapsed = request_raw(
+            "GET",
+            f"{api_url}/api/v1/admin/domains/{STACK_SMOKE_DOMAIN_ID}/sources/{source_id}",
+            jar=jar,
+        )
+        if get_status != 200:
+            raise SmokeFailure("source_prepared_indexed", f"unexpected_http_status:{get_status}")
+        body = parse_json(get_payload)
+        assert_safe_json(body, "source_prepared_indexed")
+        source_body = body.get("source") if isinstance(body, dict) else None
+        if not isinstance(source_body, dict):
+            raise SmokeFailure("source_prepared_indexed", "source_missing")
+        return source_body
+
+    try:
+        ready_source = poll_until(
+            source_is_prepared_and_indexed,
+            fetch_source,
+            timeout_seconds=pilot_timeout_seconds,
+            interval_seconds=poll_interval_seconds,
+        )
+    except TimeoutError as exc:
+        raise SmokeFailure("source_prepared_indexed", "prepare_index_timeout") from exc
+    evidence.record(
+        CheckResult(
+            name="source_prepared_indexed",
+            status="passed",
+            note=f"state={ready_source.get('state')};indexState={ready_source.get('indexState')}",
+        )
+    )
+
+    evidence_status, evidence_headers, evidence_payload, evidence_elapsed = request_raw(
+        "POST",
+        f"{api_url}/api/v1/domains/{STACK_SMOKE_DOMAIN_ID}/evidence",
+        jar=jar,
+        body={"question": STACK_SMOKE_QUESTION},
+        timeout=60,
+    )
+    if evidence_status != 200:
+        raise SmokeFailure("evidence_retrieve", f"unexpected_http_status:{evidence_status}")
+    evidence_body = parse_json(evidence_payload)
+    assert_safe_json(evidence_body, "evidence_retrieve")
+    if not isinstance(evidence_body, dict) or evidence_body.get("result") != "evidence_found":
+        raise SmokeFailure("evidence_retrieve", "evidence_not_found")
+    if not evidence_body.get("evidence"):
+        raise SmokeFailure("evidence_retrieve", "evidence_empty")
+    evidence.record(
+        CheckResult(
+            name="evidence_retrieve",
+            status="passed",
+            http_status=evidence_status,
+            request_id=evidence_headers.get("X-Request-ID"),
+            elapsed_ms=evidence_elapsed,
+            note="result=evidence_found",
+        )
+    )
+
+    conversation = check_json_endpoint(
+        evidence,
+        "conversation_create",
+        "POST",
+        f"{api_url}/api/v1/conversations",
+        jar=jar,
+        body={"title": "Stack Smoke"},
+        expect=201,
+    )
+    assert_safe_json(conversation, "conversation_create")
+    conversation_obj = conversation.get("conversation") if isinstance(conversation, dict) else None
+    if not isinstance(conversation_obj, dict) or not conversation_obj.get("id"):
+        raise SmokeFailure("conversation_create", "conversation_id_missing")
+    conversation_id = str(conversation_obj["id"])
+
+    turn_status, turn_headers, turn_payload, turn_elapsed = request_raw(
+        "POST",
+        f"{api_url}/api/v1/conversations/{conversation_id}/turns:stream",
+        jar=jar,
+        body={
+            "clientRequestId": "stack-smoke-turn-0001",
+            "message": STACK_SMOKE_QUESTION,
+            "domainId": STACK_SMOKE_DOMAIN_ID,
+        },
+        accept="text/event-stream",
+        timeout=max(60, pilot_timeout_seconds),
+    )
+    if turn_status != 200:
+        raise SmokeFailure("domain_chat", f"unexpected_http_status:{turn_status}")
+    turn_text = turn_payload.decode("utf-8", errors="replace")
+    if STACK_SMOKE_PROVIDER_CREDENTIAL in turn_text:
+        raise SmokeFailure("domain_chat", "credential_leaked")
+    events = parse_sse_events(turn_text)
+    if not events:
+        raise SmokeFailure("domain_chat", "sse_events_missing")
+    terminal = events[-1][1]
+    if terminal.get("stopReason") != "grounded":
+        raise SmokeFailure("domain_chat", f"unexpected_stop_reason:{terminal.get('stopReason')}")
+    evidence.record(
+        CheckResult(
+            name="domain_chat",
+            status="passed",
+            http_status=turn_status,
+            request_id=turn_headers.get("X-Request-ID"),
+            elapsed_ms=turn_elapsed,
+            note="stopReason=grounded",
+        )
+    )
+
+    check_empty_endpoint(
+        evidence,
+        "source_delete",
+        "DELETE",
+        f"{api_url}/api/v1/admin/domains/{STACK_SMOKE_DOMAIN_ID}/sources/{source_id}",
+        jar=jar,
+        expect=204,
+        timeout=60,
+    )
+    detail_status, detail_headers, detail_payload, detail_elapsed = request_raw(
+        "GET",
+        f"{api_url}/api/v1/conversations/{conversation_id}",
+        jar=jar,
+    )
+    if detail_status != 200:
+        raise SmokeFailure("source_delete_redaction", f"unexpected_http_status:{detail_status}")
+    detail = parse_json(detail_payload)
+    assert_safe_json(detail, "source_delete_redaction")
+    turns = detail.get("turns") if isinstance(detail, dict) else None
+    if not isinstance(turns, list) or not turns:
+        raise SmokeFailure("source_delete_redaction", "turns_missing")
+    turn = turns[0]
+    if not isinstance(turn, dict) or turn.get("status") != "redacted":
+        raise SmokeFailure("source_delete_redaction", "turn_not_redacted")
+    if turn.get("assistantAnswer") is not None or turn.get("evidence") != []:
+        raise SmokeFailure("source_delete_redaction", "turn_content_not_cleared")
+    evidence.record(
+        CheckResult(
+            name="source_delete_redaction",
+            status="passed",
+            http_status=detail_status,
+            request_id=detail_headers.get("X-Request-ID"),
+            elapsed_ms=detail_elapsed,
+            note="turnStatus=redacted",
+        )
+    )
+
+    deleted = check_json_endpoint(
+        evidence,
+        "domain_delete_accept",
+        "DELETE",
+        f"{api_url}/api/v1/admin/domains/{STACK_SMOKE_DOMAIN_ID}",
+        jar=jar,
+        expect=202,
+        timeout=60,
+    )
+    assert_safe_json(deleted, "domain_delete_accept")
+
+    def domain_gone() -> int:
+        gone_status, _gone_headers, _gone_payload, _gone_elapsed = request_raw(
+            "GET",
+            f"{api_url}/api/v1/admin/domains/{STACK_SMOKE_DOMAIN_ID}",
+            jar=jar,
+        )
+        return gone_status
+
+    try:
+        poll_until(
+            lambda status_code: status_code == 404,
+            domain_gone,
+            timeout_seconds=pilot_timeout_seconds,
+            interval_seconds=poll_interval_seconds,
+        )
+    except TimeoutError as exc:
+        raise SmokeFailure("domain_delete", "domain_delete_timeout") from exc
+    evidence.record(CheckResult(name="domain_delete", status="passed", note="domain_gone"))
 
 
 def run_smoke(args: argparse.Namespace) -> Evidence:
@@ -317,6 +686,14 @@ def run_smoke(args: argparse.Namespace) -> Evidence:
     )
     assert_safe_auth_body(frontend_me)
 
+    run_pilot_path_http(
+        evidence,
+        api_url=api_url,
+        jar=api_jar,
+        compose=compose,
+        pilot_timeout_seconds=args.pilot_timeout,
+    )
+
     return evidence
 
 
@@ -333,7 +710,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--compose-file", default=str(DEFAULT_COMPOSE_FILE))
     parser.add_argument("--env-file", default=str(DEFAULT_ENV_FILE))
     parser.add_argument("--project-name", default=DEFAULT_PROJECT_NAME)
-    parser.add_argument("--timeout", type=int, default=180)
+    parser.add_argument("--timeout", type=int, default=180, help="Health/migrate wait timeout in seconds.")
+    parser.add_argument(
+        "--pilot-timeout",
+        type=int,
+        default=180,
+        help="Timeout for prepare/index and domain-delete polling in seconds.",
+    )
     parser.add_argument("--skip-up", action="store_true", help="Check an already running stack.")
     parser.add_argument("--reset-state", action="store_true", help="Explicitly remove this compose project's volumes before start.")
     parser.add_argument("--keep-running", action="store_true", help="Leave services running after the smoke.")
