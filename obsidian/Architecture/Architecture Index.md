@@ -1,37 +1,40 @@
 ---
 type: index
 status: active
+audience:
+  - agent
+  - junior-dev
 tags:
   - type/index
-  - architecture
   - status/active
 ---
 
 # Architecture Index
 
-Cross-phase durable system design. Phase-scoped notes may also live under `Phases/` until promoted here.
+Cross-phase system design notes. Specs in `specs/` win on conflict.
 
-## Trust and boundaries
+Parent: [[Context Engine Index]].
 
-- (stub) Trust Boundaries — browser vs backend vs LightRAG vs storage
-- (stub) Session And Auth Model
-- (stub) Knowledge Domain Runtime Model
+---
 
-## Storage and delivery
+## Local Studio (reference)
 
-- [[P4 Private Storage Rules]] — private disk; no paths in API
-- [[P4 Image Storage Architecture]] — blocks vs image bytes
-- [[P6 Evidence And Asset Delivery]] — safe excerpts; source-ref gap
+- [[Pi SDK Coding Agent Runtime]] — Pi harness, tool loop, SSE, JSONL; not RAG; CE later-release boundary
 
-## Runtime and chat
+## Context Engine
 
-- [[P2 Runtime Setup Flow]] — admin setup order
-- [[P2 Model Profiles Table]] — synthesis, embedding, parser per operation
-- [[P2 Provider Credentials Setup]] — encrypted provider secrets; admin-only
-- [[TrustedRuntimeResolver]] — server-side credential + profile resolution
-- [[F-012 Chat Workbench Layout]] — three-region `/chat` workbench
+_(promote settled design from Ideation here)_
+
+---
 
 ## Related
 
-- [[Context Engine Index]]
+- [[Lessons Index]] — junior teaching notes
+- [[Ideation Index]] — early option exploration (when populated)
+- [[Reviews Index]] — audits and critiques (when populated)
+
+## Repo sources
+
 - `specs/02-architecture/`
+- `.references/review/local-studio/01-architecture-review.md`
+- `.devnotes/local-studio-templates/local-studio-context-pipline.md`

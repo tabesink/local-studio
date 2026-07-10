@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ideation: Slice 4 Wiki minimal UI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0f1419;
+    --surface: #1a222c;
+    --surface-2: #232d3a;
+    --border: #2f3b4a;
+    --text: #e8eef5;
+    --muted: #9aabbd;
+    --accent: #5eb1ff;
+    --good: #3ecf8e;
+    --warn: #e6b84d;
+    --danger: #f07178;
+    --radius: 8px;
+    --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    font-size: 15px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  header.doc-header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.75rem;
+  }
+  header.doc-header h1 {
+    font-size: 1.65rem;
+    font-weight: 700;
+    margin: 0 0 0.75rem;
+    letter-spacing: -0.02em;
+  }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem;
+    color: var(--muted); font-size: 0.85rem;
+  }
+  .meta strong { color: var(--text); font-weight: 600; }
+  nav.toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.85rem 1rem;
+    margin-bottom: 1.75rem;
+  }
+  nav.toc a { color: var(--accent); text-decoration: none; margin-right: 1rem; font-size: 0.9rem; }
+  nav.toc a:hover { text-decoration: underline; }
+  h2 {
+    font-size: 1.2rem;
+    margin: 2rem 0 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+  }
+  h2:first-of-type { border-top: 0; padding-top: 0; }
+  h3 { font-size: 1.05rem; margin: 0 0 0.5rem; }
+  p, li { color: var(--text); }
+  .muted { color: var(--muted); }
+  .axes { list-style: none; padding: 0; margin: 0; }
+  .axes li {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.55rem 0.85rem;
+    margin-bottom: 0.4rem;
+  }
+  .axes code { font-family: var(--mono); font-size: 0.82rem; color: var(--accent); }
+  .jump {
+    display: flex; flex-wrap: wrap; gap: 0.4rem;
+    margin: 0.75rem 0 1.25rem;
+  }
+  .jump a {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.8rem;
+    padding: 0.3rem 0.55rem;
+    border-radius: 999px;
+  }
+  .jump a:hover { border-color: var(--accent); color: var(--accent); }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.15rem;
+    margin-bottom: 1rem;
+  }
+  .card .rank {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+  }
+  .kv { margin: 0.55rem 0; }
+  .kv dt {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-bottom: 0.15rem;
+  }
+  .kv dd { margin: 0 0 0.55rem; }
+  .pills { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+  .pill {
+    font-size: 0.75rem;
+    font-family: var(--mono);
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .pill.conf-high { border-color: var(--good); color: var(--good); }
+  .pill.conf-med { border-color: var(--warn); color: var(--warn); }
+  .viz {
+    margin: 0.85rem 0 0.4rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+    overflow-x: auto;
+  }
+  .viz figcaption {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 0.45rem;
+  }
+  .viz pre {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: var(--muted);
+    white-space: pre;
+  }
+  table.reject {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  table.reject th, table.reject td {
+    border: 1px solid var(--border);
+    padding: 0.45rem 0.55rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.reject th { background: var(--surface-2); color: var(--muted); font-weight: 600; }
+  footer.composition-signal {
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+  code { font-family: var(--mono); font-size: 0.86em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="doc-header">
+    <h1>Ideation: Slice 4 Wiki minimal UI</h1>
+    <div class="meta">
+      <span><strong>Date:</strong> <time datetime="2026-07-10">2026-07-10</time></span>
+      <span><strong>Topic:</strong> slice-4-wiki-minimal-ui</span>
+      <span><strong>Mode:</strong> repo-grounded</span>
+      <span><strong>Focus:</strong> F-011 backend done; ship thinnest frontend for member draft/submit, admin publish/reject, published browse; close AC-010. Skip AI/SSE/SC polish/attachments. Informed by Smart Composer wiki-layer lesson (UX reference only).</span>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="Document sections">
+    <a href="#grounding">Grounding</a>
+    <a href="#axes">Topic axes</a>
+    <a href="#ranked">Ranked ideas</a>
+    <a href="#rejection">Rejection summary</a>
+  </nav>
+
+  <h2 id="grounding">Grounding Context</h2>
+  <p><strong>Codebase context.</strong> FastAPI + Next.js App Router; Local Studio dark-first <code>DESIGN.md</code>. F-011 backend complete (<code>wiki.py</code>, routes, 6 pytest; AC-001–009 pass). AC-010 deferred — no <code>frontend/src/features/wiki/</code>, no <code>/wiki</code> route. Nav today: Chat, Library, Graph, Logs. Mirror <code>documents/</code> (<code>ceFetch</code> + list/detail + admin gate). ChatShell tab <code>wiki</code> is F-012 composer-ref discovery, not curation.</p>
+  <p><strong>Constraints (user-named).</strong> Slice 4 plan: member list/create/edit/submit; admin review publish/reject; read published; touch <code>features/wiki/</code> + AC-010. F-011: manual-only; tables not cards; no durable browser drafts; no AI/SSE/attachments. Smart Composer lesson: do not port PGlite, providers, Apply, vault RAG. API-001 P11 already contracts all routes/DTOs/state machine.</p>
+  <p><strong>Past learnings.</strong> Thin <code>docs/solutions/</code>: typed DTO polling, safe DTOs, no browser-owned lifecycle. Avoid login-shell UI without server truth.</p>
+  <p><strong>External context.</strong> Keep admin triage separate from published browse. Frase/PR-style: row → detail → few actions → lock after decision. Rejection-reason feedback is high value / low cost. State machine is the product.</p>
+
+  <h2 id="axes">Topic Axes</h2>
+  <ul class="axes">
+    <li><code>shell-placement</code> — where Wiki lives in the left rail / route tree</li>
+    <li><code>member-draft-submit</code> — create/edit/submit contribution loop</li>
+    <li><code>admin-review</code> — review queue, publish, reject</li>
+    <li><code>published-browse</code> — member read of published pages</li>
+    <li><code>typed-wrappers-ac010</code> — <code>wiki/api.ts</code>, Playwright/visual proof, safety</li>
+  </ul>
+
+  <h2 id="ranked">Ranked Ideas</h2>
+  <p class="muted">~39 raw candidates → 7 survivors (tactical/minimal floor). Jump list:</p>
+  <div class="jump">
+    <a href="#idea-1">1. Contract-first wiki module</a>
+    <a href="#idea-2">2. Dedicated /wiki workspace</a>
+    <a href="#idea-3">3. Three separate surfaces</a>
+    <a href="#idea-4">4. Admin Frase triage</a>
+    <a href="#idea-5">5. Server-status field lock</a>
+    <a href="#idea-6">6. Stable page URLs</a>
+    <a href="#idea-7">7. Defer evidence picker</a>
+  </div>
+
+  <article class="card" id="idea-1">
+    <div class="rank">1 · TOP PICK</div>
+    <h3>Contract-first <code>wiki/api.ts</code> + AC-010 Playwright harness</h3>
+    <div class="pills">
+      <span class="pill conf-high">Conf 94%</span>
+      <span class="pill">Complexity Medium</span>
+      <span class="pill">axis: typed-wrappers-ac010</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>Before any page chrome, ship <code>frontend/src/features/wiki/api.ts</code> mirroring <code>documents/api.ts</code>: typed DTOs from API-001, <code>ceFetch</code> cookie session only. Add Playwright helpers that drive draft→submit→publish→reject→browse via API (not UI) for setup, then one thin E2E path that proves the three Slice 4 flows. Update F-011 acceptance AC-010 + T-070/T-080. Bundle or explicitly defer T-060 OpenAPI snapshot.</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> AC-010 deferred; T-070/T-080 open; <code>documents/api.ts</code> pattern; AGENTS.md typed wrappers + no browser token persistence; DoD requires Playwright/visual + safety scan.</dd>
+      <dt>Rationale</dt>
+      <dd>Without typed wrappers, every component invents URLs and drifts from the contract. The harness makes AC-010 a forcing function instead of a screenshot tour — and amortizes every later wiki E2E (F-012 refs included).</dd>
+      <dt>Downsides</dt>
+      <dd>Feels like “no UI yet” for a day; OpenAPI snapshot still open if not bundled.</dd>
+    </dl>
+    <figure class="viz">
+      <pre>Member UI / Admin UI / Browse UI
+        |           |            |
+        v           v            v
+   wiki/api.ts  (ceFetch + typed DTOs)
+        |
+        v
+   /api/v1/wiki*  +  /api/v1/admin/wiki*
+        |
+        v
+   Playwright: API fixtures → one happy-path E2E → AC-010</pre>
+      <figcaption>Foundation first: one module, three UIs, one proof path.</figcaption>
+    </figure>
+  </article>
+
+  <article class="card" id="idea-2">
+    <div class="rank">2</div>
+    <h3>Dedicated <code>/wiki</code> workspace — Library sibling, not ChatShell</h3>
+    <div class="pills">
+      <span class="pill conf-high">Conf 90%</span>
+      <span class="pill">Complexity Medium</span>
+      <span class="pill">axis: shell-placement</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>Add a Wiki nav item and <code>app/wiki/</code> routes. Build <code>features/wiki/</code> as a peer of <code>documents/</code>: left rail + list canvas + right detail. Do <strong>not</strong> extend ChatShell’s wiki tab (that stays F-012 ref discovery). No Smart Composer chrome, ref chips, or Apply UX.</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> Slice 4 targets <code>features/wiki/</code>; ChatShell <code>wiki</code> tab is F-012 discovery; F-011 ux.md left-rail|canvas|detail; SC lesson forbids runtime port; NAV_ITEMS currently has no Wiki.</dd>
+      <dt>Rationale</dt>
+      <dd>Curation is lifecycle work (file → review → catalog), not chat. A dedicated rail mode prevents juniors from wiring wiki writes into the composer and keeps Local Studio shell grammar intact.</dd>
+      <dt>Downsides</dt>
+      <dd>One more top-level nav item; must teach that Chat “Wiki” ≠ Wiki workspace.</dd>
+    </dl>
+    <figure class="viz">
+      <pre>LEFT RAIL                 NOT THIS
+---------                 --------
+Chat                      ChatShell [wiki tab]
+Library  &lt;-- sibling --&gt;  (F-012 refs only)
+Wiki     &lt;-- NEW -------- curation workspace
+Graph
+Logs</pre>
+      <figcaption>ATC tower vs terminal: ops surface separate from conversation.</figcaption>
+    </figure>
+  </article>
+
+  <article class="card" id="idea-3">
+    <div class="rank">3</div>
+    <h3>Three separate surfaces — never blend browse with triage</h3>
+    <div class="pills">
+      <span class="pill conf-high">Conf 91%</span>
+      <span class="pill">Complexity Medium</span>
+      <span class="pill">axis: published-browse</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>Ship three clear entry points (tabs or routes under <code>/wiki</code>): <strong>Published</strong> (GET pages), <strong>My contributions</strong> (owner drafts/submitted), <strong>Review</strong> (admin-only, GET admin contributions). Do not put publish/reject on the published catalog, and do not show other users’ drafts in browse.</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> API-001 separates <code>/wiki/pages</code>, <code>/wiki/contributions</code>, <code>/admin/wiki/contributions</code>; members 404 on non-published; external grounding: open stacks vs closed stacks / Frase queue separation. Verifier refuted “one blended filter home.”</dd>
+      <dt>Rationale</dt>
+      <dd>Blending triage into browse recreates Notion’s draft-leak problem and hides the “only published serves knowledge” guarantee. Separate surfaces map 1:1 to contracts and role gates.</dd>
+      <dt>Downsides</dt>
+      <dd>Slightly more routing than a single mega-table; needs clear empty states per surface.</dd>
+    </dl>
+  </article>
+
+  <article class="card" id="idea-4">
+    <div class="rank">4</div>
+    <h3>Admin Frase/PR triage — row → detail → publish/reject → lock</h3>
+    <div class="pills">
+      <span class="pill conf-high">Conf 88%</span>
+      <span class="pill">Complexity Low</span>
+      <span class="pill">axis: admin-review</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>Admin Review is a table: click row → right detail (read-only title/body) → Publish | Reject. Reject exposes optional <code>reviewerNote</code> (API-optional — prompt strongly on deny, do not hard-block empty). After success, disable actions from returned DTO state (optimistic lock OK). Mirror DocumentsPage admin gate / extract shared <code>AdminGate</code> if cheap.</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> API-001 publish/reject + idempotent publish; ux.md tables + admin-only actions; <code>external:</code> Frase/PR merge-queue lock-after-decision. Softened from “UI-required note” after verifier (API allows empty).</dd>
+      <dt>Rationale</dt>
+      <dd>Closes the admin half of Slice 4 with almost no chrome. Rejection note (when present) is the cheapest feedback loop that improves re-submits.</dd>
+      <dt>Downsides</dt>
+      <dd>No diff viewer (correctly out of scope); concurrent admins still rely on server idempotency.</dd>
+    </dl>
+  </article>
+
+  <article class="card" id="idea-5">
+    <div class="rank">5</div>
+    <h3>Server-status-driven field lock</h3>
+    <div class="pills">
+      <span class="pill conf-med">Conf 82%</span>
+      <span class="pill">Complexity Low</span>
+      <span class="pill">axis: member-draft-submit</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>Member contribution form derives <code>readOnly</code> from API <code>state</code>: draft editable; submitted/published/rejected/blocked not. Show <code>StatusPill</code> from existing UI kit (not invent <code>data-status</code> attributes). Optional lightweight confirm on Submit (“locks until review”) — nice-to-have, not required by contract.</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> F-011 states draft editable / submitted owner read-only; ux.md API truth; copy-desk handoff analogy. Verifier: drop custom <code>data-status</code> convention — use StatusPill/testIds.</dd>
+      <dt>Rationale</dt>
+      <dd>One rule prevents client/server editability drift and teaches the state machine without CMS jargon.</dd>
+      <dt>Downsides</dt>
+      <dd>Submit confirm adds a click; skip if it delays AC-010.</dd>
+    </dl>
+  </article>
+
+  <article class="card" id="idea-6">
+    <div class="rank">6</div>
+    <h3>Stable <code>/wiki/pages/{id}</code> URLs for F-012</h3>
+    <div class="pills">
+      <span class="pill conf-high">Conf 90%</span>
+      <span class="pill">Complexity Low</span>
+      <span class="pill">axis: published-browse</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>Published detail route matches API path shape: <code>/wiki/pages/[pageId]</code>. Soft-handle member 404 for <code>needs_review</code>/archived (“not published”) without crashing the shell. List uses summaries; detail GET loads body (do not invent body from list).</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> API-001 page detail returns body; list is summaries only (verifier refuted optimistic-from-list); F-012 may deep-link published wiki refs later.</dd>
+      <dt>Rationale</dt>
+      <dd>One URL decision removes a mapping layer for F-012 and Playwright navigation helpers.</dd>
+      <dt>Downsides</dt>
+      <dd>None material for Slice 4.</dd>
+    </dl>
+  </article>
+
+  <article class="card" id="idea-7">
+    <div class="rank">7</div>
+    <h3>Defer evidence-ref picker unless trivial</h3>
+    <div class="pills">
+      <span class="pill conf-med">Conf 72%</span>
+      <span class="pill">Complexity Low</span>
+      <span class="pill">axis: member-draft-submit</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>Ship create/edit as title + body first. Omit evidence-ref multi-select until a later micro-slice unless wiring is trivial (empty array always). Server already allows omitted/empty <code>evidenceRefIds</code>. Document the deferral in acceptance so F-011 ux “selected evidence refs” is an explicit follow-up, not silent drift.</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> API-001 optional evidence refs; Slice 4 skip list (SC polish/attachments); verifier marked weak vs ux.md layout — keep only with explicit acceptance note.</dd>
+      <dt>Rationale</dt>
+      <dd>Evidence pickers couple to turn evidence discovery and can block the whole Slice 4 ship. Title+body closes the governed loop; refs can attach later without changing submit/publish.</dd>
+      <dt>Downsides</dt>
+      <dd>Partial F-011 ux surface; must not pretend evidence UI shipped.</dd>
+    </dl>
+  </article>
+
+  <h2 id="rejection">Rejection Summary</h2>
+  <table class="reject">
+    <thead>
+      <tr><th>Cut</th><th>Reason</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Graft Wiki onto <code>/documents</code> / remove <code>/wiki</code></td><td>Refuted — conflates P4 Library with P11 curation; Slice 4 names <code>features/wiki/</code></td></tr>
+      <tr><td>Zero new nav — nest under Library only</td><td>Weak — unspecified IA; fights dedicated feature folder + admin route clarity</td></tr>
+      <tr><td>Publish-first single blended filter home</td><td>Refuted — must keep browse vs draft vs admin queues separate</td></tr>
+      <tr><td>Optimistic detail from list body</td><td>Refuted — API-001 list is summaries; body only on page detail</td></tr>
+      <tr><td>openapi-typescript codegen</td><td>Weak — no toolchain; hand-typed <code>api.ts</code> is house pattern</td></tr>
+      <tr><td>UI-hard-required reject note</td><td>Weak — over-constrains API-optional <code>reviewerNote</code>; kept as soft prompt</td></tr>
+      <tr><td>Custom <code>data-status</code> attribute contract</td><td>Weak — not a repo convention; use StatusPill / testIds</td></tr>
+      <tr><td>Inline list draft creation / state-toggle submit</td><td>Duplicate/lower leverage vs server-status lock + standard form; optional later</td></tr>
+      <tr><td>Full Smart Composer right-panel polish</td><td>Scope overrun — explicitly skipped in Slice 4</td></tr>
+      <tr><td>AI rewrite / SSE / attachments / Apply writeback</td><td>Contract-blocked or SC runtime port — out</td></tr>
+    </tbody>
+  </table>
+
+  <footer class="composition-signal">
+    Composed 2026-07-10T23:05Z by ce-ideate from Slice 4 plan in <code>docs/_tmp/app-implemenatation.md</code>, F-011 specs, and <code>obsidian/Lessons/Smart-Composer: Wiki Layer Architecture.md</code>. Scratch: <code>/tmp/compound-engineering/ce-ideate/eb0d7842/</code>.
+  </footer>
+</div>
+</body>
+</html>

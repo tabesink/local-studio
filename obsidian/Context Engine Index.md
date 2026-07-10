@@ -15,33 +15,38 @@ Entry point for Context Engine rebuild notes (spec-driven, phase-by-phase).
 
 ## Navigation
 
-- [[Build Order Index]] — P0–P9 map and spec paths
-- [[Vault Conventions]] — how this vault relates to `specs/`
-- [[Groups And Tags]] — frontmatter properties and nested tags
+- [[Build Order Index]] — P0–P12 map and spec paths
+- [[Lessons Index]] — junior-dev teaching notes
 - [[Architecture Index]] — cross-phase system design
 - [[Reviews Index]] — post-impl review packages
-- [[Prompts Index]] — agent prompt kits
 - [[Guidelines Index]] — coding and vault conventions
-- [[Todo]] — scratch / next steps (`Inbox/`)
+- [[Inbox Index]] — unprocessed scratch / brainstorm captures
 
-## Phases
+## Architecture (quick links)
 
-| Phase | Index | Status |
-| --- | --- | --- |
-| P0 | [[P0 Index]] | stub |
-| P1 | [[P1 Index]] | stub |
-| P2 | [[P2 Index]] | active — credentials + model profiles |
-| P3 | [[P3 Index]] | stub |
-| P4 | [[P4 Index]] | active — notes populated |
-| P5 | [[P5 Index]] | active — readiness + review notes |
-| P6 | [[P6 Index]] | partial |
-| P7 | [[P7 Index]] | stub |
-| P8 | [[P8 Index]] | stub |
-| P9 | [[P9 Index]] | stub |
-| P12 | [[P12 Index]] | active — F-012 governed context assembly |
+- [[Architecture Index]] — system design notes
+- [[Pi SDK Coding Agent Runtime]] — Local Studio coding-agent harness (Pi); not RAG; CE later-release boundary
+
+## Inbox (quick links)
+
+- [[LS Harness To CE Rag Brainstorm]] — LS harness/middleware → CE basic/advanced RAG tools (scratch)
+
+## Lessons (quick links)
+
+- [[Backend-Owned Lifecycle]] — workers, Postgres leases, not a job platform
+- [[Job Platform vs Backend-Owned Lifecycle]] — Redis/queue pattern vs CE; when to pick which
+- [[Git Branching For Feature Slices]] — branch, commit, PR, merge, delete per vertical slice
+
+## Authority
+
+| Source | Role |
+| --- | --- |
+| `specs/` | Implementation truth |
+| `AGENTS.md` | Binding agent rules |
+| `obsidian/` | Distilled notes — spec wins on conflict |
 
 ## Repo sources
 
+- `specs/README.md`
 - `AGENTS.md`
-- `README.md`
-- `specs/04-features/`
+- `CONTEXT.md`
