@@ -186,7 +186,9 @@ export function ChatShell() {
           </span>
           <span className="flex shrink-0 items-center gap-3">
             <span>{chat.selectedRefs.length ? `${chat.selectedRefs.length} refs` : ""}</span>
-            <span>{chat.streaming ? "streaming" : ""}</span>
+            <span data-testid="chat-streaming" data-streaming={chat.streaming ? "true" : "false"}>
+              {chat.streaming ? "streaming" : ""}
+            </span>
           </span>
         </div>
       </form>

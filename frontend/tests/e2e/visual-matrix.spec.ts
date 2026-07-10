@@ -35,6 +35,7 @@ async function applyTheme(page: import("@playwright/test").Page, theme: Theme) {
 test.describe.configure({ mode: "serial" });
 
 test("DESIGN screenshot matrix for login and chat", async ({ browser, page }) => {
+  test.setTimeout(300_000);
   fs.mkdirSync(ARTIFACTS, { recursive: true });
 
   // Login shots must use an unauthenticated context — AppLayout redirects
