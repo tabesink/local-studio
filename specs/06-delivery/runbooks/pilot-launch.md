@@ -169,6 +169,58 @@ Do not run reset against a project whose local database state must be preserved.
 
 Hard-cut rename from former `p10` volume names to `stack-postgres-data`, `stack-source-storage`, and `stack-domain-runtimes` implies a fresh local database unless the operator manually migrates data from the old volumes. Expect empty state after first start on the renamed volumes.
 
+### Volume migration decision tree
+
+Use this when moving from former `p10-*` volumes to `stack-*` volumes, or when deciding whether to keep local data.
+
+1. **Inspect first (read-only)**
+
+```bash
+python scripts/stack_volume_inspect.py
+python scripts/stack_volume_inspect.py --json
+```
+
+The helper lists presence/size/labels for `p10-*` and `stack-*` volume families. It never mutates volumes and never prints host `Mountpoint` paths.
+
+2. **Choose a path**
+
+| Goal | Action |
+| --- | --- |
+| Intentional fresh start | Keep `stack-*` volumes empty (or `docker compose … down --volumes`) and recreate `.env.stack.local` from `.env.stack.example`. Former `p10-*` volumes can remain unused or be removed later. |
+| Preserve Postgres data | Follow the `pg_dump` / `pg_restore` recipe below **and** preserve `CONFIG_ENCRYPTION_KEY` continuity. |
+| Files-only (sources / runtimes) | Postgres empty is OK; copy or re-upload sources as needed. Domain-runtime dirs are regenerable; source-storage files are not in the DB. |
+
+3. **Encryption-key continuity (required for Postgres preserve)**
+
+Stored provider credentials are ciphertext under `CONFIG_ENCRYPTION_KEY`.
+
+- Copy the Fernet key from the env file that originally wrote the ciphertext (for example former `.env.p10.local` → `.env.stack.local`).
+- Validate it is a Fernet key before restore, for example:
+  `python -c "from cryptography.fernet import Fernet; Fernet(b'<key>')"`
+- Regenerating `CONFIG_ENCRYPTION_KEY` after restore permanently loses stored credentials and requires re-entry.
+
+4. **Postgres preserve recipe (manual; no guided migrate script)**
+
+```bash
+# Example names — adjust project prefixes if your Docker volume names differ.
+# Dump from old volume via a temporary Postgres container:
+docker run --rm -v p10-postgres-data:/var/lib/postgresql/data -v "$PWD/_tmp:/backup" postgres:16 \
+  bash -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f /backup/ce-stack.dump'
+# After stack volumes exist / stack Postgres is up, restore into stack-postgres-data
+# using a matching temp container or exec into the compose postgres service.
+# Prefer restore into an empty stack DB, then start the stack with the preserved key.
+```
+
+Exact user/db names must match the env that created the dump. Do not commit dump files or print connection passwords into evidence.
+
+5. **Source-storage and domain-runtimes notes**
+
+- `p10-source-storage` / `stack-source-storage`: file blobs for uploads. Preserve only if you also preserve matching DB rows; otherwise re-upload.
+- `p10-domain-runtimes` / `stack-domain-runtimes`: regenerable runtime state for local-fake or live binds. Safe to discard for a fresh start.
+- Live overlay uses a host bind at `CE_STACK_LIVE_RUNTIME_ROOT` instead of relying on the named domain-runtimes volume alone.
+
+Cross-link: `docs/solutions/architecture-patterns/runnable-stack-postgres-lease-workers.md` § hard-cut rename.
+
 ### Known stack-gate limits
 
 - stack acceptance uses local domain-runtime and LightRAG client kinds; production Settings default remains native (LD-006);

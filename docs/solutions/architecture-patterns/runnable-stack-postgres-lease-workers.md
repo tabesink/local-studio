@@ -106,6 +106,8 @@ Canonical names only — no `p10` aliases:
 
 Volume rename starts a fresh local database unless the operator migrates data manually.
 
+**Operator follow-up (Slice 3):** use `python scripts/stack_volume_inspect.py` (read-only; no Mountpoints) and the RUN-001 volume migration decision tree for intentional fresh start vs Postgres `pg_dump`/`pg_restore` preserve, including `CONFIG_ENCRYPTION_KEY` continuity. Do not add automatic compose migration.
+
 ## Why This Matters
 
 Backend-owned lifecycle already uses Postgres row locks for prepare, index, and delete. A compose stack without a worker process leaves that lifecycle orphaned — smoke and operators see queued work that never completes. Shared storage/runtime volumes and HTTP-only smoke are the minimum proof that multi-container compose actually runs the product path end-to-end.

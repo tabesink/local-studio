@@ -48,7 +48,10 @@ Notes:
 - Stack fixture uses local domain-runtime and LightRAG client kinds for this gate; production Settings default remains native (LD-006).
 - Hard-cut volume rename to `stack-*` implies a fresh local database unless the operator migrates former `p10` volumes.
 - Slice 1 hardening (2026-07-10): worker heartbeat healthcheck, safety-scan command pin, AST import guard, dual negative proofs.
-- Slice 2 (2026-07-10): optional `compose.stack.live.yml` + `scripts/stack_smoke_live.py`; default gate unchanged; residual #5 closed.## Decision Lock
+- Slice 2 (2026-07-10): optional `compose.stack.live.yml` + `scripts/stack_smoke_live.py`; default gate unchanged; residual #5 closed.
+- Slice 3 (2026-07-10): `scripts/stack_volume_inspect.py` + RUN-001 volume migration decision tree (encryption-key continuity).
+
+## Decision Lock
 
 - Compose shape: one combined fixture `compose.stack.yml` (hard-cut rename from former `compose.p10.yml`).
 - Postgres: stock `postgres:16`; AGE/vector/custom image deferred until evidence requires it.

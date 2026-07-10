@@ -34,6 +34,7 @@ Status: runnable-stack gate implemented with workers-in-stack, hard-cut `stack` 
 | 2026-07-10 | Documented runnable-stack workers pattern in `docs/solutions/architecture-patterns/runnable-stack-postgres-lease-workers.md` via `/ce-compound`. | Institutional memory for compose worker, shared volumes, stack smoke, and rename gotchas. | Cross-linked from this log; discoverability added to `AGENTS.md`. |
 | 2026-07-10 | Slice 1 stack hardening: worker heartbeat + compose healthcheck; smoke waits on `worker_healthy`; safety scan pins `python -m context_engine.worker`; AST import guard; dual negative proofs (safe notes + Docker-marked absent/mid-pilot). | Close residuals #1–#4 from `docs/residual-review-findings/feat-runnable-stack-workers.md` without changing local-fake happy path. | Slice 2 live overlay still deferred (residual #5). |
 | 2026-07-10 | Slice 2 optional live overlay: `compose.stack.live.yml`, live Dockerfile build-arg (`CE_STACK_LIVE_IMAGE`), `scripts/stack_smoke_live.py`, RUN-001 live section; safety scan `--live-overlay`. | Close residual #5 with a separate native-fidelity gate; default smoke stays local-fake. | Volume migration operator story is Slice 3. |
+| 2026-07-10 | Slice 3 volume operator story: `scripts/stack_volume_inspect.py` (read-only, no Mountpoints), RUN-001 migration decision tree with encryption-key preserve/verify, solution-doc cross-link, traceability CHG-038. | Reduce silent data loss across `p10` → `stack` volume rename without automatic compose migration. | None for this follow-up plan. |
 
 ## Drift Register
 
