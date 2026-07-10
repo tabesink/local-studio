@@ -22,7 +22,7 @@ Parent: [[Context Engine Index]].
 - [[Backend-Owned Lifecycle]] — Postgres leases, workers, why CE is not a job platform
 - [[Job Platform vs Backend-Owned Lifecycle]] — queue-based jobs, contrast, when to use which (multi-user)
 - [[Git Branching For Feature Slices]] — one branch per slice, commit as you go, merge and delete
-- [[Smart-Composer: Wiki Layer Architecture]] — vault RAG, prompts, Apply writeback, rebuild checklist (SC reference)
+- [[Smart-Composer - Wiki Layer Architecture]] — vault RAG, prompts, Apply writeback, rebuild checklist (SC reference)
 
 ---
 

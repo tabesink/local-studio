@@ -1,24 +1,20 @@
 {
   "main": {
-    "id": "dd9b1c20aae5b439",
+    "id": "445cffb725e5761c",
     "type": "split",
     "children": [
       {
-        "id": "9577186eaac8af20",
+        "id": "4a777e4909e20b25",
         "type": "tabs",
         "children": [
           {
-            "id": "60de87ebc220bedc",
+            "id": "cc3c075765840c5a",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Lessons/Git Branching For Feature Slices.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "Git Branching For Feature Slices"
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
             }
           }
         ]
@@ -27,15 +23,15 @@
     "direction": "vertical"
   },
   "left": {
-    "id": "2ccd8247929d263f",
+    "id": "cc002aecdd464586",
     "type": "split",
     "children": [
       {
-        "id": "af3b6360904df7d9",
+        "id": "b72163e28353741a",
         "type": "tabs",
         "children": [
           {
-            "id": "5386fa92a101efd5",
+            "id": "840173dc7c576474",
             "type": "leaf",
             "state": {
               "type": "file-explorer",
@@ -48,7 +44,7 @@
             }
           },
           {
-            "id": "50de1d517159ebec",
+            "id": "828494c7582589fa",
             "type": "leaf",
             "state": {
               "type": "search",
@@ -65,7 +61,7 @@
             }
           },
           {
-            "id": "0ea75ce7a75adc23",
+            "id": "f5eba53070ac9cbe",
             "type": "leaf",
             "state": {
               "type": "bookmarks",
@@ -81,20 +77,20 @@
     "width": 300
   },
   "right": {
-    "id": "819e4f6617691db8",
+    "id": "647f4b3ab5f1f303",
     "type": "split",
     "children": [
       {
-        "id": "53c534121e29239c",
+        "id": "d62125b2a1cdaa19",
         "type": "tabs",
         "children": [
           {
-            "id": "13979f125df333a8",
+            "id": "8c7643dfe23fa660",
             "type": "leaf",
             "state": {
               "type": "backlink",
               "state": {
-                "file": "Lessons/Git Branching For Feature Slices.md",
+                "file": "Reviews/ID-A Source Index Fields.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,25 +100,25 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for Git Branching For Feature Slices"
+              "title": "Backlinks for ID-A Source Index Fields"
             }
           },
           {
-            "id": "0111654ff021b412",
+            "id": "d24c2f53cb708da4",
             "type": "leaf",
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "Lessons/Git Branching For Feature Slices.md",
+                "file": "Reviews/ID-A Source Index Fields.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from Git Branching For Feature Slices"
+              "title": "Outgoing links from ID-A Source Index Fields"
             }
           },
           {
-            "id": "80db326559550942",
+            "id": "ca284aa2d0147c4d",
             "type": "leaf",
             "state": {
               "type": "tag",
@@ -137,7 +133,7 @@
             }
           },
           {
-            "id": "f0074e8682a94e58",
+            "id": "dd2ef94b20212542",
             "type": "leaf",
             "state": {
               "type": "all-properties",
@@ -151,18 +147,18 @@
             }
           },
           {
-            "id": "133ad30f5ba4e2e5",
+            "id": "dff124c4a19b9c2f",
             "type": "leaf",
             "state": {
               "type": "outline",
               "state": {
-                "file": "Lessons/Git Branching For Feature Slices.md",
+                "file": "Reviews/ID-A Source Index Fields.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of Git Branching For Feature Slices"
+              "title": "Outline of ID-A Source Index Fields"
             }
           }
         ]
@@ -183,20 +179,43 @@
       "bases:Create new base": false
     }
   },
-  "active": "60de87ebc220bedc",
+  "active": "cc3c075765840c5a",
   "lastOpenFiles": [
-    "Lessons/Smart-Composer: Wiki Layer Architecture.md",
-    "Lessons/Smart-Composer Wiki Layer Architecture.md",
-    "Inbox/Inbox Index.md",
-    "Inbox/LS Harness To CE Rag Brainstorm.md",
-    "Inbox",
+    "Lessons/Smart-Composer - Wiki Layer Architecture.md",
     "Lessons/Lessons Index.md",
-    "Architecture/Pi SDK Coding Agent Runtime.md",
-    "Architecture/Architecture Index.md",
-    "Architecture",
-    "Lessons/Git Branching For Feature Slices.md",
     "Lessons/Job Platform vs Backend-Owned Lifecycle.md",
+    "Lessons/Git Branching For Feature Slices.md",
     "Lessons/Backend-Owned Lifecycle.md",
-    "Context Engine Index.md"
+    "Lessons",
+    "Inbox/LS Harness To CE Rag Brainstorm.md",
+    "Inbox/Inbox Index.md",
+    "Architecture/Pi SDK Coding Agent Runtime.md",
+    "Phases/P12 Governed Context Assembly/P12 Index.md",
+    "Reviews/ID-A Source Index Fields.md",
+    "Reviews/ID-A Evidence API Contract.md",
+    "Reviews/ID-A Safe Evidence DTO.md",
+    "Reviews/ID-A LightRAG Proof Fixture.md",
+    "Reviews/ID-A LightRAG Indexing Contract.md",
+    "Reviews/ID-A Index Worker And Delete Fences.md",
+    "Reviews/Reviews Index.md",
+    "Phases/P5 LightRAG Indexing/P5 LightRAG Text Indexing.md",
+    "Phases/P5 LightRAG Indexing/F-005 P5 Readiness.md",
+    "Phases/P5 LightRAG Indexing/P5 Index.md",
+    "Inbox/Todo.md",
+    "Reviews/ID-A Live Parser SDK Followup.md",
+    "Reviews/ID-A Query Eligibility.md",
+    "Reviews/ID-A Render LightRAG Input.md",
+    "Reviews/P4 Post Impl Review/P4 Review Index.md",
+    "Reviews/P4 Post Impl Review",
+    "Phases/P4 Source Documents Preparation/P4 Source Upload Flow.md",
+    "Inbox",
+    "Guidelines",
+    "Prompts",
+    "Reviews/P3 Post Impl Review",
+    "Reviews/P2 Post Impl Review",
+    "Reviews",
+    "Phases/P9 Frontend Delivery",
+    "Phases/P8 Observability Pilot Gate",
+    "Untitled.canvas"
   ]
 }
