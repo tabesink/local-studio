@@ -4,6 +4,7 @@ import argparse
 import logging
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, Protocol
 
 from context_engine.config import Settings
@@ -16,9 +17,18 @@ from context_engine.services.structured_logging import configure_json_logging, s
 
 logger = logging.getLogger(__name__)
 
+WORKER_HEARTBEAT_FILENAME = ".ce-worker-heartbeat"
+
 
 class _RunOnceWorker(Protocol):
     def run_once(self, db: Any) -> bool: ...
+
+
+def touch_worker_heartbeat(path: Path | str) -> None:
+    """Create or refresh the worker heartbeat file used by compose healthchecks."""
+    heartbeat = Path(path)
+    heartbeat.parent.mkdir(parents=True, exist_ok=True)
+    heartbeat.touch()
 
 
 def run_once_pass(
@@ -48,6 +58,7 @@ def run_loop(
     idle_seconds: float,
     sleep_fn: Callable[[float], None] = time.sleep,
     should_continue: Callable[[], bool] | None = None,
+    heartbeat_path: Path | str | None = None,
 ) -> None:
     """Round-robin lease workers until ``should_continue`` returns false."""
     continue_fn = should_continue or (lambda: True)
@@ -68,6 +79,16 @@ def run_loop(
             close = getattr(db, "close", None)
             if callable(close):
                 close()
+        if heartbeat_path is not None:
+            try:
+                touch_worker_heartbeat(heartbeat_path)
+            except Exception:
+                safe_log(
+                    logger,
+                    "stack_worker.heartbeat_failed",
+                    safe_error_code="heartbeat_write_failed",
+                    outcome="failed",
+                )
         if not did_work:
             sleep_fn(idle_seconds)
 
@@ -83,6 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     engine = create_db_engine(settings)
     session_factory = create_session_factory(engine)
     workers = build_workers(settings)
+    heartbeat_path = Path(settings.domain_runtime_root) / WORKER_HEARTBEAT_FILENAME
     safe_log(logger, "stack_worker.started", outcome="succeeded")
     try:
         run_loop(
@@ -91,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
             index_worker=workers["index"],
             delete_worker=workers["delete"],
             idle_seconds=float(settings.worker_idle_seconds),
+            heartbeat_path=heartbeat_path,
         )
     finally:
         engine.dispose()

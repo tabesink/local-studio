@@ -80,6 +80,20 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    healthcheck:
+      # Heartbeat file is touched each loop iteration under CE_DOMAIN_RUNTIME_ROOT.
+      # Stale if mtime older than 30s; start_period covers first boot / long run_once.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import os,sys,time; p='/data/domain-runtimes/.ce-worker-heartbeat'; sys.exit(0 if os.path.isfile(p) and time.time()-os.path.getmtime(p)<30 else 1)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     restart: unless-stopped
 
   frontend:

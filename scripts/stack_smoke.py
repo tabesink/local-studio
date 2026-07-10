@@ -375,8 +375,8 @@ def run_pilot_path_http(
     poll_interval_seconds: float = 2.0,
 ) -> None:
     if compose is not None:
-        wait_for_service_running(compose, "worker", timeout_seconds=min(60, pilot_timeout_seconds))
-        evidence.record(CheckResult(name="worker_running", status="passed"))
+        wait_for_service_health(compose, "worker", timeout_seconds=min(60, pilot_timeout_seconds))
+        evidence.record(CheckResult(name="worker_healthy", status="passed"))
 
     provider = check_json_endpoint(
         evidence,

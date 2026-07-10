@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from context_engine.config import Settings
-from context_engine.worker import build_workers, run_loop, run_once_pass
+from context_engine.worker import WORKER_HEARTBEAT_FILENAME, build_workers, run_loop, run_once_pass, touch_worker_heartbeat
 
 
 class _FakeWorker:
@@ -100,6 +100,44 @@ def test_run_loop_idle_pass_sleeps_once() -> None:
     assert delete.calls == 1
 
 
+def test_touch_worker_heartbeat_creates_parent_and_file(tmp_path) -> None:
+    heartbeat = tmp_path / "runtime-root" / WORKER_HEARTBEAT_FILENAME
+
+    touch_worker_heartbeat(heartbeat)
+
+    assert heartbeat.is_file()
+
+
+def test_run_loop_touches_heartbeat_before_idle_sleep(tmp_path) -> None:
+    prep = _FakeWorker([False])
+    index = _FakeWorker([False])
+    delete = _FakeWorker([False])
+    heartbeat = tmp_path / WORKER_HEARTBEAT_FILENAME
+    iterations = {"n": 0}
+    sleeps: list[float] = []
+
+    def should_continue() -> bool:
+        iterations["n"] += 1
+        return iterations["n"] <= 1
+
+    def sleep_fn(seconds: float) -> None:
+        assert heartbeat.is_file()
+        sleeps.append(seconds)
+
+    run_loop(
+        session_factory=lambda: object(),
+        prep_worker=prep,
+        index_worker=index,
+        delete_worker=delete,
+        idle_seconds=2.0,
+        sleep_fn=sleep_fn,
+        should_continue=should_continue,
+        heartbeat_path=heartbeat,
+    )
+
+    assert sleeps == [2.0]
+
+
 def test_run_loop_continues_after_run_once_error(caplog: pytest.LogCaptureFixture) -> None:
     prep = _FakeWorker([RuntimeError("boom"), False])
     index = _FakeWorker([False, False])
@@ -132,6 +170,42 @@ def test_run_loop_continues_after_run_once_error(caplog: pytest.LogCaptureFixtur
     assert any(
         getattr(record, "event", None) == "stack_worker.iteration_failed"
         and getattr(record, "safe_error_code", None) == "worker_error"
+        and getattr(record, "outcome", None) == "failed"
+        for record in caplog.records
+    )
+
+
+def test_run_loop_continues_after_heartbeat_error(tmp_path, caplog: pytest.LogCaptureFixture) -> None:
+    prep = _FakeWorker([False, False])
+    index = _FakeWorker([False, False])
+    delete = _FakeWorker([False, False])
+    blocked_parent = tmp_path / "not-a-directory"
+    blocked_parent.write_text("occupied", encoding="utf-8")
+    heartbeat = blocked_parent / WORKER_HEARTBEAT_FILENAME
+    sleeps: list[float] = []
+    iterations = {"n": 0}
+
+    def should_continue() -> bool:
+        iterations["n"] += 1
+        return iterations["n"] <= 2
+
+    with caplog.at_level("INFO"):
+        run_loop(
+            session_factory=lambda: object(),
+            prep_worker=prep,
+            index_worker=index,
+            delete_worker=delete,
+            idle_seconds=0.1,
+            sleep_fn=sleeps.append,
+            should_continue=should_continue,
+            heartbeat_path=heartbeat,
+        )
+
+    assert sleeps == [0.1, 0.1]
+    assert prep.calls == 2
+    assert any(
+        getattr(record, "event", None) == "stack_worker.heartbeat_failed"
+        and getattr(record, "safe_error_code", None) == "heartbeat_write_failed"
         and getattr(record, "outcome", None) == "failed"
         for record in caplog.records
     )
