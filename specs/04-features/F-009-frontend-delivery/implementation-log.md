@@ -3,7 +3,7 @@ id: F-009
 title: Frontend Delivery Implementation Log
 status: in_progress
 owner: Context Engine delivery team
-last_reviewed: 2026-07-06
+last_reviewed: 2026-07-10
 depends_on: [F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008]
 supersedes: []
 ---
@@ -25,9 +25,10 @@ Status: foundation implemented for T-000 through T-030 only. Full P9 remains in 
 | 2026-07-08 | Local Studio parity polish pass (shell + tokens + primitives): `AppPageFrame` changed from padded rounded-card inset to full-bleed `h-[var(--app-height)]` workbench with `--agent-bg` main canvas; `/chat` now renders inside `AppPageFrame` (icon rail visible on chat); `globals.css` gained missing workbench tokens (`--agent-bg`, `--sidebar-bg`, `--composer`, `--composer-footer`, `--composer-shadow` per theme, `--sidebar-w`, `--composer-w`, `--thread-w`, `--composer-radius`, `--app-height` with `100dvh` override, `--ui-info`, sky accent stops); ported LS primitives into `src/components/ui/` (`PageHeader`, `SearchInput`, `StatusPill`/`StatusDot`, `ListGroup`/`ListRow`/`RowValue`/`EmptySafeNotice`, `Table` family, `SettingsLayout`/`SectionNav`/`SettingsGroup`/`SettingsRow`/`SettingsValue`) from `.reference-LS-frontend` `_shared/ui`, restated with `[var(--x)]`/`color-mix` syntax. Also added `turbopack: {}` to `next.config.ts` so `next build` (Next 16 Turbopack default) no longer fails against the dev-only `webpack` block. | Visual parity gaps G-01 through G-04: chat was orphaned from the app shell, the floating-card frame diverged from the LS full-bleed workbench, workbench tokens were missing, and the primitive library was too thin for upcoming slices. | Chat topology port (`ContextPanelShell`, LS composer grammar) and route surfaces remain follow-up slices (G-05+); screenshot matrix still pending per AC-008. |
 
 | 2026-07-08 | Evidence Panel v1 (grill decisions, 8 locked choices): revised `context-panel-tabs.md` from tabbed ContextPanelShell + ledger/inspector sketch to a turn-scoped, single-column, evidence-only right aside per LS ComputerPanel geometry. Implemented `frontend/src/features/chat-shell/EvidencePanel.tsx`, selection/auto-open state in `use-chat-shell.ts`, two-column ChatShell composition, and removed inline timeline "Evidence (N)" blocks. CONTEXT.md gained the **Evidence Panel** term (distinct from Smart Composer). | Old CE SidePanel parity (session ledger, pins, figure/table AssetCards, workspace source fetch) either leaks private ids or needs the opaque source-ref contract; v1 ships against existing EVT-001/API-001 with no contract change. | Deferred: session ledger UX, figure/table inspector (source-ref gate), inline citation chips, tab bar (until ≥2 tabs). Wiring map: `.devnotes/02-evidence-panel-wiring-map.md`. |
+| 2026-07-10 | Playwright pilot happy path (F-009 AC-001 runtime, AC-007 pilot subset, AC-008): added `@playwright/test`, `frontend/playwright.config.ts`, API seed helper (`tests/e2e/helpers/stack-seed.ts` + global setup), serial specs for login/storage/logout, direct chat, domain RAG + Evidence Panel, and DESIGN viewport/theme screenshot matrix. Minimal `data-testid` / `aria-label` on composer send and assistant turns. Artifacts gitignored under `frontend/tests/e2e/artifacts/`. | Close pilot browser proof against runnable stack without waiting on preview/graph contracts. | Documents preview + graph Playwright remain deferred; CI wiring for Playwright deferred; F-009 stays `in_progress`. |
 
 ## Drift Register
 
 No unresolved code/spec drift recorded for T-000 through T-030.
 
-Known gates remain open: Settings panels, documents preview blob fetch, source-ref navigation, real graph data, chat streaming UI, Logs/Usage/node controls, and Wiki/Smart Composer writes.
+Known gates remain open: Settings panels, documents preview blob fetch, source-ref navigation, real graph data, remaining AC-007 browser flows (preview/graph), Logs/Usage/node controls, and Wiki/Smart Composer writes.

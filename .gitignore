@@ -45,6 +45,13 @@ webui/out/
 webui/.env*.local
 next-env.d.ts
 *.tsbuildinfo
+
+# Playwright E2E (frontend/)
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/playwright/.cache/
+frontend/tests/e2e/artifacts/
 .venv/
 __pycache__/
 .pytest_cache/

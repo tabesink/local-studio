@@ -170,6 +170,8 @@ export function ChatShell() {
               type="submit"
               disabled={chat.streaming || !chat.input.trim()}
               title="Send message"
+              aria-label="Send message"
+              data-testid="composer-send"
               className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--fg)]/90 text-[var(--bg)] transition-colors hover:bg-[var(--fg)] disabled:opacity-30"
             >
               <ArrowUp className="h-4 w-4" />
@@ -370,13 +372,18 @@ function TimelineMessage({
   );
 
   if (!selectable) {
-    return <div className="mr-auto w-full max-w-[92%] space-y-2.5">{body}</div>;
+    return (
+      <div data-testid="assistant-turn" className="mr-auto w-full max-w-[92%] space-y-2.5">
+        {body}
+      </div>
+    );
   }
 
   return (
     <div
       role="button"
       tabIndex={0}
+      data-testid="assistant-turn"
       onClick={() => onSelectTurn(message.turnId)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {

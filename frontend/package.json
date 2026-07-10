@@ -8,7 +8,9 @@
     "start": "next start -H 0.0.0.0 -p 3000",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.mjs",
-    "test:foundation": "node --test tests/foundation.test.mjs"
+    "test:foundation": "node --test tests/foundation.test.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "lucide-react": "0.561.0",
@@ -20,6 +22,7 @@
     "postcss": "^8.5.10"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@tailwindcss/postcss": "4.1.18",
     "@types/node": "20.19.27",
     "@types/react": "19.2.7",
