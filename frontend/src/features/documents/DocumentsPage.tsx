@@ -93,6 +93,7 @@ export function DocumentsPage() {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<PreviewState>({ kind: "idle" });
+  const loadGenerationRef = useRef(0);
 
   const setPreviewState = useCallback((next: PreviewState) => {
     revokePreviewUrl(previewRef.current);
@@ -126,18 +127,24 @@ export function DocumentsPage() {
 
   const reload = useCallback(async () => {
     if (!domainId || !user) return;
+    const generation = ++loadGenerationRef.current;
+    const requestDomainId = domainId;
     setLoading(true);
     setError(null);
     try {
-      const rows = isAdmin ? await listAdminSources(domainId) : await listMemberSources(domainId);
+      const rows = isAdmin ? await listAdminSources(requestDomainId) : await listMemberSources(requestDomainId);
+      if (loadGenerationRef.current !== generation) return;
       setSources(rows);
       setSelected((current) => rows.find((row) => row.id === current?.id) ?? null);
     } catch (err) {
+      if (loadGenerationRef.current !== generation) return;
       setSources([]);
       setSelected(null);
       setError(errorMessage(err));
     } finally {
-      setLoading(false);
+      if (loadGenerationRef.current === generation) {
+        setLoading(false);
+      }
     }
   }, [domainId, user, isAdmin]);
 
@@ -151,7 +158,7 @@ export function DocumentsPage() {
   }, [domainId, setPreviewState]);
 
   useEffect(() => {
-    if (!selected || !domainId) {
+    if (!selected || !domainId || selected.domainId !== domainId) {
       setPreviewState({ kind: "idle" });
       return;
     }
@@ -224,15 +231,17 @@ export function DocumentsPage() {
     }
   };
 
-  const runSourceAction = async (source: SourceDocument, action: () => Promise<void>) => {
-    if (!isAdmin) return;
+  const runSourceAction = async (source: SourceDocument, action: () => Promise<void>): Promise<boolean> => {
+    if (!isAdmin) return false;
     setBusySourceId(source.id);
     setError(null);
     try {
       await action();
       await reload();
+      return true;
     } catch (err) {
       setError(errorMessage(err));
+      return false;
     } finally {
       setBusySourceId(null);
     }
@@ -417,7 +426,8 @@ export function DocumentsPage() {
                         const sourceId = selected.id;
                         void runSourceAction(selected, async () => {
                           await deleteSource(domainId, sourceId);
-                        }).then(() => {
+                        }).then((ok) => {
+                          if (!ok) return;
                           setSelected(null);
                           setPreviewState({ kind: "idle" });
                         });
