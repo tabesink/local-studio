@@ -70,6 +70,19 @@ pytest tests/test_stack_smoke_worker_negative.py -m integration_docker
 CE_RUN_STACK_NEGATIVE_MID_PILOT=1 pytest tests/test_stack_smoke_worker_negative.py -m integration_docker -k mid_pilot
 ```
 
+Live overlay helpers (no Docker required for unit helpers):
+
+```text
+pytest tests/test_stack_smoke_live_helpers.py -q
+```
+
+Optional live smoke (operator/manual; not PR-blocking):
+
+```text
+CE_STACK_LIVE_RUNTIME_ROOT=/absolute/host/path python scripts/stack_smoke_live.py --env-file .env.stack.local --reset-state --write-evidence _tmp/stack-smoke-live.json
+python scripts/stack_safety_scan.py --live-overlay --smoke-evidence _tmp/stack-smoke-live.json
+```
+
 The stack proof is HTTP smoke only. Playwright remains owned by F-009 AC-007 unless P10 later implements contracted operator UI surfaces. In-process `scripts/pilot_flow.py` / `scripts/compose_smoke.py` remain for non-Docker CI; they are not the F-010 stack acceptance gate.
 
 ## Contract And Compatibility Checks

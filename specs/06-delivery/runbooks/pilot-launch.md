@@ -171,8 +171,41 @@ Hard-cut rename from former `p10` volume names to `stack-postgres-data`, `stack-
 
 ### Known stack-gate limits
 
-- stack acceptance uses local domain-runtime and LightRAG client kinds; production Settings default remains native (LD-006); live Docker LightRAG is deferred;
+- stack acceptance uses local domain-runtime and LightRAG client kinds; production Settings default remains native (LD-006);
+- optional live Docker LightRAG overlay is a separate proof (see Live overlay below) — not the default F-010 gate;
 - Runtime Node, Logs, Usage, storage summary, and Docker environment UI/API work is blocked until API-001 and DATA-001 are patched;
 - Playwright remains F-009 AC-007;
 - `next dev` may be used for local iteration outside this gate, but production build/start is the stack fixture;
 - Redis/RQ/Celery, status-poller, and deployment-control remain forbidden; the single CE lease worker is required.
+
+### Live overlay (optional native fidelity)
+
+Use this only when you need LD-006-aligned native LightRAG fidelity in compose. It is **not** the default F-010 acceptance gate (`scripts/stack_smoke.py` stays local-fake).
+
+**Prerequisites**
+
+- Docker daemon on the host; local single-operator workstation (not production / shared multi-tenant).
+- Absolute host-visible runtime directory, for example:
+  `CE_STACK_LIVE_RUNTIME_ROOT=/home/you/.local/share/context-engine/stack-domain-runtimes`
+- Provider credentials already required by `.env.stack.local` (same as default stack).
+- Live image build installs Docker CLI and `.[lightrag-runtime]` extras (slower/heavier than the slim default image).
+- Resource cost: native index is slower; use a longer pilot timeout (live smoke defaults to 600s).
+
+**Threat note:** the live overlay mounts `/var/run/docker.sock` into api/worker so the private domain-runtime controller subprocess can invoke the Docker CLI. This is a documented local single-operator exception to ARCH-002’s socket ban. Do not enable the overlay in production or shared multi-tenant hosts. The API process still must not import Docker; the controller remains a subprocess.
+
+**Commands**
+
+```bash
+mkdir -p "$CE_STACK_LIVE_RUNTIME_ROOT"
+docker compose --env-file .env.stack.local -f compose.stack.yml -f compose.stack.live.yml config --quiet
+python scripts/stack_smoke_live.py --env-file .env.stack.local --reset-state --write-evidence _tmp/stack-smoke-live.json
+python scripts/stack_safety_scan.py --live-overlay --smoke-evidence _tmp/stack-smoke-live.json
+```
+
+Bounded default path: upload → prepare → index → evidence. Pass `--include-chat` to continue into chat/delete.
+
+**Known limits**
+
+- Default `scripts/stack_smoke.py` never enables the overlay and must keep local kinds.
+- Base `compose.stack.yml` safety scan still forbids `docker.sock`; only `--live-overlay` scans the live file with socket allowed.
+- Named `stack-domain-runtimes` volume remains the default local-fake path; live uses the host bind at `CE_STACK_LIVE_RUNTIME_ROOT`.

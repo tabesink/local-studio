@@ -139,17 +139,25 @@ def require_command(cmd: list[str], check: str, *, timeout: int = 120) -> subpro
     return completed
 
 
-def compose_base(compose_file: Path, env_file: Path, project_name: str) -> list[str]:
-    return [
+def compose_base(
+    compose_file: Path,
+    env_file: Path,
+    project_name: str,
+    *,
+    extra_compose_files: list[Path] | None = None,
+) -> list[str]:
+    command = [
         "docker",
         "compose",
         "--env-file",
         str(env_file),
         "-f",
         str(compose_file),
-        "-p",
-        project_name,
     ]
+    for extra in extra_compose_files or []:
+        command.extend(["-f", str(extra)])
+    command.extend(["-p", project_name])
+    return command
 
 
 def compose_service_state(compose: list[str], service: str) -> dict[str, Any] | None:
@@ -374,6 +382,7 @@ def run_pilot_path_http(
     pilot_timeout_seconds: int = 180,
     poll_interval_seconds: float = 2.0,
     after_source_upload: Callable[[], None] | None = None,
+    through_evidence_only: bool = False,
 ) -> None:
     if compose is not None:
         wait_for_service_health(compose, "worker", timeout_seconds=min(60, pilot_timeout_seconds))
@@ -497,6 +506,8 @@ def run_pilot_path_http(
             note="result=evidence_found",
         )
     )
+    if through_evidence_only:
+        return
 
     conversation = check_json_endpoint(
         evidence,
