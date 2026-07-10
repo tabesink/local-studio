@@ -8,15 +8,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 DEFAULT_TARGETS = [
-    Path("compose.p10.yml"),
-    Path(".env.p10.example"),
+    Path("compose.stack.yml"),
+    Path(".env.stack.example"),
     Path(".dockerignore"),
     Path("Dockerfile"),
     Path("frontend/Dockerfile"),
     Path("frontend/.dockerignore"),
     Path("frontend/package.json"),
-    Path("scripts/p10_stack_smoke.py"),
-    Path("scripts/p10_safety_scan.py"),
+    Path("scripts/stack_smoke.py"),
+    Path("scripts/stack_safety_scan.py"),
     Path("specs/06-delivery/runbooks/pilot-launch.md"),
     Path("specs/04-features/F-010-shared-node-operations/spec.md"),
     Path("specs/04-features/F-010-shared-node-operations/plan.md"),
@@ -39,8 +39,10 @@ SECRET_PATTERNS = [
 
 SECRET_ASSIGNMENT = re.compile(r"^\s*(CE_ADMIN_PASSWORD|POSTGRES_PASSWORD|CONFIG_ENCRYPTION_KEY)\s*[:=]\s*(.+?)\s*$")
 
+# Ban job-platform / old-control-plane services. The CE lease poller service
+# named `worker` is allowed; Redis/RQ/Celery and legacy pollers are not.
 COMPOSE_FORBIDDEN_PATTERNS = [
-    re.compile(r"(?m)^  (?:redis|worker|status-poller|deployment-control):"),
+    re.compile(r"(?m)^  (?:redis|status-poller|deployment-control):"),
     re.compile(r"(?<!CONTEXT_ENGINE_)DATABASE_URL"),
     re.compile(r"\bREDIS_URL\b"),
     re.compile(r"\b(?:celery|rq)\b", re.IGNORECASE),
@@ -71,7 +73,7 @@ def scan_compose(path: Path, text: str, failures: list[str]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Scan P10 deployment fixtures and safe evidence for forbidden leakage.")
+    parser = argparse.ArgumentParser(description="Scan stack deployment fixtures and safe evidence for forbidden leakage.")
     parser.add_argument("--smoke-evidence", action="append", default=[], help="Optional safe smoke evidence JSON path to scan.")
     args = parser.parse_args()
 
@@ -86,14 +88,14 @@ def main() -> int:
         text = path.read_text(encoding="utf-8")
         display = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
         scan_text(display, text, failures)
-        if display == Path("compose.p10.yml"):
+        if display == Path("compose.stack.yml"):
             scan_compose(display, text, failures)
 
     if failures:
         for failure in failures:
             print(failure)
         return 1
-    print("p10_safety_scan: ok")
+    print("stack_safety_scan: ok")
     return 0
 
 

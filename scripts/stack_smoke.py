@@ -15,9 +15,9 @@ from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_COMPOSE_FILE = ROOT / "compose.p10.yml"
-DEFAULT_ENV_FILE = ROOT / ".env.p10.local"
-DEFAULT_PROJECT_NAME = "context_engine_p10"
+DEFAULT_COMPOSE_FILE = ROOT / "compose.stack.yml"
+DEFAULT_ENV_FILE = ROOT / ".env.stack.local"
+DEFAULT_PROJECT_NAME = "context_engine_stack"
 FORBIDDEN_RESPONSE_KEYS = {"token", "password", "password_hash", "hash"}
 
 
@@ -266,8 +266,8 @@ def run_smoke(args: argparse.Namespace) -> Evidence:
     wait_for_service_health(compose, "api", timeout_seconds=args.timeout)
     wait_for_service_health(compose, "frontend", timeout_seconds=args.timeout)
 
-    api_url = f"http://127.0.0.1:{env.get('P10_API_PORT', '8000')}"
-    frontend_url = f"http://127.0.0.1:{env.get('P10_FRONTEND_PORT', '3000')}"
+    api_url = f"http://127.0.0.1:{env.get('STACK_API_PORT', '8000')}"
+    frontend_url = f"http://127.0.0.1:{env.get('STACK_FRONTEND_PORT', '3000')}"
 
     check_json_endpoint(evidence, "api_live", "GET", f"{api_url}/health/live")
     check_json_endpoint(evidence, "api_ready", "GET", f"{api_url}/health/ready")
@@ -329,12 +329,12 @@ def write_evidence(path: str | None, evidence: Evidence) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run the P10 HTTP stack smoke against listening services.")
+    parser = argparse.ArgumentParser(description="Run the stack HTTP smoke against listening services.")
     parser.add_argument("--compose-file", default=str(DEFAULT_COMPOSE_FILE))
     parser.add_argument("--env-file", default=str(DEFAULT_ENV_FILE))
     parser.add_argument("--project-name", default=DEFAULT_PROJECT_NAME)
     parser.add_argument("--timeout", type=int, default=180)
-    parser.add_argument("--skip-up", action="store_true", help="Check an already running P10 stack.")
+    parser.add_argument("--skip-up", action="store_true", help="Check an already running stack.")
     parser.add_argument("--reset-state", action="store_true", help="Explicitly remove this compose project's volumes before start.")
     parser.add_argument("--keep-running", action="store_true", help="Leave services running after the smoke.")
     parser.add_argument("--write-evidence", default=None, help="Optional safe JSON evidence output path.")
