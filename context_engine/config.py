@@ -56,6 +56,7 @@ class Settings:
     source_index_worker_id: str = field(default_factory=lambda: _env("CE_SOURCE_INDEX_WORKER_ID", "source-index-worker") or "source-index-worker")
     source_index_lease_seconds: int = field(default_factory=lambda: _env_int("CE_SOURCE_INDEX_LEASE_SECONDS", 60))
     lightrag_client_kind: str = field(default_factory=lambda: _env("CE_LIGHTRAG_CLIENT_KIND", "native") or "native")
+    worker_idle_seconds: int = field(default_factory=lambda: _env_int("CE_WORKER_IDLE_SECONDS", 2))
 
     def __post_init__(self) -> None:
         samesite = self.session_cookie_samesite.strip().lower()
