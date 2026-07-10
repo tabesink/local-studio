@@ -37,7 +37,7 @@ Required checks:
 - Alembic migration reaches head from an empty volume/database.
 - `GET /health/live` succeeds through the API service.
 - `GET /health/ready` succeeds through the API service.
-- Compose `worker` service is running (`python -m context_engine.worker`).
+- Compose `worker` service is healthy via heartbeat file under `CE_DOMAIN_RUNTIME_ROOT` (not Status==running alone).
 - `POST /api/v1/auth/login` succeeds for the environment-seeded Administrator.
 - Login response contains no token/password/hash.
 - `GET /api/v1/auth/me` succeeds using the HttpOnly cookie.
@@ -57,10 +57,17 @@ Safety scan:
 python scripts/stack_safety_scan.py --smoke-evidence _tmp/stack-smoke.json
 ```
 
-Unit coverage for worker loop and smoke helpers:
+Unit coverage for worker loop, safety scan, smoke helpers, AST guard, and negative notes:
 
 ```text
-pytest tests/test_stack_worker_loop.py tests/test_stack_safety_scan.py tests/test_stack_smoke_helpers.py
+pytest tests/test_stack_worker_loop.py tests/test_stack_safety_scan.py tests/test_stack_smoke_helpers.py tests/test_stack_smoke_imports.py tests/test_stack_smoke_worker_negative.py -m "not integration_docker"
+```
+
+Optional Docker-marked negative proofs (skip without Docker / `.env.stack.local`):
+
+```text
+pytest tests/test_stack_smoke_worker_negative.py -m integration_docker
+CE_RUN_STACK_NEGATIVE_MID_PILOT=1 pytest tests/test_stack_smoke_worker_negative.py -m integration_docker -k mid_pilot
 ```
 
 The stack proof is HTTP smoke only. Playwright remains owned by F-009 AC-007 unless P10 later implements contracted operator UI surfaces. In-process `scripts/pilot_flow.py` / `scripts/compose_smoke.py` remain for non-Docker CI; they are not the F-010 stack acceptance gate.

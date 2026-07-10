@@ -32,6 +32,7 @@ Status: runnable-stack gate implemented with workers-in-stack, hard-cut `stack` 
 | 2026-07-10 | Safety scan allows the CE lease worker service name while still rejecting Redis, status-poller, deployment-control, Celery/RQ, and old entrypoints. | Former scan forbade any compose `worker:` service; that blocked the lease poller. | Keep job-platform bans. |
 
 | 2026-07-10 | Documented runnable-stack workers pattern in `docs/solutions/architecture-patterns/runnable-stack-postgres-lease-workers.md` via `/ce-compound`. | Institutional memory for compose worker, shared volumes, stack smoke, and rename gotchas. | Cross-linked from this log; discoverability added to `AGENTS.md`. |
+| 2026-07-10 | Slice 1 stack hardening: worker heartbeat + compose healthcheck; smoke waits on `worker_healthy`; safety scan pins `python -m context_engine.worker`; AST import guard; dual negative proofs (safe notes + Docker-marked absent/mid-pilot). | Close residuals #1–#4 from `docs/residual-review-findings/feat-runnable-stack-workers.md` without changing local-fake happy path. | Slice 2 live overlay still deferred (residual #5). |
 
 ## Drift Register
 
@@ -58,9 +59,9 @@ Status: runnable-stack gate implemented with workers-in-stack, hard-cut `stack` 
 
 | Command | Result | Notes |
 | --- | --- | --- |
-| `pytest tests/test_stack_worker_loop.py tests/test_stack_safety_scan.py tests/test_stack_smoke_helpers.py -q` | pass | 13 passed |
-| `STACK_API_PORT=18000 STACK_FRONTEND_PORT=13000 .venv/bin/python scripts/stack_smoke.py --env-file .env.stack.local --project-name context_engine_stack_smoke --reset-state --write-evidence _tmp/stack-smoke.json` | pass | checks include postgres_health, alembic_head, api auth/proxy, worker_running, provider_config, domain_ready, source_upload, source_prepared_indexed (state=prepared; indexState=ready), evidence_retrieve, domain_chat (stopReason=grounded), source_delete_redaction (turnStatus=redacted), domain_delete |
-| `python scripts/stack_safety_scan.py --smoke-evidence _tmp/stack-smoke.json` | pass | ok; CE lease worker allowed; Redis/job-platform patterns rejected |
+| `pytest tests/test_stack_worker_loop.py tests/test_stack_safety_scan.py tests/test_stack_smoke_helpers.py tests/test_stack_smoke_imports.py tests/test_stack_smoke_worker_negative.py -q -m "not integration_docker"` | pass | Slice 1 hardening: heartbeat, safety-scan pin, AST guard, safe negative notes |
+| `STACK_API_PORT=18000 STACK_FRONTEND_PORT=13000 .venv/bin/python scripts/stack_smoke.py --env-file .env.stack.local --project-name context_engine_stack_smoke --reset-state --write-evidence _tmp/stack-smoke.json` | pass | checks include postgres_health, alembic_head, api auth/proxy, worker_healthy, provider_config, domain_ready, source_upload, source_prepared_indexed (state=prepared; indexState=ready), evidence_retrieve, domain_chat (stopReason=grounded), source_delete_redaction (turnStatus=redacted), domain_delete |
+| `python scripts/stack_safety_scan.py --smoke-evidence _tmp/stack-smoke.json` | pass | ok; CE lease worker command pinned; Redis/job-platform patterns rejected |
 
 Historical 2026-07-06 auth/proxy-only evidence used former `compose.p10.yml` / `scripts/p10_*.py` names and is superseded by the commands above.
 

@@ -373,6 +373,7 @@ def run_pilot_path_http(
     compose: list[str] | None = None,
     pilot_timeout_seconds: int = 180,
     poll_interval_seconds: float = 2.0,
+    after_source_upload: Callable[[], None] | None = None,
 ) -> None:
     if compose is not None:
         wait_for_service_health(compose, "worker", timeout_seconds=min(60, pilot_timeout_seconds))
@@ -436,6 +437,8 @@ def run_pilot_path_http(
             elapsed_ms=elapsed,
         )
     )
+    if after_source_upload is not None:
+        after_source_upload()
 
     def fetch_source() -> dict[str, Any]:
         get_status, _get_headers, get_payload, _get_elapsed = request_raw(
