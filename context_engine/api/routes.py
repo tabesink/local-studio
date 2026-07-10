@@ -110,7 +110,9 @@ from context_engine.services.sources import (
     SourceError,
     cancel_source,
     delete_source,
+    list_member_sources,
     list_sources,
+    read_source_preview,
     retry_source,
     safe_source,
     safe_source_operation,
@@ -1250,6 +1252,43 @@ def admin_delete_source(
     except SourceIndexError as exc:
         raise _source_index_api_error(exc) from exc
     return Response(status_code=204)
+
+
+@api_router.get("/domains/{domain_id}/sources")
+def member_list_sources(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    _: CurrentSession = Depends(require_current_session),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    try:
+        return {"sources": list_member_sources(db, settings=settings, domain_id=domain_id)}
+    except SourceError as exc:
+        raise _source_api_error(exc) from exc
+
+
+@api_router.get("/domains/{domain_id}/sources/{source_id}/preview")
+def member_preview_source(
+    domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
+    source_id: str = Path(min_length=1, max_length=36),
+    _: CurrentSession = Depends(require_current_session),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    try:
+        data, content_type = read_source_preview(
+            db,
+            settings=settings,
+            domain_id=domain_id,
+            source_id=source_id,
+        )
+    except SourceError as exc:
+        raise _source_api_error(exc) from exc
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={"Cache-Control": "private, no-store"},
+    )
 
 
 @api_router.post("/domains/{domain_id}/evidence", response_model=EvidenceResponse)

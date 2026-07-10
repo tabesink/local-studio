@@ -47,7 +47,7 @@ Parallel work is allowed only when tasks touch independent files and share no co
 ## Blocked Until Contract Or Fixture Proof
 
 - Settings panels: each panel wires only after its endpoint fixture is captured from API-001/OpenAPI.
-- Documents preview blob: blocked until API-001 adds a safe preview route.
+- Documents preview blob: API-001 member list + preview captured; wire Library panel and Playwright evidence.
 - Source navigation: blocked until an opaque source-ref contract exists.
 - Graph data: blocked until graph read DTOs are approved.
 - Chat streaming UI: blocked until EVT-001 transcript fixtures exist and the two-column vs three-panel layout decision is recorded in F-009.

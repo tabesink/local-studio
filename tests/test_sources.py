@@ -540,3 +540,200 @@ def test_p4_source_services_do_not_import_or_call_lightrag() -> None:
     assert "lightrag" not in source_text
     assert "ainsert" not in source_text
     assert lightrag_imports("context_engine/api/routes.py") == []
+
+
+def _start_domain(client: TestClient, domain_id: str = "fatigue") -> None:
+    started = client.post(f"/api/v1/admin/domains/{domain_id}/start")
+    assert started.status_code == 200
+
+
+def _upload_typed(
+    client: TestClient,
+    *,
+    domain_id: str = "fatigue",
+    filename: str,
+    content: bytes,
+    content_type: str,
+):
+    return client.post(
+        f"/api/v1/admin/domains/{domain_id}/sources",
+        files={"file": (filename, content, content_type)},
+    )
+
+
+def _create_member(settings: Settings, username: str = "member-preview@example.test") -> None:
+    engine, db = _session(settings)
+    try:
+        from context_engine.models import ROLE_MEMBER
+        from context_engine.services.auth import create_user
+
+        create_user(db, username, "member-password", role=ROLE_MEMBER)
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_member_source_list_and_preview_for_pdf_and_text(app, settings: Settings) -> None:
+    pdf_bytes = b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"
+    text_bytes = b"plain preview body"
+
+    with TestClient(app) as client:
+        _login_admin(client, settings)
+        _configure_openai(client)
+        _create_domain(client)
+        _start_domain(client)
+        pdf_upload = _upload_typed(
+            client,
+            filename="manual.pdf",
+            content=pdf_bytes,
+            content_type="application/pdf",
+        )
+        text_upload = _upload_typed(
+            client,
+            filename="notes.txt",
+            content=text_bytes,
+            content_type="text/plain",
+        )
+        assert pdf_upload.status_code == 201
+        assert text_upload.status_code == 201
+        pdf_id = pdf_upload.json()["source"]["id"]
+        text_id = text_upload.json()["source"]["id"]
+
+    _create_member(settings)
+
+    with TestClient(app) as client:
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"username": "member-preview@example.test", "password": "member-password"},
+        )
+        assert login.status_code == 200
+
+        listed = client.get("/api/v1/domains/fatigue/sources")
+        assert listed.status_code == 200
+        payload = listed.json()
+        _assert_safe_payload(payload)
+        source_ids = {item["id"] for item in payload["sources"]}
+        assert pdf_id in source_ids
+        assert text_id in source_ids
+
+        pdf_preview = client.get(f"/api/v1/domains/fatigue/sources/{pdf_id}/preview")
+        assert pdf_preview.status_code == 200
+        assert pdf_preview.headers["content-type"].startswith("application/pdf")
+        assert pdf_preview.headers.get("cache-control") == "private, no-store"
+        assert "attachment" not in (pdf_preview.headers.get("content-disposition") or "").lower()
+        assert pdf_preview.content == pdf_bytes
+
+        text_preview = client.get(f"/api/v1/domains/fatigue/sources/{text_id}/preview")
+        assert text_preview.status_code == 200
+        assert text_preview.headers["content-type"].startswith("text/plain")
+        assert text_preview.headers.get("cache-control") == "private, no-store"
+        assert text_preview.content == text_bytes
+
+        # Concurrent / sequential readers are not locked.
+        second = client.get(f"/api/v1/domains/fatigue/sources/{pdf_id}/preview")
+        assert second.status_code == 200
+        assert second.content == pdf_bytes
+
+        forbidden = client.get("/api/v1/admin/domains/fatigue/sources")
+        assert forbidden.status_code == 403
+        assert forbidden.json()["error"]["code"] == "forbidden"
+        _assert_safe_payload(forbidden.json())
+
+
+def test_member_preview_rejects_docx_and_missing_original_safely(app, settings: Settings) -> None:
+    docx_bytes = b"PK\x03\x04docx-fixture"
+    md_bytes = b"# Previewable\nbody"
+
+    with TestClient(app) as client:
+        _login_admin(client, settings)
+        _configure_openai(client)
+        _create_domain(client)
+        _start_domain(client)
+        docx_upload = _upload_typed(
+            client,
+            filename="manual.docx",
+            content=docx_bytes,
+            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+        md_upload = _upload_typed(
+            client,
+            filename="manual.md",
+            content=md_bytes,
+            content_type="text/markdown",
+        )
+        assert docx_upload.status_code == 201
+        assert md_upload.status_code == 201
+        docx_id = docx_upload.json()["source"]["id"]
+        md_id = md_upload.json()["source"]["id"]
+
+    engine, db = _session(settings)
+    try:
+        source = db.get(SourceDocument, md_id)
+        assert source is not None
+        original = storage_from_settings(settings).original_path(source.domain_id, source.id)
+        assert original.exists()
+        original.unlink()
+        storage_path_needle = str(original).lower()
+    finally:
+        db.close()
+        engine.dispose()
+
+    _create_member(settings, "member-preview-errors@example.test")
+
+    with TestClient(app) as client:
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"username": "member-preview-errors@example.test", "password": "member-password"},
+        )
+        assert login.status_code == 200
+
+        unsupported = client.get(f"/api/v1/domains/fatigue/sources/{docx_id}/preview")
+        assert unsupported.status_code == 422
+        assert unsupported.json()["error"]["code"] == "source_preview_unsupported"
+        _assert_safe_payload(unsupported.json())
+
+        missing = client.get(f"/api/v1/domains/fatigue/sources/{md_id}/preview")
+        assert missing.status_code == 404
+        assert missing.json()["error"]["code"] == "source_preview_unavailable"
+        _assert_safe_payload(missing.json())
+        assert storage_path_needle not in missing.text.lower()
+        assert "domains/" not in missing.text.lower()
+
+        unknown = client.get("/api/v1/domains/fatigue/sources/00000000-0000-0000-0000-000000000000/preview")
+        assert unknown.status_code == 404
+        assert unknown.json()["error"]["code"] == "source_not_found"
+        _assert_safe_payload(unknown.json())
+
+        denied_domain = client.get("/api/v1/domains/missing-domain/sources")
+        assert denied_domain.status_code == 404
+        assert denied_domain.json()["error"]["code"] == "domain_not_found"
+        _assert_safe_payload(denied_domain.json())
+
+
+def test_member_preview_requires_available_domain(app, settings: Settings) -> None:
+    with TestClient(app) as client:
+        _login_admin(client, settings)
+        _configure_openai(client)
+        _create_domain(client)
+        uploaded = _upload(client)
+        assert uploaded.status_code == 201
+        source_id = uploaded.json()["source"]["id"]
+        # Domain created but not started → not available for member routes.
+
+    _create_member(settings, "member-preview-stopped@example.test")
+
+    with TestClient(app) as client:
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"username": "member-preview-stopped@example.test", "password": "member-password"},
+        )
+        assert login.status_code == 200
+        listed = client.get("/api/v1/domains/fatigue/sources")
+        assert listed.status_code == 409
+        assert listed.json()["error"]["code"] == "domain_state_conflict"
+        _assert_safe_payload(listed.json())
+
+        preview = client.get(f"/api/v1/domains/fatigue/sources/{source_id}/preview")
+        assert preview.status_code == 409
+        assert preview.json()["error"]["code"] == "domain_state_conflict"
+        _assert_safe_payload(preview.json())

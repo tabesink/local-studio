@@ -1,6 +1,77 @@
 {
   "components": {
     "schemas": {
+      "ComposerRefDiscoverRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "conversationId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversationid"
+          },
+          "domainId": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domainid"
+          },
+          "kinds": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "source",
+                    "evidence",
+                    "wiki",
+                    "template"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kinds"
+          },
+          "limit": {
+            "default": 10,
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          }
+        },
+        "title": "ComposerRefDiscoverRequest",
+        "type": "object"
+      },
       "ConversationTitleRequest": {
         "additionalProperties": false,
         "properties": {
@@ -292,6 +363,14 @@
             "minLength": 1,
             "title": "Clientrequestid",
             "type": "string"
+          },
+          "composerRefTokens": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Composerreftokens",
+            "type": "array"
           },
           "domainId": {
             "anyOf": [
@@ -2049,6 +2128,46 @@
         "summary": "Me"
       }
     },
+    "/api/v1/composer-refs:discover": {
+      "post": {
+        "operationId": "post_composer_refs_discover_api_v1_composer_refs_discover_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComposerRefDiscoverRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Post Composer Refs Discover Api V1 Composer Refs Discover Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Composer Refs Discover"
+      }
+    },
     "/api/v1/conversations": {
       "get": {
         "operationId": "get_conversations_api_v1_conversations_get",
@@ -2357,6 +2476,97 @@
           }
         },
         "summary": "Retrieve Domain Evidence"
+      }
+    },
+    "/api/v1/domains/{domain_id}/sources": {
+      "get": {
+        "operationId": "member_list_sources_api_v1_domains__domain_id__sources_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_-]{1,62}$",
+              "title": "Domain Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Member List Sources Api V1 Domains  Domain Id  Sources Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Member List Sources"
+      }
+    },
+    "/api/v1/domains/{domain_id}/sources/{source_id}/preview": {
+      "get": {
+        "operationId": "member_preview_source_api_v1_domains__domain_id__sources__source_id__preview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_-]{1,62}$",
+              "title": "Domain Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 1,
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Member Preview Source"
       }
     },
     "/api/v1/wiki/contributions": {

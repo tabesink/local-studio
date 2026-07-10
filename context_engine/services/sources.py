@@ -64,6 +64,11 @@ ALLOWED_SOURCE_CONTENT_TYPES = {
     "text/markdown",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
+PREVIEWABLE_SOURCE_CONTENT_TYPES = {
+    "application/pdf",
+    "text/plain",
+    "text/markdown",
+}
 _IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 _SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9._ -]+")
 _FORBIDDEN_PREPARED_KEYS = {
@@ -420,6 +425,40 @@ def list_sources(db: Session, domain_id: str) -> list[dict[str, Any]]:
         )
     )
     return [safe_source(db, source) for source in sources]
+
+
+def _require_available_domain_for_member_sources(db: Session, *, settings: Settings, domain_id: str) -> Domain:
+    from context_engine.services.evidence import EvidenceRetrievalError, resolve_available_domain
+
+    try:
+        domain, _ = resolve_available_domain(db, settings=settings, domain_id=domain_id)
+    except EvidenceRetrievalError as exc:
+        raise SourceError(exc.status_code, exc.code, exc.message) from exc
+    return domain
+
+
+def list_member_sources(db: Session, *, settings: Settings, domain_id: str) -> list[dict[str, Any]]:
+    _require_available_domain_for_member_sources(db, settings=settings, domain_id=domain_id)
+    return list_sources(db, domain_id)
+
+
+def read_source_preview(
+    db: Session,
+    *,
+    settings: Settings,
+    domain_id: str,
+    source_id: str,
+) -> tuple[bytes, str]:
+    _require_available_domain_for_member_sources(db, settings=settings, domain_id=domain_id)
+    source = _source_or_404(db, domain_id, source_id)
+    content_type = (source.content_type or "").split(";", 1)[0].strip().lower()
+    if content_type not in PREVIEWABLE_SOURCE_CONTENT_TYPES:
+        raise SourceError(422, "source_preview_unsupported", "Source preview is not supported for this file type.")
+    try:
+        data = storage_from_settings(settings).read_original(source)
+    except SourceStorageError as exc:
+        raise SourceError(404, "source_preview_unavailable", "Source preview is unavailable.") from exc
+    return data, content_type
 
 
 def source_detail(db: Session, domain_id: str, source_id: str) -> dict[str, Any]:
