@@ -98,7 +98,7 @@ DocumentRoute
 
 Restyle panel chrome only. PDF render mechanism stays.
 
-**API gate:** preview blob fetch requires a captured safe contract. Old reference used `GET /documents/{id}/preview`. Do not wire until API-001 or a follow-on contract approves the rebuild equivalent.
+**API contract:** preview uses API-001 member routes `GET /domains/{domain_id}/sources/{source_id}/preview` (cookie session; PDF blob → object URL → `<object type="application/pdf">`; plain/markdown as text). Member list uses `GET /domains/{domain_id}/sources`. Do not copy old Context Engine flat `/documents/{id}/preview`. Revoke object URLs on row switch, domain switch, unmount, and after delete. No Download control in this slice.
 
 ## Graph — Port
 

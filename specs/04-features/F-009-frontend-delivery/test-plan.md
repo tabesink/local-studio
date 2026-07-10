@@ -3,7 +3,7 @@ id: F-009
 title: Frontend Delivery Test Plan
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-10
 depends_on: [F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008]
 supersedes: []
 ---
@@ -51,7 +51,8 @@ supersedes: []
 ## Later-Slice Gates
 
 - Streaming UI requires captured EVT-001 transcript fixtures before chat assertions.
-- Documents preview blob fetch, source-ref navigation, real graph data, Logs/Usage/node controls, and Wiki/Smart Composer writes stay blocked until their API/data contracts exist.
+- Source-ref navigation, real graph data, Logs/Usage/node controls, and Wiki/Smart Composer writes stay blocked until their API/data contracts exist.
+- Documents preview is unblocked: API-001 member list + preview routes are captured; Playwright must cover admin upload → Library select → PDF or text preview, plus member read-only Library (no mutation controls).
 
 ## Blocked Evidence
 

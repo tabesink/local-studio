@@ -148,10 +148,18 @@ Settings must not expose raw controller URLs, API keys, host paths, runtime port
 
 ### Blocked Surfaces
 
-- PDF preview blob fetch remains blocked until API-001 captures a safe preview route. The documents preview panel may be shell-only.
 - Evidence-to-source navigation remains blocked until an opaque source-ref API/data contract exists. P9 may select current-turn Evidence by public evidence ref id only.
 - `/database-visualize` graph data remains blocked until graph API/data DTOs are approved. P9 may port the route shell/canvas unavailable state only.
 - F-010 Logs/Usage/node surfaces and F-011 Wiki/Smart Composer durable writes are not P9 implementation scope without contract patches.
+
+### Captured Preview Contract
+
+API-001 captures member-readable source list and preview:
+
+- `GET /domains/{domain_id}/sources` — safe source summaries for authenticated Members and Administrators when the domain is available
+- `GET /domains/{domain_id}/sources/{source_id}/preview` — same-origin cookie-authenticated stream of the stored original (`application/pdf`, `text/plain`, `text/markdown`) with `Cache-Control: private, no-store` and no attachment disposition
+
+Library (`/documents`) may wire list + inline PDF/text preview for domain readers. Members are read-only (no upload/retry/cancel/delete). Admin source mutation routes remain Administrator-only. Docx and other non-previewable types show unsupported; missing/unauthorized fail closed. Opaque source-ref navigation remains blocked.
 
 ## Acceptance Criteria
 
@@ -173,6 +181,4 @@ Settings must not expose raw controller URLs, API keys, host paths, runtime port
 
 - Attachments, model-profile selection, pin/archive/export, and right-panel tabs beyond F-012 Evidence/Refs/Source/Wiki inspection are blocked until API/data contracts capture their safe DTOs and permission rules.
 - Workspace-scoped settings/tool registries are blocked until a Workspace product model is approved; do not introduce `workspaceId` in P9 implementation.
-
-- Safe Source Document preview blob API for PDF viewer wiring (blocked until contract captured; UI shell may port first).
 - Opaque source-ref contract for slice 16 evidence→source navigation.

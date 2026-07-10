@@ -13,7 +13,7 @@ supersedes: []
 
 ## Surface
 
-Admin API supports later documents library, upload dialog, outline, and operations surfaces. No member source-content API in this phase.
+Admin API supports documents library, upload dialog, outline, and operations surfaces. Member-readable source list and original preview are owned by the F-009 Library slice via API-001 `GET /domains/{domain_id}/sources` and `GET /domains/{domain_id}/sources/{source_id}/preview` (domain availability gate; no member mutation).
 
 P9 documents UI **ports** the old CE client `/documents` pattern: library table + **inline PDF preview panel** on the same route (see `F-009/ce-client-port-and-parity.md`). Restyle with Local Studio tokens.
 
@@ -27,7 +27,7 @@ P9 documents UI **ports** the old CE client `/documents` pattern: library table 
   DocumentUploadDialog (admin)
 ```
 
-Preview blob fetch requires a captured safe API contract before wiring. Port panel structure first; block fetch until contract exists.
+Preview blob fetch uses the captured API-001 member preview route. Port panel structure and wire fetch for PDF / plain / markdown; docx remains unsupported.
 
 ## User/System Flow
 

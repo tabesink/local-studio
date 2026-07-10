@@ -3,7 +3,7 @@ id: DATA-001
 title: Context Engine Data Contract
 status: approved
 owner: Context Engine data team
-last_reviewed: 2026-07-07
+last_reviewed: 2026-07-10
 depends_on: [ARCH-003]
 supersedes: []
 ---
@@ -164,6 +164,8 @@ AND fresh private controller health is healthy
 Indexes and constraints: unique `(domain_id, original_sha256)`; index `(domain_id, created_at DESC)`; checks for source state, parser kind, positive size, and `preparation_generation >= 1`.
 
 Delete behavior: in P4, source and domain delete hard-delete Source Document rows after private original/image file cleanup. After P5 adds indexed content, accepted or ready remote LightRAG content must be deleted and verified absent before the local Source Document row, Source Blocks, Source Images, or private files are removed. Because sources are hard-deleted, duplicate-hash checks are scoped to currently retained rows only.
+
+Delivery note (member preview): `GET /domains/{domain_id}/sources/{source_id}/preview` reads the existing private original bytes already stored for the Source Document. It does not add tables, columns, or alternate storage layouts. Preview eligibility is “original file present”; it is independent of preparation or index state. API responses must never expose the private storage path.
 
 `source_preparation_operations`
 

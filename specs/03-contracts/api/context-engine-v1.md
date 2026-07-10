@@ -3,7 +3,7 @@ id: API-001
 title: Context Engine API v1
 status: approved
 owner: Context Engine API team
-last_reviewed: 2026-07-07
+last_reviewed: 2026-07-10
 depends_on: [CON-000, ARCH-001]
 supersedes: []
 ---
@@ -25,7 +25,7 @@ supersedes: []
 | P1 | `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, `GET /admin/users`, `GET /health/live`, `GET /health/ready` |
 | P2 | `GET /admin/runtime-settings`, `PUT /admin/runtime-settings/providers/{provider_kind}`, `POST /admin/runtime-settings/model-profiles`, `PATCH /admin/runtime-settings/model-profiles/{profile_id}`, `DELETE /admin/runtime-settings/model-profiles/{profile_id}`, `PATCH /admin/runtime-settings` |
 | P3 | `POST /admin/domains`, `GET /admin/domains`, `GET /admin/domains/{domain_id}`, `GET /admin/domains/{domain_id}/status`, `POST /admin/domains/{domain_id}/start`, `POST /admin/domains/{domain_id}/stop`, `DELETE /admin/domains/{domain_id}`, `GET /admin/domains/{domain_id}/operations`, `GET /domains` |
-| P4 | `POST /admin/domains/{domain_id}/sources`, `GET /admin/domains/{domain_id}/sources`, `GET /admin/domains/{domain_id}/sources/{source_id}`, `GET /admin/domains/{domain_id}/sources/{source_id}/outline`, `GET /admin/domains/{domain_id}/sources/{source_id}/operations`, `POST /admin/domains/{domain_id}/sources/{source_id}/retry`, `POST /admin/domains/{domain_id}/sources/{source_id}/cancel`, `DELETE /admin/domains/{domain_id}/sources/{source_id}` |
+| P4 | `POST /admin/domains/{domain_id}/sources`, `GET /admin/domains/{domain_id}/sources`, `GET /admin/domains/{domain_id}/sources/{source_id}`, `GET /admin/domains/{domain_id}/sources/{source_id}/outline`, `GET /admin/domains/{domain_id}/sources/{source_id}/operations`, `POST /admin/domains/{domain_id}/sources/{source_id}/retry`, `POST /admin/domains/{domain_id}/sources/{source_id}/cancel`, `DELETE /admin/domains/{domain_id}/sources/{source_id}`, `GET /domains/{domain_id}/sources`, `GET /domains/{domain_id}/sources/{source_id}/preview` |
 | P5 | `POST /admin/domains/{domain_id}/sources/{source_id}/index/retry`, `POST /admin/domains/{domain_id}/sources/{source_id}/index/cancel` |
 | P6 | `POST /domains/{domain_id}/evidence` |
 | P7 | `GET /conversations`, `POST /conversations`, `GET /conversations/{conversation_id}`, `PATCH /conversations/{conversation_id}`, `DELETE /conversations/{conversation_id}`, `POST /conversations/{conversation_id}/turns:stream` |
@@ -468,6 +468,50 @@ Domain delete remains asynchronous through the domain delete worker. For P5, the
 | Remote LightRAG delete/absence proof failed | 502 | `source_index_delete_failed` |
 
 All source-index error messages are safe and bland. They never include remote ids, runtime URLs, rendered input, Source Block content, raw LightRAG/provider payloads, request payloads, stack traces, credentials, or storage paths.
+
+### Member source list and preview
+
+`GET /domains/{domain_id}/sources` and `GET /domains/{domain_id}/sources/{source_id}/preview` are available to authenticated Members and Administrators. They use the same domain availability gate as P6 evidence (`require_current_session` + domain exists + `domain_available`). They do not mutate sources, preparation, index state, domain lifecycle, runtime settings, or diagnostics.
+
+These routes are a separate non-admin route family. All `/admin/domains/{domain_id}/sources*` routes remain Administrator-only. Do not relax admin source authz to grant Members mutation or admin list/outline/operations access.
+
+`GET /domains/{domain_id}/sources` returns `{ "sources": [SourceAdminSummary] }` ordered by newest first. The list DTO reuses the same safe source summary fields and forbidden-field bar as admin `SourceAdminSummary` / `safe_source()`. It does not include outline items, preparation operations, storage paths, download URLs, originals, or any admin-only mutation surface.
+
+`GET /domains/{domain_id}/sources/{source_id}/preview` streams the stored original bytes once the original file is present in private source storage. Preview is not gated on preparation state or index eligibility. Concurrent readers of the same Source Document are allowed; the product must not serialize or lock preview to a single viewer.
+
+Previewable content types:
+
+```text
+application/pdf
+text/plain
+text/markdown
+```
+
+Unsupported upload types such as `application/vnd.openxmlformats-officedocument.wordprocessingml.document` (docx) and any other non-previewable type return a safe unsupported error and no body bytes. Missing original file, unknown source, unauthorized/unavailable domain, or deleted source fail closed with a safe error.
+
+Successful preview response rules:
+
+- HTTP `200` with the stored Source Document `contentType` as `Content-Type`
+- Body is the full stored original up to the existing 25 MiB upload limit (no preview truncation)
+- `Cache-Control: private, no-store`
+- Do not set `Content-Disposition: attachment`
+- Do not expose storage paths, runtime URLs, credentials, or private identities in headers, bodies, or logs
+
+This route is the approved same-origin cookie-authenticated preview contract for F-009 Library wiring (PDF blob object URL or plain/markdown text panel). Do not copy old Context Engine flat `/documents/{id}/preview`.
+
+### Member source list and preview errors
+
+| Situation | HTTP | Code |
+| --- | --- | --- |
+| Unauthenticated | 401 | `unauthenticated` |
+| Unknown domain | 404 | `domain_not_found` |
+| Domain is stopped, deleting, or has an active lifecycle operation | 409 | `domain_state_conflict` |
+| Domain runtime unavailable or timed out | 502 | `domain_runtime_unavailable` |
+| Unknown source in the selected domain | 404 | `source_not_found` |
+| Content type is not previewable | 422 | `source_preview_unsupported` |
+| Stored original is missing or unreadable | 404 | `source_preview_unavailable` |
+
+All member source list and preview error messages are safe and bland. JSON error envelopes and response headers never include storage paths, runtime URLs, credentials, raw source text beyond the intentional preview body on success, provider payloads, stack traces, or private remote identities.
 
 ## P6 Scoped Evidence Retrieval
 

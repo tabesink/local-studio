@@ -52,7 +52,7 @@ Retain w-14 **icon rail** nav order: Chat → Documents → Knowledge graph → 
 
 ### 09–10 — Documents + PDF
 
-Single `/documents` route. Row click → `DocumentPreviewPanel` (50% lg+ | mobile drawer) → `DocumentPdfPreview` (`<object>` blob). Preview API wiring blocked until contract captured.
+Single `/documents` route. Row click → `DocumentPreviewPanel` (50% lg+ | mobile drawer) → `DocumentPdfPreview` (`<object>` blob) or plain/markdown text panel. Preview wires to API-001 `GET /domains/{domain_id}/sources/{source_id}/preview`; member list uses `GET /domains/{domain_id}/sources`. Members are read-only; admins retain upload/ops.
 
 ### 11–12 — Chat
 
