@@ -88,7 +88,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import os,sys,time; p='/data/domain-runtimes/.ce-worker-heartbeat'; sys.exit(0 if os.path.isfile(p) and time.time()-os.path.getmtime(p)<30 else 1)",
+          "import os,sys,time; p=os.environ.get('CE_DOMAIN_RUNTIME_ROOT','/data/domain-runtimes')+'/.ce-worker-heartbeat'; sys.exit(0 if os.path.isfile(p) and time.time()-os.path.getmtime(p)<30 else 1)",
         ]
       interval: 5s
       timeout: 5s

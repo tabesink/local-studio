@@ -83,3 +83,38 @@ def test_safety_scan_rejects_docker_sock_mount() -> None:
     failures: list[str] = []
     safety.scan_compose(Path("tmp-compose.yml"), text, failures)
     assert any("compose_forbidden" in item and "docker\\.sock" in item for item in failures)
+
+
+def test_live_overlay_scan_allows_socket_but_rejects_redis() -> None:
+    live = (ROOT / "compose.stack.live.yml").read_text(encoding="utf-8")
+    failures: list[str] = []
+    safety.scan_compose(
+        Path("compose.stack.live.yml"),
+        live,
+        failures,
+        allow_docker_sock=True,
+        require_worker_command=False,
+    )
+    assert failures == []
+    assert "docker.sock" in live
+    assert "CE_DOMAIN_RUNTIME_CONTROLLER_KIND: docker" in live
+    assert "CE_LIGHTRAG_CLIENT_KIND: native" in live
+
+    poisoned = live + "\n  redis:\n    image: redis:7\n"
+    poisoned_failures: list[str] = []
+    safety.scan_compose(
+        Path("compose.stack.live.yml"),
+        poisoned,
+        poisoned_failures,
+        allow_docker_sock=True,
+        require_worker_command=False,
+    )
+    assert any("compose_forbidden" in item for item in poisoned_failures)
+
+
+def test_base_compose_still_local_kinds_without_socket() -> None:
+    compose = (ROOT / "compose.stack.yml").read_text(encoding="utf-8")
+    assert "CE_DOMAIN_RUNTIME_CONTROLLER_KIND: local" in compose
+    assert "CE_LIGHTRAG_CLIENT_KIND: local" in compose
+    assert "docker.sock" not in compose
+    assert "stack-domain-runtimes:" in compose

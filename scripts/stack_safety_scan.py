@@ -54,6 +54,7 @@ COMPOSE_FORBIDDEN_PATTERNS = [
 ]
 
 REQUIRED_WORKER_COMMAND = ["python", "-m", "context_engine.worker"]
+LIVE_OVERLAY_COMPOSE = Path("compose.stack.live.yml")
 
 
 def _strip_yaml_scalar(value: str) -> str:
@@ -112,17 +113,28 @@ def scan_text(path: Path, text: str, failures: list[str]) -> None:
             failures.append(f"{path}:concrete_secret_value")
 
 
-def scan_compose(path: Path, text: str, failures: list[str]) -> None:
+def scan_compose(
+    path: Path,
+    text: str,
+    failures: list[str],
+    *,
+    allow_docker_sock: bool = False,
+    require_worker_command: bool = True,
+) -> None:
     for pattern in COMPOSE_FORBIDDEN_PATTERNS:
+        if allow_docker_sock and pattern.pattern == r"docker\.sock":
+            continue
         if pattern.search(text):
             failures.append(f"{path}:compose_forbidden:{pattern.pattern}")
     worker_block = _worker_service_block(text)
     if worker_block is None:
-        failures.append(f"{path}:worker_service_missing")
+        if require_worker_command:
+            failures.append(f"{path}:worker_service_missing")
         return
     worker_command = _worker_command_tokens(worker_block)
     if worker_command is None:
-        failures.append(f"{path}:worker_command_missing")
+        if require_worker_command:
+            failures.append(f"{path}:worker_command_missing")
         return
     if worker_command != REQUIRED_WORKER_COMMAND:
         failures.append(f"{path}:worker_command_invalid")
@@ -131,9 +143,16 @@ def scan_compose(path: Path, text: str, failures: list[str]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Scan stack deployment fixtures and safe evidence for forbidden leakage.")
     parser.add_argument("--smoke-evidence", action="append", default=[], help="Optional safe smoke evidence JSON path to scan.")
+    parser.add_argument(
+        "--live-overlay",
+        action="store_true",
+        help="Also scan compose.stack.live.yml (allows docker.sock; still bans Redis/job platforms).",
+    )
     args = parser.parse_args()
 
     targets = DEFAULT_TARGETS + [Path(item) for item in args.smoke_evidence]
+    if args.live_overlay:
+        targets.append(LIVE_OVERLAY_COMPOSE)
     failures: list[str] = []
 
     for relative in targets:
@@ -146,6 +165,8 @@ def main() -> int:
         scan_text(display, text, failures)
         if display == Path("compose.stack.yml"):
             scan_compose(display, text, failures)
+        elif display == LIVE_OVERLAY_COMPOSE or display.name == LIVE_OVERLAY_COMPOSE.name:
+            scan_compose(display, text, failures, allow_docker_sock=True, require_worker_command=False)
 
     if failures:
         for failure in failures:
