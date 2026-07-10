@@ -63,7 +63,7 @@ def run_loop(
                 safe_error_code="worker_error",
                 outcome="failed",
             )
-            did_work = True
+            did_work = False
         finally:
             close = getattr(db, "close", None)
             if callable(close):

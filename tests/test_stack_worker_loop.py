@@ -128,7 +128,7 @@ def test_run_loop_continues_after_run_once_error(caplog: pytest.LogCaptureFixtur
         )
 
     assert len(closed) == 2
-    assert sleeps == [0.1]
+    assert sleeps == [0.1, 0.1]
     assert any(
         getattr(record, "event", None) == "stack_worker.iteration_failed"
         and getattr(record, "safe_error_code", None) == "worker_error"
