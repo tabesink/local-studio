@@ -112,6 +112,29 @@ def test_live_overlay_scan_allows_socket_but_rejects_redis() -> None:
     assert any("compose_forbidden" in item for item in poisoned_failures)
 
 
+def test_live_overlay_scan_rejects_socket_outside_api_worker() -> None:
+    text = """services:
+  api:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  worker:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  frontend:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+"""
+    failures: list[str] = []
+    safety.scan_compose(
+        Path("compose.stack.live.yml"),
+        text,
+        failures,
+        allow_docker_sock=True,
+        require_worker_command=False,
+    )
+    assert "compose.stack.live.yml:docker_sock_service_not_allowed:frontend" in failures
+
+
 def test_base_compose_still_local_kinds_without_socket() -> None:
     compose = (ROOT / "compose.stack.yml").read_text(encoding="utf-8")
     assert "CE_DOMAIN_RUNTIME_CONTROLLER_KIND: local" in compose

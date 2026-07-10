@@ -202,13 +202,27 @@ Stored provider credentials are ciphertext under `CONFIG_ENCRYPTION_KEY`.
 4. **Postgres preserve recipe (manual; no guided migrate script)**
 
 ```bash
-# Example names — adjust project prefixes if your Docker volume names differ.
-# Dump from old volume via a temporary Postgres container:
-docker run --rm -v p10-postgres-data:/var/lib/postgresql/data -v "$PWD/_tmp:/backup" postgres:16 \
-  bash -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f /backup/ce-stack.dump'
-# After stack volumes exist / stack Postgres is up, restore into stack-postgres-data
-# using a matching temp container or exec into the compose postgres service.
-# Prefer restore into an empty stack DB, then start the stack with the preserved key.
+# 1) Start a temporary Postgres that uses the OLD volume (adjust names/creds to match the env that created it).
+docker run -d --name ce-p10-pg-tmp \
+  -e POSTGRES_DB="<db>" \
+  -e POSTGRES_USER="<user>" \
+  -e POSTGRES_PASSWORD="<password>" \
+  -v p10-postgres-data:/var/lib/postgresql/data \
+  -v "$PWD/_tmp:/backup" \
+  postgres:16
+
+# 2) Wait until ready, then dump (do not commit the dump file).
+docker exec ce-p10-pg-tmp pg_isready -U "<user>" -d "<db>"
+docker exec ce-p10-pg-tmp pg_dump -U "<user>" -d "<db>" -Fc -f /backup/ce-stack.dump
+
+# 3) Stop the temp container.
+docker rm -f ce-p10-pg-tmp
+
+# 4) Bring up the stack (empty stack-postgres-data), then restore into the compose postgres service
+#    (or an equivalent temp container mounted on stack-postgres-data), for example:
+# docker compose --env-file .env.stack.local -f compose.stack.yml -p context_engine_stack up -d postgres
+# docker compose ... exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists < _tmp/ce-stack.dump
+# Prefer restore into an empty stack DB, then start the rest of the stack with the preserved CONFIG_ENCRYPTION_KEY.
 ```
 
 Exact user/db names must match the env that created the dump. Do not commit dump files or print connection passwords into evidence.

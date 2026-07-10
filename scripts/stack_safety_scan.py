@@ -17,7 +17,9 @@ DEFAULT_TARGETS = [
     Path("frontend/.dockerignore"),
     Path("frontend/package.json"),
     Path("scripts/stack_smoke.py"),
+    Path("scripts/stack_smoke_live.py"),
     Path("scripts/stack_safety_scan.py"),
+    Path("scripts/stack_volume_inspect.py"),
     Path("specs/06-delivery/runbooks/pilot-launch.md"),
     Path("specs/04-features/F-010-shared-node-operations/spec.md"),
     Path("specs/04-features/F-010-shared-node-operations/plan.md"),
@@ -55,6 +57,7 @@ COMPOSE_FORBIDDEN_PATTERNS = [
 
 REQUIRED_WORKER_COMMAND = ["python", "-m", "context_engine.worker"]
 LIVE_OVERLAY_COMPOSE = Path("compose.stack.live.yml")
+LIVE_SOCKET_ALLOWED_SERVICES = frozenset({"api", "worker"})
 
 
 def _strip_yaml_scalar(value: str) -> str:
@@ -100,6 +103,28 @@ def _worker_command_tokens(block: list[str]) -> list[str] | None:
     return None
 
 
+def _services_mounting_docker_sock(text: str) -> list[str]:
+    """Return service names whose blocks contain a non-comment docker.sock reference."""
+    services: list[str] = []
+    current: str | None = None
+    for line in text.splitlines():
+        match = re.match(r"^  ([A-Za-z0-9_-]+):\s*$", line)
+        if match:
+            current = match.group(1)
+            continue
+        if current is None:
+            continue
+        if line.startswith("  ") and not line.startswith("    ") and line.strip():
+            current = None
+            continue
+        stripped = line.lstrip()
+        if stripped.startswith("#"):
+            continue
+        if "docker.sock" in line:
+            services.append(current)
+    return services
+
+
 def scan_text(path: Path, text: str, failures: list[str]) -> None:
     for pattern in SECRET_PATTERNS:
         if pattern.search(text):
@@ -126,6 +151,10 @@ def scan_compose(
             continue
         if pattern.search(text):
             failures.append(f"{path}:compose_forbidden:{pattern.pattern}")
+    if allow_docker_sock:
+        for service in _services_mounting_docker_sock(text):
+            if service not in LIVE_SOCKET_ALLOWED_SERVICES:
+                failures.append(f"{path}:docker_sock_service_not_allowed:{service}")
     worker_block = _worker_service_block(text)
     if worker_block is None:
         if require_worker_command:
