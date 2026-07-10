@@ -1,6 +1,6 @@
 # Playwright E2E (F-009 pilot happy path)
 
-Live-stack browser proof for login, direct chat, domain RAG + Evidence Panel, logout, and the DESIGN screenshot matrix.
+Live-stack browser proof for login, direct chat, domain RAG + Evidence Panel, logout, documents PDF/text preview (admin + member read-only), and the DESIGN screenshot matrix.
 
 ## Prerequisites
 
@@ -12,9 +12,10 @@ Live-stack browser proof for login, direct chat, domain RAG + Evidence Panel, lo
 
 2. Ensure `.env.stack.local` has `CE_ADMIN_USERNAME` / `CE_ADMIN_PASSWORD` (same values the stack seeds).
 3. Optional: `PLAYWRIGHT_BASE_URL` (default `http://127.0.0.1:3000`).
-4. One-time browser install: `npx playwright install chromium` from `frontend/`.
+4. Optional member overrides: `CE_E2E_MEMBER_USERNAME` / `CE_E2E_MEMBER_PASSWORD` (defaults used by seed via `docker compose exec api`).
+5. One-time browser install: `npx playwright install chromium` from `frontend/`.
 
-Global setup fails fast if `/login` is unreachable and seeds one indexed Knowledge Domain via the frontend `/api/v1` proxy.
+Global setup fails fast if `/login` is unreachable, seeds one indexed Knowledge Domain plus a PDF preview fixture via the frontend `/api/v1` proxy, and ensures the E2E member user exists.
 
 ## Commands
 
@@ -22,6 +23,8 @@ Global setup fails fast if `/login` is unreachable and seeds one indexed Knowled
 cd frontend
 npm run test:e2e
 npm run test:e2e:headed
+# focused documents preview:
+npx playwright test tests/e2e/documents-preview.spec.ts
 ```
 
 ## Artifacts
