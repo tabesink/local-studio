@@ -22,17 +22,36 @@ import {
 import { isApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/state/auth-store";
 import { PageState } from "@/components/ui/PageState";
-import { listAdminDomains, type AdminDomain } from "@/features/domains/api";
+import {
+  listAdminDomains,
+  listMemberDomains,
+  type AdminDomain,
+  type MemberDomain,
+} from "@/features/domains/api";
 import {
   cancelSourceIndex,
   cancelSourcePreparation,
   deleteSource,
-  listSources,
+  fetchSourcePreview,
+  isPreviewableContentType,
+  listAdminSources,
+  listMemberSources,
+  normalizeContentType,
   retrySourceIndex,
   retrySourcePreparation,
   uploadSource,
   type SourceDocument,
 } from "@/features/documents/api";
+
+type DomainOption = Pick<AdminDomain, "id" | "displayName"> | Pick<MemberDomain, "id" | "displayName">;
+
+type PreviewState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "pdf"; objectUrl: string }
+  | { kind: "text"; text: string }
+  | { kind: "unsupported" }
+  | { kind: "unavailable"; message: string };
 
 function errorMessage(error: unknown): string {
   if (isApiError(error)) return error.message;
@@ -52,26 +71,46 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function revokePreviewUrl(state: PreviewState) {
+  if (state.kind === "pdf") URL.revokeObjectURL(state.objectUrl);
+}
+
 /* CE documents library port (ce-client-port-and-parity.md) with LS tokens:
    toolbar + table, inline preview panel (50% split desktop, drawer mobile),
-   and upload. Preview blob fetch stays disabled until a safe contract. */
+   member read-only list+preview, admin upload/ops. */
 export function DocumentsPage() {
   const user = useAuthStore((state) => state.user);
-  const [domains, setDomains] = useState<AdminDomain[]>([]);
+  const isAdmin = user?.role === "administrator";
+  const [domains, setDomains] = useState<DomainOption[]>([]);
   const [domainId, setDomainId] = useState("");
   const [sources, setSources] = useState<SourceDocument[]>([]);
   const [selected, setSelected] = useState<SourceDocument | null>(null);
+  const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [busySourceId, setBusySourceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewRef = useRef<PreviewState>({ kind: "idle" });
+
+  const setPreviewState = useCallback((next: PreviewState) => {
+    revokePreviewUrl(previewRef.current);
+    previewRef.current = next;
+    setPreview(next);
+  }, []);
 
   useEffect(() => {
-    if (user?.role !== "administrator") return;
+    return () => {
+      revokePreviewUrl(previewRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
     let cancelled = false;
-    listAdminDomains()
+    const loadDomains = isAdmin ? listAdminDomains() : listMemberDomains();
+    loadDomains
       .then((rows) => {
         if (cancelled) return;
         setDomains(rows);
@@ -83,27 +122,82 @@ export function DocumentsPage() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, isAdmin]);
 
   const reload = useCallback(async () => {
-    if (!domainId) return;
+    if (!domainId || !user) return;
     setLoading(true);
     setError(null);
     try {
-      const rows = await listSources(domainId);
+      const rows = isAdmin ? await listAdminSources(domainId) : await listMemberSources(domainId);
       setSources(rows);
       setSelected((current) => rows.find((row) => row.id === current?.id) ?? null);
     } catch (err) {
       setSources([]);
+      setSelected(null);
       setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [domainId]);
+  }, [domainId, user, isAdmin]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    setSelected(null);
+    setPreviewState({ kind: "idle" });
+  }, [domainId, setPreviewState]);
+
+  useEffect(() => {
+    if (!selected || !domainId) {
+      setPreviewState({ kind: "idle" });
+      return;
+    }
+
+    const contentType = normalizeContentType(selected.contentType);
+    if (!isPreviewableContentType(contentType)) {
+      setPreviewState({ kind: "unsupported" });
+      return;
+    }
+
+    let cancelled = false;
+    setPreviewState({ kind: "loading" });
+
+    void fetchSourcePreview(domainId, selected.id)
+      .then(async ({ blob, contentType: responseType }) => {
+        if (cancelled) return;
+        const resolvedType = normalizeContentType(responseType || contentType);
+        if (resolvedType === "application/pdf") {
+          const objectUrl = URL.createObjectURL(blob);
+          if (cancelled) {
+            URL.revokeObjectURL(objectUrl);
+            return;
+          }
+          setPreviewState({ kind: "pdf", objectUrl });
+          return;
+        }
+        const text = await blob.text();
+        if (cancelled) return;
+        setPreviewState({ kind: "text", text });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (isApiError(err) && err.code === "source_preview_unsupported") {
+          setPreviewState({ kind: "unsupported" });
+          return;
+        }
+        setPreviewState({
+          kind: "unavailable",
+          message: errorMessage(err),
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, domainId, setPreviewState]);
 
   const filtered = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -111,18 +205,12 @@ export function DocumentsPage() {
     return sources.filter((row) => row.originalFilename.toLowerCase().includes(needle));
   }, [filter, sources]);
 
-  if (user && user.role !== "administrator") {
-    return (
-      <PageState
-        title="Library"
-        message="Source Document administration is available to administrators only."
-        tone="danger"
-      />
-    );
+  if (!user) {
+    return <PageState title="Library" message="Sign in to browse Source Documents." />;
   }
 
   const onUpload = async (file: File) => {
-    if (!domainId) return;
+    if (!domainId || !isAdmin) return;
     setUploading(true);
     setError(null);
     try {
@@ -137,6 +225,7 @@ export function DocumentsPage() {
   };
 
   const runSourceAction = async (source: SourceDocument, action: () => Promise<void>) => {
+    if (!isAdmin) return;
     setBusySourceId(source.id);
     setError(null);
     try {
@@ -149,9 +238,13 @@ export function DocumentsPage() {
     }
   };
 
+  const closePreview = () => {
+    setSelected(null);
+    setPreviewState({ kind: "idle" });
+  };
+
   return (
     <div className="flex h-full min-h-0">
-      {/* Library table pane */}
       <div className={cx("min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6", selected ? "hidden lg:block" : "")}>
         <PageHeader
           eyebrow="Library"
@@ -171,23 +264,30 @@ export function DocumentsPage() {
                   </option>
                 ))}
               </select>
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void onUpload(file);
-                }}
-              />
-              <SettingsButton
-                tone="primary"
-                disabled={!domainId || uploading}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="h-3.5 w-3.5" />
-                {uploading ? "Uploading" : "Upload"}
-              </SettingsButton>
+              {isAdmin ? (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    data-testid="documents-upload-input"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void onUpload(file);
+                    }}
+                  />
+                  <span data-testid="documents-upload-button">
+                    <SettingsButton
+                      tone="primary"
+                      disabled={!domainId || uploading}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      {uploading ? "Uploading" : "Upload"}
+                    </SettingsButton>
+                  </span>
+                </>
+              ) : null}
               <RefreshIconButton onClick={() => void reload()} loading={loading} label="Refresh sources" />
             </>
           }
@@ -210,9 +310,17 @@ export function DocumentsPage() {
             </THead>
             <TBody>
               {filtered.map((source) => (
-                <TRow key={source.id} interactive onClick={() => setSelected(source)}>
+                <TRow
+                  key={source.id}
+                  interactive
+                  onClick={() => setSelected(source)}
+                >
                   <TCell className="max-w-64">
-                    <span className="flex items-center gap-2">
+                    <span
+                      className="flex items-center gap-2"
+                      data-testid={`documents-row-${source.id}`}
+                      data-filename={source.originalFilename}
+                    >
                       <FileText className="h-3.5 w-3.5 shrink-0 text-[var(--dim)]" />
                       <span className="truncate text-[length:var(--fs-sm)] text-[var(--fg)]">
                         {source.originalFilename}
@@ -241,81 +349,147 @@ export function DocumentsPage() {
         )}
       </div>
 
-      {/* Inline preview panel — 50% desktop split, full overlay on mobile. */}
       {selected ? (
-        <aside className="flex w-full min-w-0 flex-col border-l border-[var(--ui-border)] bg-[var(--ui-bg)] lg:w-1/2">
+        <aside
+          className="flex w-full min-w-0 flex-col border-l border-[var(--ui-border)] bg-[var(--ui-bg)] lg:w-1/2"
+          data-testid="documents-preview-panel"
+        >
           <header className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[var(--ui-border)] px-3">
             <span className="truncate text-[length:var(--fs-sm)] font-medium text-[var(--fg)]">
               {selected.originalFilename}
             </span>
             <button
               type="button"
-              onClick={() => setSelected(null)}
+              onClick={closePreview}
               aria-label="Close preview"
               className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--dim)] hover:bg-[var(--hover)] hover:text-[var(--fg)]"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           </header>
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            <SettingsNotice tone="info" className="mb-4">
-              Document preview is unavailable: a safe preview contract has not been captured yet.
-            </SettingsNotice>
-            <dl className="space-y-2 text-[length:var(--fs-sm)]">
-              <PreviewFact label="Content type" value={selected.contentType} mono />
-              <PreviewFact label="Size" value={formatBytes(selected.originalSizeBytes)} mono />
-              <PreviewFact label="Parser" value={selected.parserKind} mono />
-              <PreviewFact label="Preparation state" value={selected.state} />
-              <PreviewFact label="Index state" value={selected.indexState} />
-              {selected.indexErrorMessage ? (
-                <PreviewFact label="Index error" value={selected.indexErrorMessage} />
-              ) : null}
-              <PreviewFact label="Blocks" value={String(selected.blockCount)} mono />
-              <PreviewFact label="Images" value={String(selected.imageCount)} mono />
-              <PreviewFact label="Created" value={new Date(selected.createdAt).toLocaleString()} />
-            </dl>
-            <div className="mt-5 flex flex-wrap gap-1.5">
-              <SettingsButton
-                disabled={busySourceId === selected.id}
-                onClick={() => void runSourceAction(selected, () => retrySourcePreparation(domainId, selected.id))}
-              >
-                Retry preparation
-              </SettingsButton>
-              <SettingsButton
-                disabled={busySourceId === selected.id}
-                onClick={() => void runSourceAction(selected, () => cancelSourcePreparation(domainId, selected.id))}
-              >
-                Cancel preparation
-              </SettingsButton>
-              <SettingsButton
-                disabled={busySourceId === selected.id}
-                onClick={() => void runSourceAction(selected, () => retrySourceIndex(domainId, selected.id))}
-              >
-                Retry index
-              </SettingsButton>
-              <SettingsButton
-                disabled={busySourceId === selected.id}
-                onClick={() => void runSourceAction(selected, () => cancelSourceIndex(domainId, selected.id))}
-              >
-                Cancel index
-              </SettingsButton>
-              <SettingsButton
-                tone="danger"
-                disabled={busySourceId === selected.id}
-                onClick={() => {
-                  if (window.confirm(`Delete "${selected.originalFilename}"? This cannot be undone.`)) {
-                    void runSourceAction(selected, () => deleteSource(domainId, selected.id));
-                    setSelected(null);
-                  }
-                }}
-              >
-                Delete
-              </SettingsButton>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <PreviewBody preview={preview} filename={selected.originalFilename} />
+              <dl className="mt-4 space-y-2 text-[length:var(--fs-sm)]">
+                <PreviewFact label="Content type" value={selected.contentType} mono />
+                <PreviewFact label="Size" value={formatBytes(selected.originalSizeBytes)} mono />
+                <PreviewFact label="Parser" value={selected.parserKind} mono />
+                <PreviewFact label="Preparation state" value={selected.state} />
+                <PreviewFact label="Index state" value={selected.indexState} />
+                {selected.indexErrorMessage ? (
+                  <PreviewFact label="Index error" value={selected.indexErrorMessage} />
+                ) : null}
+                <PreviewFact label="Blocks" value={String(selected.blockCount)} mono />
+                <PreviewFact label="Images" value={String(selected.imageCount)} mono />
+                <PreviewFact label="Created" value={new Date(selected.createdAt).toLocaleString()} />
+              </dl>
+              {isAdmin ? (
+                <div className="mt-5 flex flex-wrap gap-1.5" data-testid="documents-admin-actions">
+                  <SettingsButton
+                    disabled={busySourceId === selected.id}
+                    onClick={() => void runSourceAction(selected, () => retrySourcePreparation(domainId, selected.id))}
+                  >
+                    Retry preparation
+                  </SettingsButton>
+                  <SettingsButton
+                    disabled={busySourceId === selected.id}
+                    onClick={() => void runSourceAction(selected, () => cancelSourcePreparation(domainId, selected.id))}
+                  >
+                    Cancel preparation
+                  </SettingsButton>
+                  <SettingsButton
+                    disabled={busySourceId === selected.id}
+                    onClick={() => void runSourceAction(selected, () => retrySourceIndex(domainId, selected.id))}
+                  >
+                    Retry index
+                  </SettingsButton>
+                  <SettingsButton
+                    disabled={busySourceId === selected.id}
+                    onClick={() => void runSourceAction(selected, () => cancelSourceIndex(domainId, selected.id))}
+                  >
+                    Cancel index
+                  </SettingsButton>
+                  <SettingsButton
+                    tone="danger"
+                    disabled={busySourceId === selected.id}
+                    onClick={() => {
+                      if (window.confirm(`Delete "${selected.originalFilename}"? This cannot be undone.`)) {
+                        const sourceId = selected.id;
+                        void runSourceAction(selected, async () => {
+                          await deleteSource(domainId, sourceId);
+                        }).then(() => {
+                          setSelected(null);
+                          setPreviewState({ kind: "idle" });
+                        });
+                      }
+                    }}
+                  >
+                    Delete
+                  </SettingsButton>
+                </div>
+              ) : (
+                <div data-testid="documents-member-readonly" className="sr-only">
+                  Member read-only library
+                </div>
+              )}
             </div>
           </div>
         </aside>
       ) : null}
     </div>
+  );
+}
+
+function PreviewBody({ preview, filename }: { preview: PreviewState; filename: string }) {
+  if (preview.kind === "loading" || preview.kind === "idle") {
+    return (
+      <div data-testid="documents-preview-loading">
+        <SettingsNotice tone="info" className="mb-4">
+          Loading preview…
+        </SettingsNotice>
+      </div>
+    );
+  }
+  if (preview.kind === "unsupported") {
+    return (
+      <div data-testid="documents-preview-unsupported">
+        <SettingsNotice tone="warning" className="mb-4">
+          Inline preview is not available for this file type.
+        </SettingsNotice>
+      </div>
+    );
+  }
+  if (preview.kind === "unavailable") {
+    return (
+      <div data-testid="documents-preview-unavailable">
+        <SettingsNotice tone="danger" className="mb-4">
+          {preview.message}
+        </SettingsNotice>
+      </div>
+    );
+  }
+  if (preview.kind === "pdf") {
+    return (
+      <div className="mb-4 h-[min(60vh,28rem)] overflow-hidden rounded-md border border-[var(--ui-border)] bg-[var(--ui-bg)]">
+        <object
+          data={preview.objectUrl}
+          type="application/pdf"
+          className="h-full w-full"
+          aria-label={`${filename} PDF preview`}
+          data-testid="documents-pdf-preview"
+        >
+          <SettingsNotice tone="warning">PDF preview could not be displayed in this browser.</SettingsNotice>
+        </object>
+      </div>
+    );
+  }
+  return (
+    <pre
+      className="mb-4 max-h-[min(60vh,28rem)] overflow-auto whitespace-pre-wrap rounded-md border border-[var(--ui-border)] bg-[var(--ui-bg)] p-3 font-mono text-[length:var(--fs-xs)] text-[var(--fg)]"
+      data-testid="documents-text-preview"
+    >
+      {preview.text}
+    </pre>
   );
 }
 

@@ -1,15 +1,15 @@
-/* CE adapter for the documents (Library) route — P4/P5 sources API (admin):
+/* CE adapter for the documents (Library) route — P4/P5 admin sources + member list/preview:
 
-   GET    /api/v1/admin/domains/{domainId}/sources
+   GET    /api/v1/admin/domains/{domainId}/sources            (admin list/mutations)
+   GET    /api/v1/domains/{domainId}/sources                  (member list)
+   GET    /api/v1/domains/{domainId}/sources/{sourceId}/preview
    POST   /api/v1/admin/domains/{domainId}/sources           (multipart file)
    POST   .../sources/{sourceId}/retry | /cancel             (preparation)
    POST   .../sources/{sourceId}/index/retry | /index/cancel (indexing)
    DELETE .../sources/{sourceId}
+*/
 
-   PDF preview blob fetch is blocked until API-001 captures a safe preview
-   route; the preview panel renders a disabled state only. */
-
-import { ceFetch } from "@/lib/api/client";
+import { ceFetch, ceFetchBlob } from "@/lib/api/client";
 
 export type SourceDocument = {
   id: string;
@@ -44,9 +44,31 @@ export type SourceOperation = {
   createdAt: string;
 };
 
-export async function listSources(domainId: string): Promise<SourceDocument[]> {
+export const PREVIEWABLE_CONTENT_TYPES = new Set(["application/pdf", "text/plain", "text/markdown"]);
+
+export function normalizeContentType(contentType: string): string {
+  return contentType.split(";", 1)[0].trim().toLowerCase();
+}
+
+export function isPreviewableContentType(contentType: string): boolean {
+  return PREVIEWABLE_CONTENT_TYPES.has(normalizeContentType(contentType));
+}
+
+export async function listAdminSources(domainId: string): Promise<SourceDocument[]> {
   const body = await ceFetch<{ sources: SourceDocument[] }>(`/admin/domains/${domainId}/sources`);
   return body.sources;
+}
+
+export async function listMemberSources(domainId: string): Promise<SourceDocument[]> {
+  const body = await ceFetch<{ sources: SourceDocument[] }>(`/domains/${domainId}/sources`);
+  return body.sources;
+}
+
+export async function fetchSourcePreview(
+  domainId: string,
+  sourceId: string,
+): Promise<{ blob: Blob; contentType: string }> {
+  return ceFetchBlob(`/domains/${domainId}/sources/${sourceId}/preview`);
 }
 
 export async function uploadSource(
