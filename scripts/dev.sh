@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env.p10.local}"
+ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env.stack.local}"
 PYTHON_BIN="${PYTHON_BIN:-$ROOT_DIR/.venv/bin/python}"
 BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
 BACKEND_PORT_EXPLICIT="${BACKEND_PORT-}"
@@ -124,7 +124,7 @@ configure_runtime_env() {
     if ((${#missing[@]} > 0)); then
       echo "Set missing values for: ${missing[*]}"
     fi
-    echo "Start from .env.p10.example, then set real local values."
+    echo "Start from .env.stack.example, then set real local values."
     echo "For host-native dev against a published Postgres container, also set POSTGRES_PORT (for example 5438)."
     exit 1
   fi

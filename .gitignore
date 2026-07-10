@@ -28,7 +28,7 @@ _tmp/
 # env files
 .env
 .env.local
-.env.p10.local
+.env.stack.local
 
 # Dependencies and build output
 node_modules/

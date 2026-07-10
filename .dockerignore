@@ -28,5 +28,5 @@ frontend/out
 frontend/*.tsbuildinfo
 .env
 .env.local
-.env.p10.local
+.env.stack.local
 .env*.local
