@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shlex
 from pathlib import Path
 
 
@@ -52,6 +53,51 @@ COMPOSE_FORBIDDEN_PATTERNS = [
     re.compile(r"context-engine-postgres-age-vector"),
 ]
 
+REQUIRED_WORKER_COMMAND = ["python", "-m", "context_engine.worker"]
+
+
+def _strip_yaml_scalar(value: str) -> str:
+    return value.strip().strip('"').strip("'")
+
+
+def _parse_inline_command(value: str) -> list[str]:
+    stripped = value.strip()
+    if stripped.startswith("[") and stripped.endswith("]"):
+        return [_strip_yaml_scalar(item) for item in stripped[1:-1].split(",") if item.strip()]
+    return shlex.split(_strip_yaml_scalar(stripped))
+
+
+def _worker_service_block(text: str) -> list[str] | None:
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if line == "  worker:":
+            block: list[str] = []
+            for candidate in lines[index + 1 :]:
+                if candidate.startswith("  ") and not candidate.startswith("    ") and candidate.strip():
+                    break
+                block.append(candidate)
+            return block
+    return None
+
+
+def _worker_command_tokens(block: list[str]) -> list[str] | None:
+    for index, line in enumerate(block):
+        match = re.match(r"^    command:\s*(.*?)\s*$", line)
+        if not match:
+            continue
+        value = match.group(1)
+        if value:
+            return _parse_inline_command(value)
+
+        tokens: list[str] = []
+        for candidate in block[index + 1 :]:
+            item = re.match(r"^      -\s*(.*?)\s*$", candidate)
+            if not item:
+                break
+            tokens.append(_strip_yaml_scalar(item.group(1)))
+        return tokens or None
+    return None
+
 
 def scan_text(path: Path, text: str, failures: list[str]) -> None:
     for pattern in SECRET_PATTERNS:
@@ -70,6 +116,16 @@ def scan_compose(path: Path, text: str, failures: list[str]) -> None:
     for pattern in COMPOSE_FORBIDDEN_PATTERNS:
         if pattern.search(text):
             failures.append(f"{path}:compose_forbidden:{pattern.pattern}")
+    worker_block = _worker_service_block(text)
+    if worker_block is None:
+        failures.append(f"{path}:worker_service_missing")
+        return
+    worker_command = _worker_command_tokens(worker_block)
+    if worker_command is None:
+        failures.append(f"{path}:worker_command_missing")
+        return
+    if worker_command != REQUIRED_WORKER_COMMAND:
+        failures.append(f"{path}:worker_command_invalid")
 
 
 def main() -> int:

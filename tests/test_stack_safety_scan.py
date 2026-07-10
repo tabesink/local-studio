@@ -33,6 +33,37 @@ def test_safety_scan_allows_lease_worker_in_compose() -> None:
     safety.scan_compose(Path("compose.stack.yml"), compose, failures)
     assert failures == []
     assert "\n  worker:" in compose
+    assert 'command: ["python", "-m", "context_engine.worker"]' in compose
+
+
+def test_safety_scan_allows_shell_string_lease_worker_command() -> None:
+    text = """services:
+  worker:
+    command: python -m context_engine.worker
+"""
+    failures: list[str] = []
+    safety.scan_compose(Path("tmp-compose.yml"), text, failures)
+    assert failures == []
+
+
+def test_safety_scan_rejects_wrong_worker_command() -> None:
+    text = """services:
+  worker:
+    command: ["python", "-m", "context_engine.tools.other_worker"]
+"""
+    failures: list[str] = []
+    safety.scan_compose(Path("tmp-compose.yml"), text, failures)
+    assert "tmp-compose.yml:worker_command_invalid" in failures
+
+
+def test_safety_scan_rejects_missing_worker_service() -> None:
+    text = """services:
+  api:
+    command: ["python", "-m", "uvicorn", "context_engine.app:create_app"]
+"""
+    failures: list[str] = []
+    safety.scan_compose(Path("tmp-compose.yml"), text, failures)
+    assert "tmp-compose.yml:worker_service_missing" in failures
 
 
 def test_safety_scan_rejects_redis_service() -> None:
@@ -40,3 +71,15 @@ def test_safety_scan_rejects_redis_service() -> None:
     failures: list[str] = []
     safety.scan_compose(Path("tmp-compose.yml"), text, failures)
     assert any("compose_forbidden" in item for item in failures)
+
+
+def test_safety_scan_rejects_docker_sock_mount() -> None:
+    text = """services:
+  worker:
+    command: ["python", "-m", "context_engine.worker"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+"""
+    failures: list[str] = []
+    safety.scan_compose(Path("tmp-compose.yml"), text, failures)
+    assert any("compose_forbidden" in item and "docker\\.sock" in item for item in failures)
