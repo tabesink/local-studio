@@ -93,12 +93,12 @@ DocumentRoute
 | CE file | Port |
 | --- | --- |
 | `DocumentPreviewPanel.tsx` | row click opens panel; 50% desktop split; mobile overlay drawer |
-| `DocumentPdfPreview.tsx` | fetch blob → `URL.createObjectURL` → `<object type="application/pdf">`; revoke on unmount |
+| `DocumentPdfPreview.tsx` | fetch blob → shared pdf.js canvas viewer (`data-testid="documents-pdf-preview"`, `data-pdfjs="true"`); revoke blob URL on unmount |
 | `pdf/contracts.ts`, `pdf/highlight-adapter.ts` | highlight structure (wire when contract exists) |
 
-Restyle panel chrome only. PDF render mechanism stays.
+Restyle panel chrome only. Library PDF opens (ordinary selection and citation deep-link) share one pdf.js viewer; page jump uses optional `page` deep-link when known.
 
-**API contract:** preview uses API-001 member routes `GET /domains/{domain_id}/sources/{source_id}/preview` (cookie session; PDF blob → object URL → `<object type="application/pdf">`; plain/markdown as text). Member list uses `GET /domains/{domain_id}/sources`. Do not copy old Context Engine flat `/documents/{id}/preview`. Revoke object URLs on row switch, domain switch, unmount, and after delete. No Download control in this slice.
+**API contract:** preview uses API-001 member routes `GET /domains/{domain_id}/sources/{source_id}/preview` (cookie session; PDF blob → pdf.js canvas; plain/markdown as text). Member list uses `GET /domains/{domain_id}/sources`. Citation jumps resolve via `GET /evidence-refs/{evidence_ref_id}/source` before navigating. Do not copy old Context Engine flat `/documents/{id}/preview`. Revoke object URLs on row switch, domain switch, unmount, and after delete. No Download control in this slice.
 
 ## Graph — Port
 

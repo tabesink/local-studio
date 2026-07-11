@@ -215,6 +215,8 @@ finally:
     db.close()
     engine.dispose()
 `;
+  const projectName =
+    process.env.COMPOSE_PROJECT_NAME?.trim() || "context_engine_stack";
   try {
     execFileSync(
       "docker",
@@ -224,6 +226,8 @@ finally:
         ".env.stack.local",
         "-f",
         "compose.stack.yml",
+        "-p",
+        projectName,
         "exec",
         "-T",
         "api",

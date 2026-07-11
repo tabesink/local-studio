@@ -48,7 +48,7 @@ Parallel work is allowed only when tasks touch independent files and share no co
 
 - Settings panels: each panel wires only after its endpoint fixture is captured from API-001/OpenAPI.
 - Documents preview blob: API-001 member list + preview captured; wire Library panel and Playwright evidence.
-- Source navigation: opaque resolve contract captured (`GET /evidence-refs/{evidence_ref_id}/source`); implement Evidence Panel Open in Library, Library deep-link + pdf.js page jump, Back to chat, and Playwright proof.
+- Source navigation: closed 2026-07-10 — opaque resolve, Open in Library, pdf.js deep-link, Back to chat, Playwright `source-ref-inspector.spec.ts` (orchestrator runs e2e).
 - Graph data: blocked until graph read DTOs are approved.
 - Chat streaming UI: blocked until EVT-001 transcript fixtures exist and the two-column vs three-panel layout decision is recorded in F-009.
 - Logs, Usage, Runtime Node, Docker, Wiki, and Smart Composer writes: blocked to F-010/F-011 unless active contracts are patched.
