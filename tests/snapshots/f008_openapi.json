@@ -355,6 +355,47 @@
         "title": "RuntimeSettingsPatchRequest",
         "type": "object"
       },
+      "SourceRefResolveResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "domainId": {
+            "title": "Domainid",
+            "type": "string"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "sourceId": {
+            "title": "Sourceid",
+            "type": "string"
+          },
+          "sourceLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcelabel"
+          }
+        },
+        "required": [
+          "domainId",
+          "sourceId"
+        ],
+        "title": "SourceRefResolveResponse",
+        "type": "object"
+      },
       "TurnStreamRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2580,6 +2621,47 @@
           }
         },
         "summary": "Member Preview Source"
+      }
+    },
+    "/api/v1/evidence-refs/{evidence_ref_id}/source": {
+      "get": {
+        "operationId": "get_evidence_ref_source_api_v1_evidence_refs__evidence_ref_id__source_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "evidence_ref_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 1,
+              "title": "Evidence Ref Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceRefResolveResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Evidence Ref Source"
       }
     },
     "/api/v1/wiki/contributions": {

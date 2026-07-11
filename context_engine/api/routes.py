@@ -36,6 +36,7 @@ from context_engine.services.chat_turns import (
     stream_turn_events,
     conversation_turn_summaries,
 )
+from context_engine.services.source_refs import SourceRefError, resolve_evidence_source_ref
 from context_engine.services.composer_refs import (
     ComposerRefError,
     MAX_COMPOSER_REFS,
@@ -253,6 +254,15 @@ class EvidenceResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class SourceRefResolveResponse(BaseModel):
+    domain_id: str = Field(alias="domainId")
+    source_id: str = Field(alias="sourceId")
+    page: int | None = None
+    source_label: str | None = Field(default=None, alias="sourceLabel")
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
 api_router = APIRouter()
 health_router = APIRouter()
 
@@ -368,6 +378,10 @@ def _chat_turn_api_error(exc: ChatTurnError) -> ApiError:
     return ApiError(exc.status_code, exc.code, exc.message)
 
 
+def _source_ref_api_error(exc: SourceRefError) -> ApiError:
+    return ApiError(exc.status_code, exc.code, exc.message)
+
+
 def _audit_context(request: Request, user: User) -> AuditContext:
     return AuditContext(actor_user=user, request_id=request_id_from(request))
 
@@ -428,6 +442,24 @@ def post_composer_refs_discover(
     except ComposerRefError as exc:
         raise _composer_ref_api_error(exc) from exc
     return {"refs": refs}
+
+
+@api_router.get("/evidence-refs/{evidence_ref_id}/source", response_model=SourceRefResolveResponse)
+def get_evidence_ref_source(
+    evidence_ref_id: str = Path(min_length=1, max_length=36),
+    current: CurrentSession = Depends(require_current_session),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    try:
+        return resolve_evidence_source_ref(
+            db,
+            settings=settings,
+            owner=current.user,
+            evidence_ref_id=evidence_ref_id,
+        )
+    except SourceRefError as exc:
+        raise _source_ref_api_error(exc) from exc
 
 
 @api_router.get("/conversations")

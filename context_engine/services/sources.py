@@ -437,6 +437,11 @@ def _require_available_domain_for_member_sources(db: Session, *, settings: Setti
     return domain
 
 
+def require_available_domain_for_member_sources(db: Session, *, settings: Settings, domain_id: str) -> Domain:
+    """Public alias for member list/preview/resolve domain availability gate."""
+    return _require_available_domain_for_member_sources(db, settings=settings, domain_id=domain_id)
+
+
 def list_member_sources(db: Session, *, settings: Settings, domain_id: str) -> list[dict[str, Any]]:
     _require_available_domain_for_member_sources(db, settings=settings, domain_id=domain_id)
     return list_sources(db, domain_id)
