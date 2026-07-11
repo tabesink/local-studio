@@ -155,7 +155,25 @@ describe("Domain settings helpers (F-009 deploy)", () => {
     assert.equal(shouldRequestDelete(true), true);
   });
 
-  it("Domains Settings UI uses UiModal delete and omits operator field tokens", async () => {
+  it("maps embedding labels and accordion expand toggle", async () => {
+    const { embeddingProfileLabel, nextExpandedDomainId } = await loadHelpers();
+
+    const profiles = [
+      { id: "emb-a", name: "Emb A", profileKind: "embedding", isDefault: false },
+      { id: "emb-b", name: "  Emb B  ", profileKind: "embedding", isDefault: true },
+    ];
+
+    assert.equal(embeddingProfileLabel("emb-b", profiles), "Emb B");
+    assert.equal(embeddingProfileLabel("missing", profiles), "missing");
+    assert.equal(embeddingProfileLabel("", profiles), "Locked");
+    assert.equal(embeddingProfileLabel(null, profiles), "Locked");
+
+    assert.equal(nextExpandedDomainId(null, "a"), "a");
+    assert.equal(nextExpandedDomainId("a", "a"), null);
+    assert.equal(nextExpandedDomainId("a", "b"), "b");
+  });
+
+  it("Domains Settings UI uses UiModal delete, accordion, and omits operator field tokens", async () => {
     const { FORBIDDEN_DOMAIN_UI_FIELD_TOKENS } = await loadHelpers();
 
     const panel = readFileSync(join(root, "src/features/settings-panel/SettingsPanel.tsx"), "utf8");
@@ -164,6 +182,11 @@ describe("Domain settings helpers (F-009 deploy)", () => {
     assert.match(panel, /UiModal/);
     assert.match(panel, /deployDomain/);
     assert.match(panel, /Deploy/);
+    assert.match(panel, /ChevronDown/);
+    assert.match(panel, /aria-expanded/);
+    assert.match(panel, /embeddingProfileLabel/);
+    assert.match(panel, /nextExpandedDomainId/);
+    assert.match(panel, /· locked/);
     assert.doesNotMatch(panel, /window\.confirm/);
 
     // DomainsSection should not render both Start and Stop on the same row template

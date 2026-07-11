@@ -62,6 +62,24 @@ export function defaultEmbeddingProfileId(profiles: EmbeddingProfileLike[]): str
   return (preferred ?? embedding[0]).id;
 }
 
+/** Safe expanded-row label — profile name when known, else id, else Locked. Never a URL. */
+export function embeddingProfileLabel(
+  embeddingProfileId: string | null | undefined,
+  profiles: EmbeddingProfileLike[],
+): string {
+  const id = embeddingProfileId?.trim() ?? "";
+  if (!id) return "Locked";
+  const match = profiles.find((profile) => profile.id === id);
+  const name = match?.name?.trim();
+  if (name) return name;
+  return id;
+}
+
+/** Accordion expand toggle — one open row at a time (or collapse current). */
+export function nextExpandedDomainId(current: string | null, toggledId: string): string | null {
+  return current === toggledId ? null : toggledId;
+}
+
 export function canDeployDomain(input: {
   id: string;
   displayName: string;

@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Database, KeyRound, Palette, Users } from "lucide-react";
+import { ChevronDown, Database, KeyRound, Palette, Users } from "lucide-react";
 import {
+  cx,
   EmptySafeNotice,
   SettingsButton,
   SettingsFactRows,
@@ -41,8 +42,10 @@ import {
   defaultEmbeddingProfileId,
   deployDomain,
   domainTone,
+  embeddingProfileLabel,
   filterEmbeddingProfiles,
   isValidDomainId,
+  nextExpandedDomainId,
   primaryLifecycleAction,
   shouldRequestDelete,
   type DomainBusyAction,
@@ -280,6 +283,7 @@ function DomainsSection({
   const [draftEmbeddingId, setDraftEmbeddingId] = useState(() => defaultEmbeddingProfileId(embeddingProfiles) ?? "");
   const [busy, setBusy] = useState<{ id: string; action: DomainBusyAction } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<AdminDomain | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!draftEmbeddingId || !embeddingProfiles.some((profile) => profile.id === draftEmbeddingId)) {
@@ -368,15 +372,33 @@ function DomainsSection({
             const lifecycle = primaryLifecycleAction(domain.state);
             const pillLabel = rowBusy && busy ? busyLabel(busy.action) : domain.state;
             const pillTone = rowBusy ? "warning" : domainTone(domain.state);
+            const expanded = expandedId === domain.id;
+            const embeddingLabel = embeddingProfileLabel(domain.embeddingProfileId, embeddingProfiles);
             return (
-              <SettingsRow
-                key={domain.id}
-                variant="resource"
-                label={domain.displayName}
-                description={domain.id}
-                status={<StatusPill tone={pillTone}>{pillLabel}</StatusPill>}
-                actions={
-                  <>
+              <div key={domain.id}>
+                <div className="flex items-center gap-3 px-3.5 py-2.5 transition-colors hover:bg-(--ui-hover)/35">
+                  <button
+                    type="button"
+                    aria-expanded={expanded}
+                    aria-label={`${expanded ? "Collapse" : "Expand"} ${domain.displayName}`}
+                    onClick={() => setExpandedId((current) => nextExpandedDomainId(current, domain.id))}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-(--ui-muted) transition-colors hover:bg-(--ui-hover) hover:text-(--ui-fg)"
+                  >
+                    <ChevronDown
+                      className={cx("h-3.5 w-3.5 transition-transform", expanded ? "" : "-rotate-90")}
+                      aria-hidden
+                    />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-[length:var(--fs-base)] font-medium text-(--ui-fg)">
+                        {domain.displayName}
+                      </span>
+                      <StatusPill tone={pillTone}>{pillLabel}</StatusPill>
+                    </div>
+                    <div className="truncate font-mono text-[length:var(--fs-xs)] text-(--ui-muted)">{domain.id}</div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
                     {lifecycle === "stop" ? (
                       <SettingsButton disabled={anyBusy} onClick={() => void run(domain.id, "stop")}>
                         Stop
@@ -389,9 +411,24 @@ function DomainsSection({
                     <SettingsButton tone="danger" disabled={anyBusy} onClick={() => setPendingDelete(domain)}>
                       Delete
                     </SettingsButton>
-                  </>
-                }
-              />
+                  </div>
+                </div>
+                {expanded ? (
+                  <div className="space-y-1 border-t border-(--ui-separator) bg-(--ui-bg)/40 px-3.5 py-2.5 pl-12">
+                    <p className="text-[length:var(--fs-sm)] text-(--ui-fg)">
+                      Domain: <span className="text-(--ui-muted)">{domain.displayName}</span>
+                    </p>
+                    <p className="font-mono text-[length:var(--fs-xs)] text-(--ui-muted)">Id: {domain.id}</p>
+                    <p className="text-[length:var(--fs-sm)] text-(--ui-fg)">
+                      Embedding:{" "}
+                      <span className="text-(--ui-muted)">
+                        {embeddingLabel}
+                        {" · locked"}
+                      </span>
+                    </p>
+                  </div>
+                ) : null}
+              </div>
             );
           })
         )}
