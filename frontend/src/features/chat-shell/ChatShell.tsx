@@ -8,6 +8,7 @@ import { EvidencePanel } from "@/features/chat-shell/EvidencePanel";
 import { useChatShell } from "@/features/chat-shell/use-chat-shell";
 import type { ComposerRefKind } from "@/features/chat-shell/api";
 import type { AssistantBlock, ChatMessage } from "@/features/chat-shell/types";
+import { buildChatReturnHref } from "@/features/documents/libraryDeepLink";
 
 const composerKinds: Array<{ id: ComposerRefKind; label: string }> = [
   { id: "source", label: "Sources" },
@@ -58,7 +59,19 @@ function ChatShellInner() {
 
   const onOpenInLibrary = (evidenceRefId: string) => {
     void chat.openEvidenceInLibrary(evidenceRefId).then((href) => {
-      if (href) router.push(href);
+      if (!href) return;
+      /* Stamp the current history entry with return ids before Library push so
+         browser Back restores the jump-from turn (R9 / AE3 / KTD-2). Prefer
+         history.replaceState over router.replace — App Router can coalesce a
+         replace+push pair and drop the stamped chat URL. */
+      const target = new URL(href, window.location.origin);
+      const conversationId = target.searchParams.get("conversationId");
+      const turnId = target.searchParams.get("turnId");
+      if (conversationId && turnId) {
+        const returnHref = buildChatReturnHref(conversationId, turnId);
+        window.history.pushState(window.history.state, "", returnHref);
+      }
+      router.push(href);
     });
   };
 

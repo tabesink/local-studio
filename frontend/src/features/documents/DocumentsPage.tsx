@@ -193,11 +193,19 @@ function DocumentsPageInner() {
     if (!deepLink.sourceId || sources.length === 0) return;
     if (deepLink.domainId && domainId !== deepLink.domainId) return;
     const match = sources.find((row) => row.id === deepLink.sourceId);
-    if (!match) return;
+    if (!match) {
+      deepLinkSourceAppliedRef.current = true;
+      setSelected(null);
+      setPreviewState({
+        kind: "unavailable",
+        message: "Source unavailable.",
+      });
+      return;
+    }
     pdfPageForSelection.current = resolvePdfInitialPage(deepLink.page);
     setSelected(match);
     deepLinkSourceAppliedRef.current = true;
-  }, [sources, deepLink.sourceId, deepLink.domainId, deepLink.page, domainId]);
+  }, [sources, deepLink.sourceId, deepLink.domainId, deepLink.page, domainId, setPreviewState]);
 
   useEffect(() => {
     if (!selected || !domainId || selected.domainId !== domainId) {

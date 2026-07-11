@@ -173,8 +173,9 @@ describe("F-012 chat via LS chat-shell", () => {
     const component = read("src/features/chat-shell/ChatShell.tsx");
     assert.match(component, /onOpenInLibrary/);
     assert.match(component, /openEvidenceInLibrary/);
+    assert.match(component, /buildChatReturnHref/);
+    assert.match(component, /history\.pushState/);
     assert.match(component, /router\.push\(href\)/);
-    assert.match(component, /if \(href\) router\.push/);
     assert.equal(component.includes("citation chip"), false);
     assert.equal(component.includes("Source tab"), false);
   });

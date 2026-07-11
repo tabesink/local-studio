@@ -84,16 +84,24 @@ test.describe("F-009 source-ref inspector", () => {
     await openInLibrary.click();
     const resolveResponse = await resolveResponsePromise;
     expect(resolveResponse.ok()).toBeTruthy();
-    const resolveJson = (await resolveResponse.json()) as unknown;
+    const resolveJson = (await resolveResponse.json()) as {
+      domainId?: string;
+      sourceId?: string;
+      page?: number | null;
+      sourceLabel?: string | null;
+    };
     assertSafeResolvePayload(resolveJson);
 
     await expect(page).toHaveURL(/\/documents\?/, { timeout: 30_000 });
     const url = new URL(page.url());
     expect(url.pathname).toBe("/documents");
-    expect(url.searchParams.get("domainId")).toBeTruthy();
-    expect(url.searchParams.get("sourceId")).toBeTruthy();
+    expect(url.searchParams.get("domainId")).toBe(resolveJson.domainId ?? null);
+    expect(url.searchParams.get("sourceId")).toBe(resolveJson.sourceId ?? null);
     expect(url.searchParams.get("conversationId")).toBeTruthy();
     expect(url.searchParams.get("turnId")).toBeTruthy();
+    if (typeof resolveJson.page === "number" && resolveJson.page >= 1) {
+      expect(url.searchParams.get("page")).toBe(String(resolveJson.page));
+    }
 
     const conversationId = url.searchParams.get("conversationId")!;
     const turnId = url.searchParams.get("turnId")!;
@@ -107,10 +115,28 @@ test.describe("F-009 source-ref inspector", () => {
     if (pdfVisible) {
       await expect(pdfPreview).toHaveAttribute("data-pdfjs", "true");
       await expect(pdfPreview.locator("canvas")).toBeVisible({ timeout: 60_000 });
+      if (typeof resolveJson.page === "number" && resolveJson.page >= 1) {
+        await expect(pdfPreview).toHaveAttribute("data-page", String(resolveJson.page));
+      }
     } else {
       await expect(textPreview).toBeVisible({ timeout: 60_000 });
     }
 
+    /* AE3: browser Back restores jump-from turn (chat URL was stamped before Library push). */
+    await page.goBack();
+    await expect(page).toHaveURL(
+      new RegExp(`/chat\\?.*conversationId=${conversationId}.*turnId=${turnId}`),
+      { timeout: 30_000 },
+    );
+    const evidenceViaBack = page.getByRole("complementary", { name: "Evidence" });
+    await expect(evidenceViaBack).toBeVisible({ timeout: 60_000 });
+    await expect(evidenceViaBack.getByRole("listitem").first()).toBeVisible({ timeout: 30_000 });
+
+    /* Re-open Library then use explicit Back to chat (AE2). */
+    await evidenceViaBack.getByRole("listitem").first().click();
+    await evidenceViaBack.getByTestId("open-in-library").click();
+    await expect(page).toHaveURL(/\/documents\?/, { timeout: 30_000 });
+    await expect(page.getByTestId("documents-back-to-chat")).toBeVisible();
     await page.getByTestId("documents-back-to-chat").click();
     await expect(page).toHaveURL(
       new RegExp(`/chat\\?.*conversationId=${conversationId}.*turnId=${turnId}`),
