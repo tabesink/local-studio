@@ -34,12 +34,42 @@ test.describe("F-009 documents source preview", () => {
     await logout(page);
   });
 
-  test("admin opens PDF preview object", async ({ page }) => {
+  test("admin opens PDF with shared pdf.js viewer", async ({ page }) => {
     await loginAsAdmin(page);
     await openLibrary(page);
     await selectSourceByFilename(page, E2E_PREVIEW_PDF_NAME);
-    await expect(page.getByTestId("documents-pdf-preview")).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByTestId("documents-pdf-preview")).toHaveAttribute("type", "application/pdf");
+    const pdfPreview = page.getByTestId("documents-pdf-preview");
+    await expect(pdfPreview).toBeVisible({ timeout: 60_000 });
+    await expect(pdfPreview).toHaveAttribute("data-pdfjs", "true");
+    await expect(pdfPreview.locator("canvas")).toBeVisible({ timeout: 60_000 });
+    await expect(pdfPreview).toHaveAttribute("data-page", "1");
+    await expect(page.locator('object[type="application/pdf"]')).toHaveCount(0);
+    await logout(page);
+  });
+
+  test("deep-link selects PDF source and shows Back to chat chrome", async ({ page }) => {
+    const seed = readSeedInfo();
+    test.skip(!seed.pdfSourceId, "seed.json missing pdfSourceId");
+
+    await loginAsAdmin(page);
+    const params = new URLSearchParams({
+      domainId: seed.domainId,
+      sourceId: seed.pdfSourceId!,
+      page: "1",
+      conversationId: "e2e-conv-return",
+      turnId: "e2e-turn-return",
+    });
+    await page.goto(`/documents?${params.toString()}`);
+    await expect(page.getByTestId("documents-back-to-chat-chrome")).toBeVisible();
+    await expect(page.getByTestId("documents-back-to-chat")).toBeVisible();
+    await expect(page.getByTestId("documents-preview-panel")).toBeVisible({ timeout: 60_000 });
+    const pdfPreview = page.getByTestId("documents-pdf-preview");
+    await expect(pdfPreview).toBeVisible({ timeout: 60_000 });
+    await expect(pdfPreview).toHaveAttribute("data-pdfjs", "true");
+    await expect(pdfPreview).toHaveAttribute("data-page", "1");
+
+    await page.getByTestId("documents-back-to-chat").click();
+    await expect(page).toHaveURL(/\/chat\?.*conversationId=e2e-conv-return.*turnId=e2e-turn-return/);
     await logout(page);
   });
 

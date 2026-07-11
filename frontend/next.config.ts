@@ -11,7 +11,14 @@ const nextConfig: NextConfig = {
   // acknowledges that the webpack() block below is dev/webpack-only so the
   // build does not fail with "webpack config and no turbopack config".
   turbopack: {},
+  // pdf.js (Library PDF preview) is ESM; transpile for Next bundling.
+  transpilePackages: ["pdfjs-dist"],
   webpack(config, { dev }) {
+    // pdfjs-dist optionally references node-canvas; not used in the browser viewer.
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      canvas: false,
+    };
     if (dev) {
       config.watchOptions = {
         poll: 1000,
