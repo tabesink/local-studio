@@ -422,23 +422,21 @@ function DomainsSection({
                   </div>
                 </div>
                 {expanded ? (
-                  <div className="border-t border-(--ui-separator) px-3.5 py-3 pl-12">
-                    <div className="space-y-2 rounded-lg border border-(--ui-separator) bg-(--ui-bg)/60 px-3.5 py-3">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-[length:var(--fs-sm)] text-(--ui-muted)">Domain</span>
-                        <span className="text-[length:var(--fs-sm)] text-(--ui-fg)">{domain.displayName}</span>
-                      </div>
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-[length:var(--fs-sm)] text-(--ui-muted)">Id</span>
-                        <span className="font-mono text-[length:var(--fs-xs)] text-(--ui-fg)">{domain.id}</span>
-                      </div>
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-[length:var(--fs-sm)] text-(--ui-muted)">Embedding</span>
-                        <span className="text-[length:var(--fs-sm)] text-(--ui-fg)">
-                          {embeddingLabel}
-                          <span className="text-(--ui-muted)">{" · locked"}</span>
-                        </span>
-                      </div>
+                  <div className="bg-(--ui-surface) py-1 pl-12 pr-3.5">
+                    <div className="flex min-h-6 items-baseline justify-between gap-3">
+                      <span className="text-[length:var(--fs-sm)] text-(--ui-muted)">Domain</span>
+                      <span className="text-[length:var(--fs-sm)] text-(--ui-fg)">{domain.displayName}</span>
+                    </div>
+                    <div className="flex min-h-6 items-baseline justify-between gap-3">
+                      <span className="text-[length:var(--fs-sm)] text-(--ui-muted)">Id</span>
+                      <span className="font-mono text-[length:var(--fs-xs)] text-(--ui-fg)">{domain.id}</span>
+                    </div>
+                    <div className="flex min-h-6 items-baseline justify-between gap-3">
+                      <span className="text-[length:var(--fs-sm)] text-(--ui-muted)">Embedding</span>
+                      <span className="font-mono text-[length:var(--fs-xs)] text-(--ui-fg)">
+                        {embeddingLabel}
+                        <span className="text-(--ui-muted)">{" · locked"}</span>
+                      </span>
                     </div>
                   </div>
                 ) : null}
@@ -447,25 +445,26 @@ function DomainsSection({
           })
         )}
 
-        <div className="flex flex-col gap-2 border-t border-(--ui-separator) px-3.5 py-3">
+        <div className="flex flex-col gap-2 px-3.5 py-3">
+          <SettingsInput
+            value={draftName}
+            onChange={setDraftName}
+            placeholder="Name"
+            aria-label="New domain display name"
+          />
           <SettingsInput
             value={draftId}
             onChange={setDraftId}
             placeholder="id"
             aria-label="New domain id"
-          />
-          <SettingsInput
-            value={draftName}
-            onChange={setDraftName}
-            placeholder="display name"
-            aria-label="New domain display name"
+            className="font-mono"
           />
           <select
             value={draftEmbeddingId}
             onChange={(event) => setDraftEmbeddingId(event.target.value)}
             disabled={embeddingProfiles.length === 0 || anyBusy}
             aria-label="Embedding profile"
-            className="h-7 w-full rounded-md border border-(--ui-separator) bg-(--ui-bg) px-2.5 text-[length:var(--fs-base)] text-(--ui-fg) outline-none focus:border-(--ui-accent)/40 disabled:opacity-50"
+            className="h-7 w-full rounded-md border border-(--ui-separator) bg-(--ui-bg) px-2.5 text-[length:var(--fs-base)] text-(--ui-fg) outline-none transition focus:border-(--ui-accent)/40 disabled:opacity-50"
           >
             {embeddingProfiles.length === 0 ? (
               <option value="">No embedding profiles</option>
@@ -477,17 +476,17 @@ function DomainsSection({
               ))
             )}
           </select>
-          <div className="flex items-center justify-start pt-1">
-            <SettingsButton tone="primary" disabled={!deployEnabled || anyBusy} onClick={() => void onDeploy()}>
+          <div className="flex items-center justify-between gap-3 pt-0.5">
+            <SettingsButton disabled={!deployEnabled || anyBusy} onClick={() => void onDeploy()}>
               {deployBusy ? "Deploying…" : "Deploy"}
             </SettingsButton>
+            {embeddingProfiles.length === 0 ? (
+              <span className="text-[length:var(--fs-sm)] text-(--ui-muted)">
+                Add an embedding model profile before deploying a domain.
+              </span>
+            ) : null}
           </div>
         </div>
-        {embeddingProfiles.length === 0 ? (
-          <p className="px-3.5 pb-3 text-[length:var(--fs-sm)] text-(--ui-muted)">
-            Add an embedding model profile before deploying a domain.
-          </p>
-        ) : null}
       </SettingsGroup>
 
       <UiModal isOpen={pendingDelete !== null} onClose={() => setPendingDelete(null)} maxWidth="max-w-md">
