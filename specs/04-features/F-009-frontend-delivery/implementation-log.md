@@ -3,7 +3,7 @@ id: F-009
 title: Frontend Delivery Implementation Log
 status: in_progress
 owner: Context Engine delivery team
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 depends_on: [F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008]
 supersedes: []
 ---
@@ -29,6 +29,7 @@ Status: foundation implemented for T-000 through T-030 only. Full P9 remains in 
 | 2026-07-10 | Document source preview (F-009 AC-007 documents path): API-001 member `GET /domains/{id}/sources` + `.../preview`; backend streaming with `Cache-Control: private, no-store`; Library opened to members as read-only; PDF `<object>` + plain/markdown text panel with blob URL revoke; Playwright `documents-preview.spec.ts` (admin markdown/PDF + member read-only). Docx unsupported remains API-level evidence in `tests/test_sources.py`. | Close the F-009 preview gate without inventing download, pdf.js, or source-ref navigation. | Graph browser AC-007 and opaque source-ref inspector remain open; F-009 stays `in_progress`. |
 | 2026-07-10 | Source-ref inspector (F-009 slice 16): opaque `GET /evidence-refs/{id}/source`; Library pdf.js viewer + deep-link (`domainId`/`sourceId`/`page`/`conversationId`/`turnId`); Evidence Panel Open in Library resolve-then-navigate; unavailable stays in chat; Playwright `source-ref-inspector.spec.ts` (AE1/AE2 happy path, AE4 unavailable, resolve forbidden-key safety). AE7 covered by existing `documents-preview.spec.ts` pdf.js test. AE3 browser Back noted as manual. OpenAPI snapshot includes resolve from U2. | Close evidence→source navigation gate with fail-closed resolve and shared Library preview. | Graph DTOs + AC-007 graph browser remain open; F-009 stays `in_progress`. |
 | 2026-07-10 | Domain deploy Settings UI (plan 2026-07-10-006): `deployDomain` create-then-start helper; Settings Domains Deploy footer (id/name/embedding); chevron accordion rows with safe expanded details (name/id/locked embedding); Start XOR Stop + busy pills; `UiModal` delete confirm; `domains-settings.test.mjs` outcome + source-scan gates. No ports/URLs/storage bars; no new API routes; no live polling; F-010 operator surfaces stay deferred. | Close Settings Domains deploy path with LS environment-controls grammar and safe DTOs only. | Manual Settings smoke still recommended; optional Playwright Domains smoke deferred; F-009 stays `in_progress`. |
+| 2026-07-11 | Central theme preferences (plan 2026-07-11-001): `ce.appearance` JSON blob + legacy `ce.theme`/`ce.density` migrate/write-through; theme catalog (Workbench Dark/Light + Sky/Violet/Emerald/Rose); pure `applyAppearance` + Mode↔themeId coupling; pre-paint layout bootstrap; `AppearanceProvider` sole React writer; Settings → General Mode/Theme/editor/typography/Density+scale UI. **DESIGN exception:** Inter is selectable in the font family picker for LS appearance-control parity; product default remains Geist (no Inter default load). System Mode is persisted with themeId-driven apply; true OS `prefers-color-scheme` listening deferred. | Replace binary Dark/Light toggle with LS-parity appearance surface and one apply path (R1–R15). | Manual Settings → General smoke (AE1–AE5) + reload FOUC check; OS System Mode follow-up; optional Inter `@font-face` if stack fallback is insufficient. |
 
 ## Drift Register
 

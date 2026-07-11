@@ -103,12 +103,15 @@ Components may display the safe message and request id. They must not log or per
 Allowed browser storage keys for P9 foundation:
 
 ```text
+ce.appearance
 ce.theme
 ce.density
 ce.railCollapsed
 ce.panelWidths
 ce.lastRouteGroup
 ```
+
+`ce.appearance` is the canonical JSON blob for Mode, themeId, density, typography, scale, radius, and token overrides. Legacy `ce.theme` / `ce.density` remain on the allowlist for one migration window with write-through sync.
 
 Forbidden in browser storage:
 
@@ -134,7 +137,7 @@ Auth uses the opaque HttpOnly `ce_session` cookie only.
 
 Settings must be separated by ownership from the first shell implementation:
 
-- Personal: UI-local appearance, density, compact preferences, and other browser-only preferences on the storage allowlist.
+- Personal: UI-local appearance (Mode, Theme catalog, token editor, typography, Density + scale) via the central appearance runtime, and other browser-only preferences on the storage allowlist.
 - Administration: captured P1-P8 routes only, such as users, provider/model/parser status, domains, sources, audit, and diagnostics.
 - Reserved: Runtime Node, workspace, Logs, Usage, storage, Docker, Wiki, and Smart Composer. Reserved sections are absent or inactive until F-010/F-011 and affected API/data contracts are approved.
 

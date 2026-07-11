@@ -152,4 +152,20 @@ describe("appearance runtime helpers (F-009)", () => {
     assert.equal(UI_STORAGE_KEYS.includes("ce.appearance"), true);
     assert.equal(isAllowedUiStorageKey("ce.appearance"), true);
   });
+
+  it("exposes Workbench Dark/Light catalog labels and Accents themes", async () => {
+    const catalogUrl = pathToFileURL(join(root, "src/features/user-preferences/themeCatalog.ts")).href;
+    const { themeCatalog, fontFamilies } = await import(catalogUrl);
+    const byId = Object.fromEntries(themeCatalog.map((theme) => [theme.id, theme]));
+    assert.equal(byId["zai-dark"].name, "Workbench Dark");
+    assert.equal(byId["zai-light"].name, "Workbench Light");
+    assert.equal(byId["zai-sky"].group, "Accents");
+    assert.equal(byId["zai-violet"].group, "Accents");
+    assert.equal(byId["zai-emerald"].group, "Accents");
+    assert.equal(byId["zai-rose"].group, "Accents");
+    assert.deepEqual(
+      fontFamilies.map((font) => font.id),
+      ["geist", "inter", "system"],
+    );
+  });
 });

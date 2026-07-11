@@ -42,7 +42,7 @@ supersedes: []
 - API client: direct `fetch` is isolated to the shared API/SSE foundation; feature modules use wrappers.
 - API errors: normalized client errors expose only safe `code`, `message`, `requestId`, and optional safe fields.
 - Auth: `POST /auth/login`, `GET /auth/me`, and `POST /auth/logout` use the HttpOnly `ce_session` cookie; no token is stored or returned to UI state.
-- Browser storage scan: only `ce.theme`, `ce.density`, `ce.railCollapsed`, `ce.panelWidths`, and `ce.lastRouteGroup` may be persisted.
+- Browser storage scan: only `ce.appearance`, `ce.theme`, `ce.density`, `ce.railCollapsed`, `ce.panelWidths`, and `ce.lastRouteGroup` may be persisted.
 - Import scan: frontend code must not import or reference LightRAG, Docker/controller clients, provider SDKs, Langfuse, filesystem/process modules, storage targets, runtime targets, host paths, runtime ports, controller targets, or secret values.
 - Shell route proof: `/`, `/login`, `/chat`, `/documents`, `/database-visualize`, and `/forbidden` exist; authenticated shell nav order is Chat -> Documents -> Knowledge graph -> Settings -> Logout.
 - Settings shell proof: Settings opens as a dialog/overlay entry from the rail; working panels beyond personal shell remain gated by captured fixtures.

@@ -3,7 +3,7 @@ id: F-009
 title: Frontend Delivery Acceptance Evidence
 status: in_progress
 owner: Context Engine delivery team
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 depends_on: [F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008]
 supersedes: []
 ---
@@ -11,7 +11,7 @@ supersedes: []
 
 # F-009 - Acceptance Evidence
 
-Status: LS shell adoption implemented (navigation-sidebar, chat-shell, settings-panel, logs-observability, documents, graph shell). Playwright pilot happy-path + DESIGN screenshot matrix landed 2026-07-10. Documents member list + PDF/text preview landed 2026-07-10. **Source-ref inspector slice closed 2026-07-10** (opaque resolve, pdf.js Library viewer, Evidence → Library → Back to turn, unavailable stays in chat). **Domain deploy Settings UI landed 2026-07-10** (create+start Deploy footer, chevron accordion with locked embedding details, busy pills, UiModal delete, helper/source-scan tests). Remaining gates: graph DTOs, remaining AC-007 graph browser, some live authz proofs. F-009 stays `in_progress` while graph remains open.
+Status: LS shell adoption implemented (navigation-sidebar, chat-shell, settings-panel, logs-observability, documents, graph shell). Playwright pilot happy-path + DESIGN screenshot matrix landed 2026-07-10. Documents member list + PDF/text preview landed 2026-07-10. **Source-ref inspector slice closed 2026-07-10** (opaque resolve, pdf.js Library viewer, Evidence → Library → Back to turn, unavailable stays in chat). **Domain deploy Settings UI landed 2026-07-10** (create+start Deploy footer, chevron accordion with locked embedding details, busy pills, UiModal delete, helper/source-scan tests). **Central theme preferences landed 2026-07-11** (Mode + Theme catalog + editor + typography + Density/scale; `ce.appearance` runtime + pre-paint bootstrap). Remaining gates: graph DTOs, remaining AC-007 graph browser, some live authz proofs. F-009 stays `in_progress` while graph remains open.
 
 | Criterion | Evidence | Result | Notes |
 | --- | --- | --- | --- |
@@ -27,7 +27,7 @@ Status: LS shell adoption implemented (navigation-sidebar, chat-shell, settings-
 | AC-010 | `frontend/src/features/chat-shell/ChatShell.tsx`; `frontend/src/features/chat-shell/EvidencePanel.tsx`; `frontend/tests/chat.test.mjs`; Playwright domain RAG test | pass | Evidence Panel live proof: domain turn opens complementary Evidence region with ≥1 safe row (`citationLabel`/`sourceLabel`/`excerpt`); no private ids asserted; Open in Library on selected detail only |
 | AC-011 | `frontend/src/features/chat-shell/ChatShell.tsx`; Playwright direct-chat test | pass | direct turns leave Evidence Panel closed/empty in live browser; no route/model/tool controls |
 | AC-012 | `frontend/tests/chat.test.mjs` (`does not port uncontracted Local Studio agent controls`) | pass | no terminal, filesystem, Git, browser automation, Pi runtime, model-controller, or cwd controls in chat-shell |
-| AC-013 | `frontend/src/features/settings-panel/SettingsPanel.tsx`; `frontend/src/features/settings-panel/domainSettingsHelpers.ts`; `frontend/tests/domains-settings.test.mjs`; `frontend/src/features/user-preferences/PreferencesPanel.tsx`; `frontend/src/lib/storage.ts` | pass | personal vs admin ownership split; credentials write-only; Domains Deploy = create+start with start-fail keep; chevron accordion shows name/id/locked embedding only; UiModal delete confirm; source scan forbids operator field tokens; storage allowlist excludes raw controller URLs/API keys, host paths, runtime ports, and secrets |
+| AC-013 | `frontend/src/features/settings-panel/SettingsPanel.tsx`; `frontend/src/features/settings-panel/domainSettingsHelpers.ts`; `frontend/tests/domains-settings.test.mjs`; `frontend/src/features/user-preferences/{PreferencesPanel,AppearanceProvider,appearanceRuntime,themeCatalog,appearanceBootstrap}.tsx|ts`; `frontend/src/lib/storage.ts`; `frontend/tests/appearance-runtime.test.mjs`; `frontend/tests/foundation.test.mjs` | pass | personal vs admin ownership split; credentials write-only; Domains Deploy = create+start with start-fail keep; chevron accordion shows name/id/locked embedding only; UiModal delete confirm; **central appearance runtime** owns Mode/Theme catalog/editor/typography/Density+scale with `ce.appearance` + legacy write-through; pre-paint bootstrap; Inter font picker is intentional DESIGN exception (default remains Geist); source scan forbids operator field tokens and off-runtime `data-theme` writes; storage allowlist excludes raw controller URLs/API keys, host paths, runtime ports, and secrets |
 
 ## Completion Rule
 
