@@ -1267,7 +1267,20 @@ def member_list_sources(
         raise _source_api_error(exc) from exc
 
 
-@api_router.get("/domains/{domain_id}/sources/{source_id}/preview")
+@api_router.get(
+    "/domains/{domain_id}/sources/{source_id}/preview",
+    response_class=Response,
+    responses={
+        200: {
+            "description": "Stored original bytes with the Source Document content type.",
+            "content": {
+                "application/pdf": {"schema": {"type": "string", "format": "binary"}},
+                "text/plain": {"schema": {"type": "string"}},
+                "text/markdown": {"schema": {"type": "string"}},
+            },
+        }
+    },
+)
 def member_preview_source(
     domain_id: str = Path(pattern=DOMAIN_ID_PATTERN),
     source_id: str = Path(min_length=1, max_length=36),

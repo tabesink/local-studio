@@ -153,6 +153,7 @@ export function DocumentsPage() {
   }, [reload]);
 
   useEffect(() => {
+    setSources([]);
     setSelected(null);
     setPreviewState({ kind: "idle" });
   }, [domainId, setPreviewState]);
