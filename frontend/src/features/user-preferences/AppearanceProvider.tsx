@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   applyAppearance,
   applyThemeId,
@@ -56,96 +48,41 @@ function commit(prefs: AppearancePreferences) {
 export function AppearanceProvider({ children }: { children: ReactNode }) {
   const [preferences, setPreferences] = useState<AppearancePreferences>(defaultAppearance);
   const [hydrated, setHydrated] = useState(false);
+  const preferencesRef = useRef(preferences);
+  preferencesRef.current = preferences;
 
   useEffect(() => {
     const next = readAppearance();
+    preferencesRef.current = next;
     setPreferences(next);
     applyAppearance(document.documentElement, next);
     setHydrated(true);
   }, []);
 
-  const update = useCallback((recipe: (current: AppearancePreferences) => AppearancePreferences) => {
-    setPreferences((current) => {
-      const next = recipe(current);
-      commit(next);
-      return next;
-    });
-  }, []);
+  function update(recipe: (current: AppearancePreferences) => AppearancePreferences) {
+    const next = recipe(preferencesRef.current);
+    preferencesRef.current = next;
+    commit(next);
+    setPreferences(next);
+  }
 
-  const setThemeMode = useCallback(
-    (themeMode: ThemeMode) => {
-      update((current) => applyThemeMode(current, themeMode));
-    },
-    [update],
-  );
+  const activeTheme = themeCatalog.find((theme) => theme.id === preferences.themeId) ?? themeCatalog[0];
+  const tokens = resolveTokens(preferences);
 
-  const setThemeId = useCallback(
-    (themeId: ThemeId) => {
-      update((current) => applyThemeId(current, themeId));
-    },
-    [update],
-  );
-
-  const setDensity = useCallback(
-    (density: DensityId) => {
-      update((current) => patchAppearance(current, { density }));
-    },
-    [update],
-  );
-
-  const patchPreference = useCallback(
-    (patch: Partial<AppearancePreferences>) => {
-      update((current) => patchAppearance(current, patch));
-    },
-    [update],
-  );
-
-  const patchTokenValue = useCallback(
-    (key: keyof ThemeTokens, value: string) => {
-      update((current) => patchToken(current, key, value));
-    },
-    [update],
-  );
-
-  const resetTokenOverrides = useCallback(() => {
-    update((current) => resetTokens(current));
-  }, [update]);
-
-  const activeTheme = useMemo(
-    () => themeCatalog.find((theme) => theme.id === preferences.themeId) ?? themeCatalog[0],
-    [preferences.themeId],
-  );
-
-  const tokens = useMemo(() => resolveTokens(preferences), [preferences]);
-
-  const value = useMemo<AppearanceContextValue>(
-    () => ({
-      preferences,
-      hydrated,
-      themes: themeCatalog,
-      fontFamilies,
-      activeTheme,
-      tokens,
-      setThemeMode,
-      setThemeId,
-      setDensity,
-      patchPreference,
-      patchToken: patchTokenValue,
-      resetTokens: resetTokenOverrides,
-    }),
-    [
-      preferences,
-      hydrated,
-      activeTheme,
-      tokens,
-      setThemeMode,
-      setThemeId,
-      setDensity,
-      patchPreference,
-      patchTokenValue,
-      resetTokenOverrides,
-    ],
-  );
+  const value: AppearanceContextValue = {
+    preferences,
+    hydrated,
+    themes: themeCatalog,
+    fontFamilies,
+    activeTheme,
+    tokens,
+    setThemeMode: (themeMode) => update((current) => applyThemeMode(current, themeMode)),
+    setThemeId: (themeId) => update((current) => applyThemeId(current, themeId)),
+    setDensity: (density) => update((current) => patchAppearance(current, { density })),
+    patchPreference: (patch) => update((current) => patchAppearance(current, patch)),
+    patchToken: (key, value) => update((current) => patchToken(current, key, value)),
+    resetTokens: () => update((current) => resetTokens(current)),
+  };
 
   return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>;
 }

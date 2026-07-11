@@ -104,6 +104,8 @@ Use Geist Mono for code, API routes, model names, paths, IDs, timestamps, token 
 
 Do not introduce Inter, Roboto, Arial, system-only typography, or a new mono font as the default Context Engine visual language.
 
+Exception (F-009 appearance picker only): Settings → General may offer Inter / System as selectable font families for Local Studio control parity. The product default remains Geist; do not load Inter as the app default.
+
 ---
 
 # 3. Theme Contract

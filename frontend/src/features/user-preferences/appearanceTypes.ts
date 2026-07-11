@@ -67,7 +67,7 @@ export const defaultAppearance: AppearancePreferences = {
   themeId: "zai-dark",
   density: "compact",
   fontFamilyId: "geist",
-  fontSize: 16,
+  fontSize: 13,
   uiScale: 1,
   radiusBase: 7,
   tokenOverrides: {},

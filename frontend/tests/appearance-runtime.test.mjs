@@ -55,7 +55,7 @@ describe("appearance runtime helpers (F-009)", () => {
     assert.equal(prefs.themeMode, "dark");
     assert.equal(prefs.density, "compact");
     assert.equal(prefs.fontFamilyId, "geist");
-    assert.equal(prefs.fontSize, 16);
+    assert.equal(prefs.fontSize, 13);
     assert.equal(prefs.uiScale, 1);
     assert.equal(prefs.radiusBase, 7);
     assert.deepEqual(prefs.tokenOverrides, {});
@@ -167,5 +167,20 @@ describe("appearance runtime helpers (F-009)", () => {
       fontFamilies.map((font) => font.id),
       ["geist", "inter", "system"],
     );
+  });
+
+  it("keeps bootstrap script math aligned with runtime helpers", async () => {
+    const { effectiveUiScale, binaryThemeId, defaultAppearance } = await loadRuntime();
+    const bootstrapUrl = pathToFileURL(join(root, "src/features/user-preferences/appearanceBootstrap.ts")).href;
+    const { getAppearanceBootstrapScript } = await import(bootstrapUrl);
+    const script = getAppearanceBootstrapScript();
+
+    assert.match(script, /ce\.appearance/);
+    assert.match(script, /1\.05/);
+    assert.equal(binaryThemeId("zai-sky"), "zai-dark");
+    assert.equal(binaryThemeId("zai-light"), "zai-light");
+    assert.equal(effectiveUiScale("comfortable", 1.1), 1.155);
+    assert.equal(defaultAppearance.fontSize, 13);
+    assert.match(script, /"fontSize":13/);
   });
 });

@@ -32,7 +32,7 @@ async function applyTheme(page: import("@playwright/test").Page, theme: Theme) {
       themeId: next,
       density: "compact",
       fontFamilyId: "geist",
-      fontSize: 16,
+      fontSize: 13,
       uiScale: 1,
       radiusBase: 7,
       tokenOverrides: {},
@@ -41,6 +41,7 @@ async function applyTheme(page: import("@playwright/test").Page, theme: Theme) {
     window.localStorage.setItem("ce.theme", next);
     window.localStorage.setItem("ce.density", "compact");
     document.documentElement.dataset.theme = next;
+    document.documentElement.dataset.density = "compact";
   }, theme);
 }
 

@@ -138,17 +138,23 @@ export function normalizeAppearance(raw: Partial<AppearancePreferences> | null |
     merged.themeMode = merged.themeId === "zai-light" ? "light" : "dark";
   }
   if (!isDensityId(merged.density)) merged.density = defaultAppearance.density;
-  if (typeof merged.fontFamilyId !== "string" || !merged.fontFamilyId) {
+  if (!fontFamilies.some((font) => font.id === merged.fontFamilyId)) {
     merged.fontFamilyId = defaultAppearance.fontFamilyId;
   }
   if (typeof merged.fontSize !== "number" || !Number.isFinite(merged.fontSize)) {
     merged.fontSize = defaultAppearance.fontSize;
+  } else {
+    merged.fontSize = Math.min(20, Math.max(13, Math.round(merged.fontSize)));
   }
   if (typeof merged.uiScale !== "number" || !Number.isFinite(merged.uiScale)) {
     merged.uiScale = defaultAppearance.uiScale;
+  } else {
+    merged.uiScale = Math.min(1.25, Math.max(0.85, Number(merged.uiScale.toFixed(2))));
   }
   if (typeof merged.radiusBase !== "number" || !Number.isFinite(merged.radiusBase)) {
     merged.radiusBase = defaultAppearance.radiusBase;
+  } else {
+    merged.radiusBase = Math.min(14, Math.max(0, Math.round(merged.radiusBase)));
   }
   if (!merged.tokenOverrides || typeof merged.tokenOverrides !== "object") {
     merged.tokenOverrides = {};
