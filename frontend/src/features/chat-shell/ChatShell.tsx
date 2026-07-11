@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUp, AtSign, ChevronDown, History, PanelRightClose, PanelRightOpen, Plus, X } from "lucide-react";
 import { cx, SegmentedControl, StatusPill } from "@/_shared/ui";
 import { EvidencePanel } from "@/features/chat-shell/EvidencePanel";
@@ -20,13 +21,46 @@ const composerKinds: Array<{ id: ComposerRefKind; label: string }> = [
    turn-scoped Evidence Panel aside (F-009 context-panel-tabs v1).
    No model picker, attachments, queue, or abort: no CE contracts. */
 export function ChatShell() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full min-h-0 items-center justify-center bg-[var(--agent-bg)] text-[var(--dim)]">
+          Loading conversation.
+        </div>
+      }
+    >
+      <ChatShellInner />
+    </Suspense>
+  );
+}
+
+function ChatShellInner() {
   const chat = useChatShell();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const timelineRef = useRef<HTMLDivElement>(null);
+  const returnRestoredRef = useRef(false);
 
   useEffect(() => {
     const node = timelineRef.current;
     if (node) node.scrollTop = node.scrollHeight;
   }, [chat.messages.length, chat.streaming]);
+
+  /* Back to chat / citation return: restore conversation + jump-from turn once. */
+  useEffect(() => {
+    if (returnRestoredRef.current) return;
+    const conversationId = searchParams.get("conversationId")?.trim() || null;
+    const turnId = searchParams.get("turnId")?.trim() || null;
+    if (!conversationId || !turnId) return;
+    returnRestoredRef.current = true;
+    void chat.loadConversation(conversationId, { turnId });
+  }, [chat.loadConversation, searchParams]);
+
+  const onOpenInLibrary = (evidenceRefId: string) => {
+    void chat.openEvidenceInLibrary(evidenceRefId).then((href) => {
+      if (href) router.push(href);
+    });
+  };
 
   return (
     <div className="flex h-full min-h-0 bg-[var(--agent-bg)] text-[var(--ui-fg)]">
@@ -201,6 +235,9 @@ export function ChatShell() {
         selectedEvidenceId={chat.selectedEvidenceId}
         onSelectEvidence={chat.selectEvidence}
         onClose={() => chat.setPanelOpen(false)}
+        onOpenInLibrary={onOpenInLibrary}
+        openingLibrary={chat.openingLibrary}
+        sourceUnavailable={chat.sourceUnavailable}
       />
     </div>
   );

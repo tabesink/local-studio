@@ -7,9 +7,11 @@ import type { EvidenceRow } from "@/features/chat-shell/types";
 
 /* Turn-scoped Evidence Panel (F-009 context-panel-tabs v1).
    Single-column LS ComputerPanel-style aside: header + evidence rows +
-   selected excerpt. Data comes from the chat turn SSE/history only — this
-   component performs no fetch and never sees private source identifiers.
-   Session ledger, figure/table asset cards, and tab bar are deferred slices. */
+   selected excerpt + Open in Library on the selected detail only.
+   Data comes from the chat turn SSE/history; resolve/navigate is owned by
+   the parent (this component performs no fetch and never sees private
+   source identifiers). Session ledger, figure/table asset cards, citation
+   chips, and Source tab are deferred. */
 
 const DEFAULT_WIDTH = 440;
 
@@ -19,9 +21,21 @@ type EvidencePanelProps = {
   selectedEvidenceId: string | null;
   onSelectEvidence: (id: string) => void;
   onClose: () => void;
+  onOpenInLibrary?: (evidenceRefId: string) => void;
+  openingLibrary?: boolean;
+  sourceUnavailable?: boolean;
 };
 
-export function EvidencePanel({ open, rows, selectedEvidenceId, onSelectEvidence, onClose }: EvidencePanelProps) {
+export function EvidencePanel({
+  open,
+  rows,
+  selectedEvidenceId,
+  onSelectEvidence,
+  onClose,
+  onOpenInLibrary,
+  openingLibrary = false,
+  sourceUnavailable = false,
+}: EvidencePanelProps) {
   const [width, setWidth] = useState(DEFAULT_WIDTH);
 
   /* LS ComputerPanel left-edge resize: min max(280px, 25vw), max 65vw. */
@@ -50,7 +64,15 @@ export function EvidencePanel({ open, rows, selectedEvidenceId, onSelectEvidence
 
   const selected = rows.find((row) => row.id === selectedEvidenceId) ?? rows[0] ?? null;
   const content = (
-    <PanelContent rows={rows} selectedId={selected?.id ?? null} onSelectEvidence={onSelectEvidence} onClose={onClose} />
+    <PanelContent
+      rows={rows}
+      selectedId={selected?.id ?? null}
+      onSelectEvidence={onSelectEvidence}
+      onClose={onClose}
+      onOpenInLibrary={onOpenInLibrary}
+      openingLibrary={openingLibrary}
+      sourceUnavailable={sourceUnavailable}
+    />
   );
 
   return (
@@ -88,11 +110,17 @@ function PanelContent({
   selectedId,
   onSelectEvidence,
   onClose,
+  onOpenInLibrary,
+  openingLibrary,
+  sourceUnavailable,
 }: {
   rows: EvidenceRow[];
   selectedId: string | null;
   onSelectEvidence: (id: string) => void;
   onClose: () => void;
+  onOpenInLibrary?: (evidenceRefId: string) => void;
+  openingLibrary: boolean;
+  sourceUnavailable: boolean;
 }) {
   const selected = rows.find((row) => row.id === selectedId) ?? null;
   return (
@@ -163,7 +191,7 @@ function PanelContent({
             </section>
 
             {selected ? (
-              <section>
+              <section data-testid="evidence-selected-detail">
                 <p className="px-1 font-mono text-[length:var(--fs-xs)] uppercase tracking-[0.12em] text-[var(--dim)]/70">
                   Excerpt
                 </p>
@@ -176,6 +204,28 @@ function PanelContent({
                     {selected.excerpt ?? "No excerpt is available for this evidence."}
                   </p>
                 </div>
+                {onOpenInLibrary ? (
+                  <div className="mt-2 space-y-1.5 px-1">
+                    <button
+                      type="button"
+                      data-testid="open-in-library"
+                      disabled={openingLibrary || sourceUnavailable}
+                      onClick={() => onOpenInLibrary(selected.id)}
+                      className="rounded-md border border-[var(--border)]/70 bg-[var(--surface)]/40 px-2.5 py-1.5 text-[length:var(--fs-sm)] text-[var(--fg)] transition-colors hover:bg-[var(--hover)] disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      Open in Library
+                    </button>
+                    {sourceUnavailable ? (
+                      <p
+                        role="status"
+                        data-testid="source-unavailable"
+                        className="text-[length:var(--fs-sm)] text-[var(--dim)]"
+                      >
+                        Source unavailable
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </section>
             ) : null}
           </div>

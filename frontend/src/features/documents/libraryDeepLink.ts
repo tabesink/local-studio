@@ -53,6 +53,26 @@ export function buildChatReturnHref(conversationId: string, turnId: string): str
   return `/chat?${params.toString()}`;
 }
 
+/** After successful evidence→source resolve: Library deep-link with return state. */
+export function buildLibraryDeepLinkHref(input: {
+  domainId: string;
+  sourceId: string;
+  page?: number | null;
+  conversationId: string;
+  turnId: string;
+}): string {
+  const params = new URLSearchParams({
+    domainId: input.domainId,
+    sourceId: input.sourceId,
+    conversationId: input.conversationId,
+    turnId: input.turnId,
+  });
+  if (input.page != null && input.page >= 1) {
+    params.set("page", String(input.page));
+  }
+  return `/documents?${params.toString()}`;
+}
+
 /** Initial pdf.js page: deep-link page when set, otherwise 1 (document start). */
 export function resolvePdfInitialPage(page: number | null | undefined): number {
   return page != null && page >= 1 ? page : 1;

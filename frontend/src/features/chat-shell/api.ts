@@ -8,6 +8,7 @@
    deleteConversation(id)   DELETE /api/v1/conversations/{id}
    discoverComposerRefs()   POST /api/v1/composer-refs:discover
    streamConversationTurn() POST /api/v1/conversations/{id}/turns:stream (EVT-001 SSE)
+   resolveEvidenceSourceRef() GET /api/v1/evidence-refs/{id}/source (opaque source-ref)
 
    Abort/queue/steer/compact and Pi runtime frames are not wired: no CE contract. */
 
@@ -148,4 +149,27 @@ export async function streamConversationTurn(input: {
     },
     (event: SseEvent) => input.onEvent(event as TurnStreamEvent),
   );
+}
+
+/** Opaque evidence→source resolve. Success DTO may include Library-safe sourceId; Evidence rows never carry it. */
+export type EvidenceSourceRef = {
+  domainId: string;
+  sourceId: string;
+  page: number | null;
+  sourceLabel?: string | null;
+};
+
+export async function resolveEvidenceSourceRef(evidenceRefId: string): Promise<EvidenceSourceRef> {
+  const body = await ceFetch<{
+    domainId: string;
+    sourceId: string;
+    page?: number | null;
+    sourceLabel?: string | null;
+  }>(`/evidence-refs/${evidenceRefId}/source`);
+  return {
+    domainId: body.domainId,
+    sourceId: body.sourceId,
+    page: body.page ?? null,
+    sourceLabel: body.sourceLabel ?? null,
+  };
 }

@@ -13,7 +13,7 @@ async function loadDeepLinkModule() {
 
 describe("Library deep-link query params (U3 / KTD-2)", () => {
   it("parses domainId, sourceId, page, and return conversationId/turnId", async () => {
-    const { parseLibraryDeepLink, hasChatReturn, buildChatReturnHref, resolvePdfInitialPage } =
+    const { parseLibraryDeepLink, hasChatReturn, buildChatReturnHref, buildLibraryDeepLinkHref, resolvePdfInitialPage } =
       await loadDeepLinkModule();
 
     const link = parseLibraryDeepLink(
@@ -35,6 +35,16 @@ describe("Library deep-link query params (U3 / KTD-2)", () => {
     });
     assert.equal(hasChatReturn(link), true);
     assert.equal(buildChatReturnHref("conv_1", "turn_9"), "/chat?conversationId=conv_1&turnId=turn_9");
+    assert.equal(
+      buildLibraryDeepLinkHref({
+        domainId: "manuals",
+        sourceId: "src_1",
+        page: 3,
+        conversationId: "conv_1",
+        turnId: "turn_9",
+      }),
+      "/documents?domainId=manuals&sourceId=src_1&conversationId=conv_1&turnId=turn_9&page=3",
+    );
     assert.equal(resolvePdfInitialPage(link.page), 3);
   });
 

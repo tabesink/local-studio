@@ -7,6 +7,7 @@ import {
   discoverComposerRefs,
   getConversation,
   listConversations,
+  resolveEvidenceSourceRef,
   streamConversationTurn,
   type AcceptedRef,
   type ChatTurn,
@@ -15,6 +16,7 @@ import {
   type ConversationSummary,
   type TurnStreamEvent,
 } from "@/features/chat-shell/api";
+import { buildLibraryDeepLinkHref } from "@/features/documents/libraryDeepLink";
 import { listMemberDomains, type MemberDomain } from "@/features/domains/api";
 import type { AssistantBlock, ChatMessage, EvidenceRow } from "@/features/chat-shell/types";
 
@@ -90,6 +92,8 @@ export function useChatShell() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [selectedTurnId, setSelectedTurnId] = useState<string | null>(null);
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(null);
+  const [sourceUnavailable, setSourceUnavailable] = useState(false);
+  const [openingLibrary, setOpeningLibrary] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [pendingRefs, setPendingRefs] = useState<AcceptedRef[]>([]);
   const [loading, setLoading] = useState(false);
@@ -114,17 +118,25 @@ export function useChatShell() {
     };
   }, []);
 
-  const loadConversation = useCallback(async (conversationId: string) => {
+  const loadConversation = useCallback(async (conversationId: string, options?: { turnId?: string | null }) => {
     setLoading(true);
     setError(null);
+    setSourceUnavailable(false);
     try {
       const detail = await getConversation(conversationId);
       setConversation(detail.conversation);
       setTurns(detail.turns);
-      setSelectedTurnId(null);
       setSelectedEvidenceId(null);
-      const lastTurn = detail.turns[detail.turns.length - 1];
-      setPanelOpen((lastTurn?.evidence.length ?? 0) > 0);
+      const restoreTurnId = options?.turnId?.trim() || null;
+      const restoreTurn = restoreTurnId ? detail.turns.find((row) => row.id === restoreTurnId) : null;
+      if (restoreTurn) {
+        setSelectedTurnId(restoreTurn.id);
+        setPanelOpen(restoreTurn.evidence.length > 0);
+      } else {
+        setSelectedTurnId(null);
+        const lastTurn = detail.turns[detail.turns.length - 1];
+        setPanelOpen((lastTurn?.evidence.length ?? 0) > 0);
+      }
     } catch (err) {
       setError(messageForError(err));
     } finally {
@@ -262,6 +274,7 @@ export function useChatShell() {
     (turnId: string | null) => {
       setSelectedTurnId(turnId);
       setSelectedEvidenceId(null);
+      setSourceUnavailable(false);
       if (turnId === null) return;
       const turn = turns.find((row) => row.id === turnId);
       if ((turn?.evidence.length ?? 0) > 0) setPanelOpen(true);
@@ -269,7 +282,41 @@ export function useChatShell() {
     [turns],
   );
 
-  const selectEvidence = useCallback((evidenceId: string) => setSelectedEvidenceId(evidenceId), []);
+  const selectEvidence = useCallback((evidenceId: string) => {
+    setSelectedEvidenceId(evidenceId);
+    setSourceUnavailable(false);
+  }, []);
+
+  /* Resolve-then-navigate: returns Library href on success; null on failure (never navigate). */
+  const openEvidenceInLibrary = useCallback(
+    async (evidenceRefId: string): Promise<string | null> => {
+      if (!conversation || openingLibrary) return null;
+      const jumpTurnId =
+        selectedTurnId ??
+        (pendingMessage !== null ? null : turns[turns.length - 1]?.id) ??
+        null;
+      if (!jumpTurnId) return null;
+
+      setOpeningLibrary(true);
+      setSourceUnavailable(false);
+      try {
+        const resolved = await resolveEvidenceSourceRef(evidenceRefId);
+        return buildLibraryDeepLinkHref({
+          domainId: resolved.domainId,
+          sourceId: resolved.sourceId,
+          page: resolved.page,
+          conversationId: conversation.id,
+          turnId: jumpTurnId,
+        });
+      } catch {
+        setSourceUnavailable(true);
+        return null;
+      } finally {
+        setOpeningLibrary(false);
+      }
+    },
+    [conversation, openingLibrary, pendingMessage, selectedTurnId, turns],
+  );
 
   /* Panel rows: selected turn's evidence, else the in-flight stream, else the
      latest persisted turn. Direct LLM turns have no evidence event, so the
@@ -332,9 +379,12 @@ export function useChatShell() {
     panelEvidence,
     selectedTurnId,
     selectedEvidenceId,
+    sourceUnavailable,
+    openingLibrary,
     setPanelOpen,
     selectTurn,
     selectEvidence,
+    openEvidenceInLibrary,
     setDomainId,
     setComposerKind,
     setComposerQuery,
