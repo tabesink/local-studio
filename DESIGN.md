@@ -18,11 +18,14 @@ This document replaces the earlier white-canvas workbench direction. **Local Stu
 | Agent-facing UI implementation guide | `docs/design/context_engine_agent_ui_guidelines.md` |
 | Frontend/backend boundary | `docs/architecture.md` |
 | Context Engine domain vocabulary | `CONTEXT.md` |
-| UI feature requirements | relevant phase PRD / implementation plan |
+| UI feature requirements | `specs/04-features/F-009-frontend-delivery/` |
+| CE client port contract | `specs/04-features/F-009-frontend-delivery/ce-client-port-and-parity.md` |
 | Visual parity source package | `.references/local-studio-visual-parity-package.md` |
+| Old CE client (structure port) | `.references/code/context-engine/client/` |
 | Local Studio reference codebase | `.references/code/local-studio/` |
 | Local Studio source reference | `.references/code/local-studio/frontend/src/app/styles/globals/tokens.css` |
 | Local Studio shared primitives | `.references/code/local-studio/frontend/src/ui/` |
+| Settings panel parity template | `.reference-LS-frontend/templates/nextjs-feature-demos/features/settings-panel/` |
 
 When instructions conflict, use this order:
 
@@ -44,11 +47,14 @@ Use Local Studio as the reference implementation, not as vague inspiration.
 
 For any Context Engine UI decision, resolve in this order:
 
-1. Is there an existing Local Studio token?
-2. Is there an existing Local Studio primitive?
-3. Is there an existing Local Studio screen pattern?
-4. Can a narrow variant extend that primitive without adding a new design language?
-5. Only then add a Context Engine-specific component.
+1. Is there an existing **old CE client** layout/route pattern to port (`.references/code/context-engine/client/`)?
+2. Is there an existing Local Studio token?
+3. Is there an existing Local Studio primitive?
+4. Is there an existing Local Studio screen pattern for restyle?
+5. Can a narrow variant extend that primitive without adding a new design language?
+6. Only then add a Context Engine-specific component.
+
+Port structure from old CE client. Restyle with Local Studio. See `specs/04-features/F-009-frontend-delivery/ce-client-port-and-parity.md`.
 
 Never start from generic Tailwind, generic shadcn, a white dashboard template, or a marketing-page aesthetic.
 
@@ -398,11 +404,11 @@ Use `StatusDot` and `StatusPill` semantics.
 
 | Tone | Context Engine examples |
 | --- | --- |
-| `default` | stopped, idle, unknown, unavailable |
+| `default` | stopped, idle, unknown, unavailable, not applicable |
 | `info` | starting, running, indexing, querying |
-| `good` | ready, complete, indexed, healthy |
-| `warning` | paused, queued, degraded, needs review |
-| `danger` | failed, blocked, deleting failure, unsafe |
+| `good` | ready, complete, indexed, healthy, setup check `ok` |
+| `warning` | paused, queued, degraded, needs review, setup check `warning`, host-dev N/A |
+| `danger` | failed, blocked, deleting failure, unsafe, setup check `error` |
 
 Use dot form where text already communicates state. Use badge form only when the state label must remain visible in a dense list.
 
@@ -478,13 +484,15 @@ Never infer lifecycle from client-side temporary state. FastAPI is the source of
 
 ## 8.3 Documents and Ingestion
 
-**Reference pattern:** task/table list + right detail panel + compact upload modal.
+**Reference pattern:** port old CE client `/documents` layout — table list + **inline PDF preview panel** (50% desktop split, mobile drawer). Restyle with Local Studio tokens.
 
 Document row:
 
 ```text
-status dot | title / source path | parser | chunks | updated | row actions
+status dot | title / filename | parser | prep/index state | updated | row actions
 ```
+
+Row click opens `DocumentPreviewPanel` → `DocumentPdfPreview` (blob URL + native `<object>`). Do not move preview to a nested `/documents/[id]` route.
 
 Ingestion state:
 
@@ -497,20 +505,20 @@ Ingestion state:
 The right panel may contain:
 
 ```text
-Document title
-source path · parser · job ID
-status + progress
-counts / timestamps / compact diagnostics
-tabs: Details | Evidence | Job log
+PDF preview (<object>) or safe metadata when preview unavailable
+Document title · parser · status
+prep/index progress · timestamps · compact diagnostics
+tabs: Details | Operations (when API provides)
 ```
 
 Avoid nested upload cards. Use one focused upload dialog with direct progress and cancel action.
 
 ## 8.4 Retrieval / Query / Chat
 
-**Reference pattern:** Local Studio agent/workspace composition.
+**Reference pattern:** port old CE client `LightRagChatShell` two-column layout; restyle composer/messages with Local Studio tokens.
 
 - Center canvas holds conversation/query result.
+- Collapsible/resizable **ContextPanelShell** with tab registry; v1 **`context`** tab ports session context and source inspector from old CE (`context-panel-tabs.md`).
 - Query input/composer follows the same dark raised composer grammar.
 - Model, domain, and retrieval mode controls stay compact and local.
 - Response uses readable sans body; copied technical values use mono.
@@ -518,17 +526,48 @@ Avoid nested upload cards. Use one focused upload dialog with direct progress an
 - A source drawer/panel should show document, chunk, path, evidence content, and associated image/table if supplied.
 - Retrieval state is shown by restrained status/progress, not a colored “AI” hero panel.
 
-## 8.5 Provider and Model Settings
+## 8.5 Settings Panel
 
-**Reference pattern:** Local Studio settings rows and section navigation.
+**Reference pattern:** Local Studio settings shell — left `SectionNav` + compact content column — via `.reference-LS-frontend/templates/nextjs-feature-demos/features/settings-panel/` and the shared `SettingsLayout` / `SettingsGroup` / `SettingsRow` primitives.
 
-- Group settings in a left sub-navigation + compact right content surface when that reference pattern exists.
+### Shell
+
+- One Settings page inside the app shell; section switching is in-panel (state or hash), not a competing top-level destination per section.
+- Left sticky section nav with sky accent on the active item; content column stays dense (~640px reference width), not a full-bleed dashboard.
+- Admin-only sections stay role-gated in the nav; non-admins keep personal sections only.
+- Use `SettingsGroup` + `SettingsRow` / `SettingsFactRows` for lists and facts. Prefer dividers and rows over cards.
+- Reload/status chrome stays quiet (header status text + compact reload), matching the reference layout.
+
+### Provider and model (admin)
+
 - Use standard form rows, selects, tokenized inputs, concise help text, and right-aligned save/test actions.
 - API keys must use password/masked input patterns and never be rendered as normal metadata.
 - Locked embedding model uses disabled/muted input plus an explanation, not a hidden setting.
 - Model/provider status uses standard status dot/pill.
 
 Do not introduce large marketing-style provider cards or logo grids.
+
+### Setup checks (admin)
+
+**Reference pattern:** settings-panel `setup` section — `SettingsGroup` titled **Setup checks**, one `SettingsRow` per check, monospace detail, `StatusPill` for status.
+
+Visual parity means the **chrome and row grammar**, not Local Studio fixture content:
+
+| Keep from LS | Replace for CE |
+| --- | --- |
+| Section id/label **Setup**, `SettingsGroup` “Setup checks” | Pillars: `postgres`, `migrate`, `api`, `worker`, `frontend` (compose stack vocabulary) |
+| `SettingsRow` + mono detail + `StatusPill` | Safe status copy / reason codes — never live URLs, filesystem paths, runtime targets, or raw healthcheck dumps |
+| Tones: `ok` → `good`, `warning` → `warning`, `error` → `danger` | Host-dev vs compose: missing compose-only pillars are N/A/warning, not false danger |
+
+Rules:
+
+- Setup is a **read-only readiness board**, not the Local Studio setup wizard and not an operator console (no Docker controls, logs browser, storage browser, or node management in this surface).
+- Prefer dependency order in the list (`postgres` → `migrate` → `api` / `worker` → `frontend`). Treat migrate as a one-shot gate; treat worker as heartbeat freshness, not “container exists.”
+- Optional overall readiness line may sit above the checklist; do not turn Setup into a status-page dashboard with uptime charts or service cards.
+- Detail text uses Geist Mono at `--fs-xs` when showing machine-safe tokens; never paste controller URLs, `api:8000`, storage roots, or heartbeat file paths into the UI.
+- Backend remains the source of truth for check status. Frontend maps contracted fields to pills; it does not invent health by probing Docker or private runtimes.
+
+Do not ship LS fixture strings (`Pi binary`, `Controller reachable` with `http://…`, `~/models`, local data dirs) as live CE Setup content.
 
 ## 8.6 Operations and Logs
 
@@ -623,6 +662,7 @@ Card
 Alert
 Table / THead / TBody / TRow / TH / TCell
 ListGroup / ListRow
+SettingsLayout / SettingsGroup / SettingsRow / SettingsFactRows / SettingsNotice
 AppPage / PageHeader
 Modal
 Drawer
@@ -723,4 +763,4 @@ Before merging a Context Engine UI change, verify:
 
 Use this for feature implementation:
 
-> Build this Context Engine surface with Local Studio visual parity. First inspect `.references/code/local-studio/` for the closest existing token, primitive, shell geometry, or screen pattern. Use the existing dark-first `zai-dark` / `zai-light` token system, Geist and Geist Mono, the compact `--fs-*` scale, 4px rhythm, 7px base radius, 24/28px dense row/control geometry, and shared primitives. Preserve the workstation shell: left rail, central work canvas, optional right detail panel. Use tokenized subtle surfaces, 1px borders, quiet monochrome primary actions, Local Studio status dots/pills, compact tables/lists, and no generic dashboard cards, gradients, full pills, or arbitrary colors. Context Engine changes data and copy only; it does not introduce a competing visual language.
+> Build this Context Engine surface with Local Studio visual parity. First inspect `.references/code/local-studio/` (and for Settings, `.reference-LS-frontend/templates/nextjs-feature-demos/features/settings-panel/`) for the closest existing token, primitive, shell geometry, or screen pattern. Use the existing dark-first `zai-dark` / `zai-light` token system, Geist and Geist Mono, the compact `--fs-*` scale, 4px rhythm, 7px base radius, 24/28px dense row/control geometry, and shared primitives including SettingsLayout/SettingsGroup/SettingsRow and StatusPill. Preserve the workstation shell: left rail, central work canvas, optional right detail panel. Settings Setup checks mirror LS row grammar with CE stack-pillar content only — no URLs, paths, or operator consoles. Use tokenized subtle surfaces, 1px borders, quiet monochrome primary actions, Local Studio status dots/pills, compact tables/lists, and no generic dashboard cards, gradients, full pills, or arbitrary colors. Context Engine changes data and copy only; it does not introduce a competing visual language.

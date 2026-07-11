@@ -1,0 +1,221 @@
+{
+  "main": {
+    "id": "445cffb725e5761c",
+    "type": "split",
+    "children": [
+      {
+        "id": "4a777e4909e20b25",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "cc3c075765840c5a",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "cc002aecdd464586",
+    "type": "split",
+    "children": [
+      {
+        "id": "b72163e28353741a",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "840173dc7c576474",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "828494c7582589fa",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "f5eba53070ac9cbe",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "647f4b3ab5f1f303",
+    "type": "split",
+    "children": [
+      {
+        "id": "d62125b2a1cdaa19",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "8c7643dfe23fa660",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Reviews/ID-A Source Index Fields.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for ID-A Source Index Fields"
+            }
+          },
+          {
+            "id": "d24c2f53cb708da4",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Reviews/ID-A Source Index Fields.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from ID-A Source Index Fields"
+            }
+          },
+          {
+            "id": "ca284aa2d0147c4d",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "dd2ef94b20212542",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "dff124c4a19b9c2f",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Reviews/ID-A Source Index Fields.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of ID-A Source Index Fields"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "cc3c075765840c5a",
+  "lastOpenFiles": [
+    "Lessons/Smart-Composer - Wiki Layer Architecture.md",
+    "Lessons/Lessons Index.md",
+    "Lessons/Job Platform vs Backend-Owned Lifecycle.md",
+    "Lessons/Git Branching For Feature Slices.md",
+    "Lessons/Backend-Owned Lifecycle.md",
+    "Lessons",
+    "Inbox/LS Harness To CE Rag Brainstorm.md",
+    "Inbox/Inbox Index.md",
+    "Architecture/Pi SDK Coding Agent Runtime.md",
+    "Phases/P12 Governed Context Assembly/P12 Index.md",
+    "Reviews/ID-A Source Index Fields.md",
+    "Reviews/ID-A Evidence API Contract.md",
+    "Reviews/ID-A Safe Evidence DTO.md",
+    "Reviews/ID-A LightRAG Proof Fixture.md",
+    "Reviews/ID-A LightRAG Indexing Contract.md",
+    "Reviews/ID-A Index Worker And Delete Fences.md",
+    "Reviews/Reviews Index.md",
+    "Phases/P5 LightRAG Indexing/P5 LightRAG Text Indexing.md",
+    "Phases/P5 LightRAG Indexing/F-005 P5 Readiness.md",
+    "Phases/P5 LightRAG Indexing/P5 Index.md",
+    "Inbox/Todo.md",
+    "Reviews/ID-A Live Parser SDK Followup.md",
+    "Reviews/ID-A Query Eligibility.md",
+    "Reviews/ID-A Render LightRAG Input.md",
+    "Reviews/P4 Post Impl Review/P4 Review Index.md",
+    "Reviews/P4 Post Impl Review",
+    "Phases/P4 Source Documents Preparation/P4 Source Upload Flow.md",
+    "Inbox",
+    "Guidelines",
+    "Prompts",
+    "Reviews/P3 Post Impl Review",
+    "Reviews/P2 Post Impl Review",
+    "Reviews",
+    "Phases/P9 Frontend Delivery",
+    "Phases/P8 Observability Pilot Gate",
+    "Untitled.canvas"
+  ]
+}

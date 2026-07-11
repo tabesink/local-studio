@@ -1,0 +1,38 @@
+# Optional live Docker LightRAG overlay for local single-operator proofs.
+# Usage:
+#   export CE_STACK_LIVE_RUNTIME_ROOT=/absolute/host/path/for/domain-runtimes
+#   docker compose --env-file .env.stack.local -f compose.stack.yml -f compose.stack.live.yml up --build -d
+#
+# Not the default F-010 gate. Mounts docker.sock — local single-operator only.
+# Do not use in production or shared multi-tenant environments.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        CE_STACK_LIVE_IMAGE: "1"
+    environment:
+      CE_DOMAIN_RUNTIME_CONTROLLER_KIND: docker
+      CE_LIGHTRAG_CLIENT_KIND: native
+      CE_DOMAIN_CONTROLLER_COMMAND: python -m context_engine.tools.domain_runtime_controller
+      CE_DOMAIN_RUNTIME_ROOT: ${CE_STACK_LIVE_RUNTIME_ROOT:?set CE_STACK_LIVE_RUNTIME_ROOT to an absolute host-visible path}
+    volumes:
+      - ${CE_STACK_LIVE_RUNTIME_ROOT:?set CE_STACK_LIVE_RUNTIME_ROOT to an absolute host-visible path}:${CE_STACK_LIVE_RUNTIME_ROOT:?set CE_STACK_LIVE_RUNTIME_ROOT to an absolute host-visible path}
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        CE_STACK_LIVE_IMAGE: "1"
+    environment:
+      CE_DOMAIN_RUNTIME_CONTROLLER_KIND: docker
+      CE_LIGHTRAG_CLIENT_KIND: native
+      CE_DOMAIN_CONTROLLER_COMMAND: python -m context_engine.tools.domain_runtime_controller
+      CE_DOMAIN_RUNTIME_ROOT: ${CE_STACK_LIVE_RUNTIME_ROOT:?set CE_STACK_LIVE_RUNTIME_ROOT to an absolute host-visible path}
+    volumes:
+      - ${CE_STACK_LIVE_RUNTIME_ROOT:?set CE_STACK_LIVE_RUNTIME_ROOT to an absolute host-visible path}:${CE_STACK_LIVE_RUNTIME_ROOT:?set CE_STACK_LIVE_RUNTIME_ROOT to an absolute host-visible path}
+      - /var/run/docker.sock:/var/run/docker.sock

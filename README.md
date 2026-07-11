@@ -1,126 +1,91 @@
-# Context Engine
+# Context Engine Spec-Driven Rebuild
 
-> Trusted answers from documents your team controls.
+This repository is scaffolded for a greenfield Context Engine rebuild using spec-driven development. The active specifications in `specs/` are the implementation authority for coding agents, junior developers, reviewers, and tech leads.
 
-Context Engine is a private, evidence-grounded document intelligence workspace for trusted teams.
+Context Engine is an internal shared-workspace RAG workbench. Administrators curate Knowledge Domains, Source Documents, provider/parser settings, operations, and diagnostics. Members query available Knowledge Domains through evidence-grounded chat and source-aware workspaces.
 
-Admins curate knowledge domains, control document ingestion, configure approved providers, and monitor indexing operations. Team members ask questions in natural language, receive grounded answers, and inspect the supporting evidence and source documents.
+## Build Order
 
-Context Engine is not merely a “hybrid RAG backend.” It is the application control plane and evidence experience around semantic retrieval. LightRAG performs semantic retrieval; Context Engine owns authentication, document lifecycle, source mapping, administration, operations, and the user workspace.
+Build one phase at a time. Do not let a later phase reopen earlier ownership decisions unless the relevant specification is changed first.
 
-## Product principles
+| Phase | Feature folder | Outcome |
+| --- | --- | --- |
+| P0 | `specs/04-features/F-000-shared-contract/` | shared product, boundary, state, and contract spine |
+| P1 | `specs/04-features/F-001-trusted-application-foundation/` | FastAPI foundation, Postgres, users, cookie sessions, authz |
+| P2 | `specs/04-features/F-002-trusted-runtime-config/` | admin-only provider, model, parser, and secret configuration |
+| P3 | `specs/04-features/F-003-knowledge-domains-runtime/` | Knowledge Domain lifecycle and private LightRAG runtime control |
+| P4 | `specs/04-features/F-004-source-documents-preparation/` | Source Document upload, preparation, canonical Source Blocks |
+| P5 | `specs/04-features/F-005-lightrag-indexing-eligibility/` | LightRAG indexing, readiness, delete, query eligibility |
+| P6 | `specs/04-features/F-006-scoped-evidence-retrieval/` | domain-scoped evidence retrieval without synthesis |
+| P7 | `specs/04-features/F-007-grounded-streaming-chat/` | durable conversations, direct general chat, and advanced agentic domain RAG over Context Engine SSE |
+| P8 | `specs/04-features/F-008-observability-pilot-gate/` | audit, safe logs, optional tracing, launch evidence |
+| P9 | `specs/04-features/F-009-frontend-delivery/` | thin Next.js UI: **port** old CE client layout/routes/PDF viewer/graph/chat shell; **restyle** with Local Studio parity |
+| P10 | `specs/04-features/F-010-shared-node-operations/` | shared-mode node operations: dashboard, settings split, scoped logs, usage/cost, storage summaries, and Docker environments |
+| P11 | `specs/04-features/F-011-knowledge-curation-workspace/` | wiki library and Smart Composer knowledge curation, review, and publish workflow |
 
-* **Evidence before eloquence** — answers should be grounded in retrieved source material.
-* **Curated knowledge** — approved documents and domains define what users can query.
-* **Inspectable answers** — users should be able to move from an answer to its supporting evidence and source document.
-* **Clear admin control** — ingestion, providers, domain lifecycle, and operational visibility belong to administrators.
-* **Lean deployment** — designed for a private, small-team deployment rather than a public web search engine.
+## Source Of Truth
 
-## Repository layout
+Use this precedence when documents conflict:
 
-| Path | Purpose |
+1. `AGENTS.md`
+2. `specs/00-governance/constitution.md`
+3. Approved feature specs and acceptance criteria
+4. Versioned API, SSE, data, and AI contracts in `specs/03-contracts/`
+5. Architecture and quality specs
+6. Feature plans, task lists, and implementation logs
+7. Code, tests, runtime observations, and reference material
+
+Reference material under `.references/` is evidence, not active implementation authority. If a reference contradicts an approved spec, update the spec through the normal change process instead of silently choosing the reference.
+
+## Reference Code Repos
+
+Use the read-only reference repos only as evidence for implementing the active specs:
+
+| Reference repo | Use for |
 | --- | --- |
-| `webui/` | Next.js frontend application (live implementation) |
-| `docs/` | Architecture, implementation, deployment, and operational documentation |
-| `DESIGN.md` | UI and visual-system source of truth |
-| `CONTEXT.md` | Product and domain vocabulary |
-| `AGENTS.md` | Coding-agent guidance and documentation map |
-| `.references/` | Read-only reference material (not runtime code) |
-| `.references/code/client/` | Original Context Engine frontend reference (topology and routes) |
-| `.references/code/local-studio/` | Local Studio reference for tokens, primitives, and visual parity |
+| `.references/code/context-engine/` | old Context Engine product behavior, route/layout shape (see `client/`), API/backend patterns, and migration clues |
+| `.references/code/context-engine/client/` | **P9 port source:** shell, icon rail, `/chat`, `/documents` + PDF preview, `/database-visualize`, Settings dialog |
+| `.references/code/lightrag/` | LightRAG library/runtime **read-only evidence** for contract proof and promotion seed (F-003, F-005, F-006). Editable runtime copy lives at `vendor/lightrag/` per ADR-002. |
+| `.references/code/local-studio/` | Local Studio visual parity, tokens, primitives, shell geometry, and interaction patterns |
+| `.references/controllable-rag-fastapi-replication-pkg/` | advanced controllable RAG architecture evidence for F-007 orchestration, bounded retrieval loops, SSE projection, and modular chat shell wiring |
+| `.references/obsidian-smart-composer_impl_docs/` | Smart Composer adaptation evidence for P11 wiki/composer UX, evidence/citation presentation, conversation history, prompt templates, and diff-review ideas. Do not port Obsidian runtime, vault, provider, local RAG, OAuth, MCP, or filesystem-write behavior. |
 
-**Naming note:** the live frontend lives in `webui/`. Older docs and reference checkouts may still say `client/`; treat that as the archived frontend reference under `.references/code/client/`, not the runtime app path.
+Do not import behavior from these repos unless the active feature spec and affected contracts allow it.
 
-## Prerequisites
+## Frontend Rule
 
-* Node.js and npm
-* A running Context Engine API (or a mocked origin for local UI work)
+The frontend is a thin Next.js App Router client over Context Engine API truth.
 
-## Frontend
+**Structure (port):** old CE client at `.references/code/context-engine/client/` — w-14 icon rail, `/chat` (two-column + tabbed context panel), `/documents` with inline PDF preview panel, `/database-visualize` graph workspace, global Settings dialog.
 
-The frontend lives in `webui/`. It is a Next.js application intended to provide a calm, evidence-focused workspace for chat, documents, graph exploration, and settings.
+**Skin (restyle):** Local Studio tokens and primitives from `DESIGN.md` — compact dark-first workstation, Geist typography, dense rows, restrained borders. Do not ship old CE white-canvas styling.
 
-First-time setup:
+**Data (wire):** P1–P8 contracts in `specs/03-contracts/` only. Unknown API shape → fixture capture task.
 
-```bash
-cd webui
-npm install
-cp .env.local.example .env.local
-npx playwright install chromium
-```
+**Shared-mode adaptation:** Local Studio chat, dashboard, settings, logs, usage, and Docker environment patterns are reusable only through Context Engine ownership boundaries. Keep compact timelines, composers, status sheets, fact rows, log viewers, usage tables, and operator workflows; replace browser-selected controller URLs/API keys, host paths, local filesystem/Git/terminal/browser-agent tools, URL-keyed caches, local JSONL session authority, and browser-side cost/storage calculations with server-authorized Context Engine APIs.
 
-Configure the public, secret-free backend origin in `webui/.env.local`:
+Authoritative port contracts: `specs/04-features/F-009-frontend-delivery/ce-client-port-and-parity.md`, `context-panel-tabs.md`
 
-```env
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-```
+See also `DESIGN.md`, `specs/04-features/F-009-frontend-delivery/ux.md`, `specs/04-features/F-010-shared-node-operations/`, `specs/04-features/F-011-knowledge-curation-workspace/`, `.references/feature-ce-api-uiux-wirering-brainstorm/` (junior dev evidence pack), and `.references/obsidian-smart-composer_impl_docs/` (Smart Composer adaptation pack).
 
-Do not place credentials, bearer tokens, API keys, or private infrastructure URLs in `NEXT_PUBLIC_*` variables. Values with this prefix are exposed to the browser.
+## Agent Workflow
 
-Start the dev server:
+For any implementation task:
 
-```bash
-cd webui
-npm run dev
-```
+1. Read `AGENTS.md`.
+2. Read the relevant feature folder in `specs/04-features/`.
+3. Read every contract linked from that feature.
+4. Implement only that vertical slice.
+5. Run the tests named in `test-plan.md`.
+6. Update acceptance evidence, implementation log, traceability, and affected contracts before calling the work done.
 
-Default local endpoints:
+## Stop Conditions
 
-| Service | Address |
-| --- | --- |
-| Frontend (manual dev) | `http://localhost:3000` |
-| Frontend (Playwright) | `http://127.0.0.1:3456` |
-| Backend API (expected) | value of `NEXT_PUBLIC_API_BASE_URL` |
+Stop and ask for a decision if:
 
-The root route redirects to `/chat`. The authenticated application shell resolves the current session through the backend API (`GET /auth/me`).
-
-Browser storage should contain only non-secret UI preferences such as theme selection.
-
-If port `3000` is already in use:
-
-```bash
-npm run dev -- -p 3460
-```
-
-See `docs/deployment.md` for backend integration expectations and `docs/test-strategy.md` for the full frontend validation workflow.
-
-## Checks
-
-Run from `webui/`:
-
-```bash
-npm run lint
-npm run test
-npm run test:e2e
-```
-
-* `npm run lint` runs `tsc --noEmit` for strict type coverage.
-* `npm run test` runs Vitest unit tests.
-* `npm run test:e2e` runs Playwright smoke tests against the Next.js dev server.
-
-## Documentation
-
-| Need | Document |
-| --- | --- |
-| Product and domain vocabulary | `CONTEXT.md` |
-| Architecture and runtime boundaries | `docs/architecture.md` |
-| Current implementation details | `docs/implementation.md` |
-| Frontend deployment and env vars | `docs/deployment.md` |
-| Frontend test commands and fixtures | `docs/test-strategy.md` |
-| UI direction and interaction rules | `DESIGN.md` |
-| Coding-agent guidance | `AGENTS.md` |
-| Frontend vertical-slice PRD | `docs/brainstorm/01_fe_context_engine_nextjs_vertical_slices/` |
-
-## Scope
-
-Context Engine is intended for trusted internal knowledge, including technical manuals, operational procedures, policies, engineering references, and curated business documents.
-
-It is not:
-
-* A public-web AI search engine
-* An autonomous coding agent
-* A general document-authoring system
-* A replacement for LightRAG
-* A multi-tenant enterprise knowledge platform with document-level ACLs
-
-Its value is simple: approved documents become inspectable, grounded team knowledge.
+- the pinned LightRAG fixture cannot prove the P5 contract;
+- a UI route would need an unknown backend field shape;
+- browser code would need direct LightRAG, Docker, storage, provider, database, controller, runtime URL, or secret access;
+- a destructive delete, redaction, or migration cannot be tested;
+- any phase requires a generic workflow engine, Redis/RQ/Celery, WebSocket migration, broad plugin system, or second retrieval stack not named by the specs.
+- a UI feature needs raw controller URLs, controller API keys, host paths, runtime ports, browser-computed cost/storage, wiki writes, or review/publish behavior not captured by an approved post-P9 contract.

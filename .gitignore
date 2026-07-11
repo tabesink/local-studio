@@ -1,3 +1,6 @@
+# Local commit snapshots (not for version control)
+.commits/
+
 # GitNexus index (regenerated locally)
 .gitnexus/
 
@@ -17,6 +20,7 @@ Thumbs.db
 # Logs and temp
 *.log
 tmp/
+_tmp/
 
 # code references
 .references/code/
@@ -24,6 +28,8 @@ tmp/
 # env files
 .env
 .env.local
+.env.stack.local
+.env.p10.local
 
 # Dependencies and build output
 node_modules/
@@ -40,3 +46,18 @@ webui/out/
 webui/.env*.local
 next-env.d.ts
 *.tsbuildinfo
+
+# Playwright E2E (frontend/)
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/playwright/.cache/
+frontend/tests/e2e/artifacts/
+.venv/
+__pycache__/
+.pytest_cache/
+.pytest-tmp*/
+tests/.pytest-tmp/
+*.pyc
+*.sqlite3
+*.egg-info/

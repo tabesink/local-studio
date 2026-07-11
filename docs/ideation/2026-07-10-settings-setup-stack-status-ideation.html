@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ideation: Settings Setup stack status</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0f1419;
+    --surface: #1a222c;
+    --surface-2: #232d3a;
+    --border: #2f3b4a;
+    --text: #e8eef5;
+    --muted: #9aabbd;
+    --accent: #5eb1ff;
+    --good: #3ecf8e;
+    --warn: #e6b84d;
+    --danger: #f07178;
+    --radius: 8px;
+    --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    font-size: 15px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  header.doc-header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.75rem;
+  }
+  header.doc-header h1 {
+    font-size: 1.65rem;
+    font-weight: 700;
+    margin: 0 0 0.75rem;
+    letter-spacing: -0.02em;
+  }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem;
+    color: var(--muted); font-size: 0.85rem;
+  }
+  .meta strong { color: var(--text); font-weight: 600; }
+  nav.toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.85rem 1rem;
+    margin-bottom: 1.75rem;
+  }
+  nav.toc a { color: var(--accent); text-decoration: none; margin-right: 1rem; font-size: 0.9rem; }
+  nav.toc a:hover { text-decoration: underline; }
+  h2 {
+    font-size: 1.2rem;
+    margin: 2rem 0 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+  }
+  h2:first-of-type { border-top: 0; padding-top: 0; }
+  h3 { font-size: 1.05rem; margin: 0 0 0.5rem; }
+  p, li { color: var(--text); }
+  .muted { color: var(--muted); }
+  .axes { list-style: none; padding: 0; margin: 0; }
+  .axes li {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.55rem 0.85rem;
+    margin-bottom: 0.4rem;
+  }
+  .axes code { font-family: var(--mono); font-size: 0.82rem; color: var(--accent); }
+  .jump {
+    display: flex; flex-wrap: wrap; gap: 0.4rem;
+    margin: 0.75rem 0 1.25rem;
+  }
+  .jump a {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.8rem;
+    padding: 0.3rem 0.55rem;
+    border-radius: 999px;
+  }
+  .jump a:hover { border-color: var(--accent); color: var(--accent); }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.15rem;
+    margin-bottom: 1rem;
+  }
+  .card .rank {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+  }
+  .kv { margin: 0.55rem 0; }
+  .kv dt {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-bottom: 0.15rem;
+  }
+  .kv dd { margin: 0 0 0.55rem; }
+  .pills { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+  .pill {
+    font-size: 0.75rem;
+    font-family: var(--mono);
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .pill.conf-high { border-color: var(--good); color: var(--good); }
+  .pill.conf-med { border-color: var(--warn); color: var(--warn); }
+  .viz {
+    margin: 0.85rem 0 0.4rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+    overflow-x: auto;
+  }
+  .viz figcaption {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 0.45rem;
+  }
+  table.reject {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  table.reject th, table.reject td {
+    border: 1px solid var(--border);
+    padding: 0.45rem 0.55rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.reject th { background: var(--surface-2); color: var(--muted); font-weight: 600; }
+  footer.composition-signal {
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+  code { font-family: var(--mono); font-size: 0.86em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="doc-header">
+    <h1>Ideation: Settings Setup stack status</h1>
+    <div class="meta">
+      <span><strong>Date:</strong> <time datetime="2026-07-10">2026-07-10</time></span>
+      <span><strong>Topic:</strong> settings-setup-stack-status</span>
+      <span><strong>Mode:</strong> repo-grounded</span>
+      <span><strong>Focus:</strong> Settings Setup section listing stack pillars with status; UI parity from reference <code>settings-panel</code> Setup checks</span>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="Document sections">
+    <a href="#grounding">Grounding</a>
+    <a href="#axes">Topic axes</a>
+    <a href="#ranked">Ranked ideas</a>
+    <a href="#rejection">Rejection summary</a>
+  </nav>
+
+  <h2 id="grounding">Grounding Context</h2>
+  <p><strong>Codebase context.</strong> Context Engine is FastAPI + Next.js with a Local Studio–parity Settings shell at <code>/settings</code>. Current sections: General, Model Provider, Domains, Users. A comment cites an F-010 gate for controller/storage/hardware/plugins/skills — Setup is not named there. Compose stack pillars are <code>postgres</code>, <code>migrate</code>, <code>api</code>, <code>worker</code>, <code>frontend</code>. Worker liveness is heartbeat freshness; smoke oracles include <code>postgres_health</code>, <code>alembic_head</code>, <code>worker_healthy</code>. Host <code>scripts/dev.sh</code> is not the full compose stack.</p>
+  <p><strong>Parity target (corrected).</strong> <code>.reference-LS-frontend/templates/nextjs-feature-demos/features/settings-panel</code> — section id <code>setup</code>, <code>SettingsGroup title="Setup checks"</code>, rows from <code>SetupCheckRow { id, label, status, detail }</code>, <code>StatusPill</code> tones. LS fixture content (Pi, controller URL, <code>~/models</code>) must not ship in CE live status.</p>
+  <p><strong>Past learnings.</strong> Runnable-stack compound doc: one lease-poller worker; shared volumes; status/id-only evidence; no Redis/RQ/Celery.</p>
+  <p><strong>External context.</strong> Calm readiness panels beat mini-Portainer; overall verdict + checklist; separate liveness from readiness; dependency-order explanations.</p>
+
+  <h2 id="axes">Topic Axes</h2>
+  <ul class="axes">
+    <li><code>stack-pillars-status</code> — which components count and what “healthy” means</li>
+    <li><code>settings-shell-placement</code> — nav / section / routing inside Settings</li>
+    <li><code>reference-setup-ui-parity</code> — matching settings-panel Setup checks UI</li>
+    <li><code>safe-status-api-contracts</code> — backend contract without leaks; F-010 boundaries</li>
+    <li><code>host-vs-compose-modes</code> — <code>scripts/dev.sh</code> vs <code>compose.stack.yml</code></li>
+  </ul>
+
+  <h2 id="ranked">Ranked Ideas</h2>
+  <p class="muted">38 raw candidates → 7 survivors. Jump list:</p>
+  <div class="jump">
+    <a href="#idea-1">1. LS chrome, CE cargo</a>
+    <a href="#idea-2">2. Safe status contract</a>
+    <a href="#idea-3">3. Mode-graded certificates</a>
+    <a href="#idea-4">4. Dependency-ordered poll</a>
+    <a href="#idea-5">5. Heartbeat worker truth</a>
+    <a href="#idea-6">6. Acceptance-traceable rows</a>
+    <a href="#idea-7">7. Read-only stack mirror</a>
+  </div>
+
+  <article class="card" id="idea-1">
+    <div class="rank">1 · TOP PICK</div>
+    <h3>LS Setup checks chrome, CE pillar cargo</h3>
+    <div class="pills">
+      <span class="pill conf-high">Conf 92%</span>
+      <span class="pill">Complexity Medium</span>
+      <span class="pill">axis: reference-setup-ui-parity</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>Add an admin <code>setup</code> section to the existing Settings state nav (no new top-level route). Render exactly like the reference settings-panel Setup: <code>SettingsGroup</code> “Setup checks”, <code>SettingsRow</code> + monospace detail + <code>StatusPill</code> for <code>ok|warning|error</code>. Replace LS fixture rows (Pi, controller URL, directories) with CE stack pillars. Unlock is justified: the F-010 comment never named Setup; F-009 gates the setup-<em>wizard</em>, not this readiness board.</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> reference Setup render and <code>SetupCheckRow</code> type; CE <code>SettingsPanel</code> already imports LS primitives and uses React section state; F-010 absent-list omits Setup.</dd>
+      <dt>Rationale</dt>
+      <dd>Delivers the user’s asked parity target inside the shell that already exists, without waiting on blocked operator surfaces.</dd>
+      <dt>Downsides</dt>
+      <dd>Needs a safe status API before live data; until then fixture/stub rows risk teaching wrong semantics. Hash deep-links (LS) are optional and can wait.</dd>
+    </dl>
+    <figure class="viz">
+      <svg viewBox="0 0 720 160" width="100%" height="160" role="img" aria-label="LS chrome wrapping CE pillar rows">
+        <rect x="8" y="20" width="140" height="120" rx="6" fill="#232d3a" stroke="#2f3b4a"/>
+        <text x="24" y="48" fill="#9aabbd" font-size="12" font-family="IBM Plex Sans,sans-serif">SectionNav</text>
+        <text x="24" y="72" fill="#5eb1ff" font-size="12" font-family="IBM Plex Sans,sans-serif">Setup ←</text>
+        <text x="24" y="94" fill="#9aabbd" font-size="11" font-family="IBM Plex Sans,sans-serif">General</text>
+        <text x="24" y="112" fill="#9aabbd" font-size="11" font-family="IBM Plex Sans,sans-serif">Provider…</text>
+        <rect x="168" y="20" width="540" height="120" rx="6" fill="#1a222c" stroke="#5eb1ff"/>
+        <text x="188" y="48" fill="#e8eef5" font-size="13" font-family="IBM Plex Sans,sans-serif">Setup checks (LS chrome)</text>
+        <text x="188" y="78" fill="#3ecf8e" font-size="12" font-family="IBM Plex Mono,monospace">postgres · ok</text>
+        <text x="188" y="98" fill="#3ecf8e" font-size="12" font-family="IBM Plex Mono,monospace">worker · ok (heartbeat)</text>
+        <text x="188" y="118" fill="#e6b84d" font-size="12" font-family="IBM Plex Mono,monospace">migrate · warning</text>
+        <text x="420" y="78" fill="#9aabbd" font-size="11" font-family="IBM Plex Sans,sans-serif">CE cargo only</text>
+        <text x="420" y="98" fill="#9aabbd" font-size="11" font-family="IBM Plex Sans,sans-serif">no URLs / paths</text>
+      </svg>
+      <figcaption>Illustrative: same Settings shell + Setup checks geometry; CE pillars instead of LS fixtures.</figcaption>
+    </figure>
+  </article>
+
+  <article class="card" id="idea-2">
+    <div class="rank">2</div>
+    <h3>Redaction-first Setup status contract (reason codes)</h3>
+    <div class="pills">
+      <span class="pill conf-high">Conf 90%</span>
+      <span class="pill">Complexity Medium</span>
+      <span class="pill">axis: safe-status-api-contracts</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>Ship a narrow admin Setup status DTO: check id, status enum, and a closed set of <code>detailCode</code> values the UI maps to copy. Never return runtime URLs, paths, stack traces, or raw healthcheck output. Internally map from smoke-style oracles; publicly speak reason codes that would pass a safety scan.</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> AGENTS.md redaction rules; stack evidence status/id-only; LS fixtures show exactly the URL/path detail style CE must not copy.</dd>
+      <dt>Rationale</dt>
+      <dd>Makes the safe path the easy path and unblocks UI parity without inventing a Portainer surface.</dd>
+      <dt>Downsides</dt>
+      <dd>Closed lexicon needs a small contract patch; less “raw diagnostic” power for power users (acceptable for Settings).</dd>
+    </dl>
+  </article>
+
+  <article class="card" id="idea-3">
+    <div class="rank">3</div>
+    <h3>Mode-graded certificates: host-dev vs compose</h3>
+    <div class="pills">
+      <span class="pill conf-high">Conf 88%</span>
+      <span class="pill">Complexity Medium</span>
+      <span class="pill">axis: host-vs-compose-modes</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>First signal is runtime mode (<code>compose-stack</code> | <code>host-dev</code> | <code>unknown</code>). In host-dev, compose-only pillars are <code>not_applicable</code> / warning — not danger. In compose, the same absences are danger. Same Setup UI, different expectation matrix. Never leak which API base DNS name is in use.</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> <code>scripts/dev.sh</code> does not start compose worker/postgres; compose frontend uses <code>http://api:8000</code> vs host <code>127.0.0.1:8000</code>.</dd>
+      <dt>Rationale</dt>
+      <dd>Prevents false-red Setup for host developers and preserves real alarms for compose operators.</dd>
+      <dt>Downsides</dt>
+      <dd>Mode detection must be honest; mis-detection trains users to ignore the panel.</dd>
+    </dl>
+    <figure class="viz">
+      <svg viewBox="0 0 720 130" width="100%" height="130" role="img" aria-label="Mode then pillars">
+        <rect x="20" y="40" width="160" height="50" rx="6" fill="#232d3a" stroke="#5eb1ff"/>
+        <text x="40" y="70" fill="#e8eef5" font-size="13" font-family="IBM Plex Sans,sans-serif">mode first</text>
+        <path d="M190 65 H240" stroke="#9aabbd" stroke-width="2"/>
+        <polygon points="240,60 252,65 240,70" fill="#9aabbd"/>
+        <rect x="260" y="20" width="200" height="90" rx="6" fill="#1a222c" stroke="#3ecf8e"/>
+        <text x="280" y="48" fill="#3ecf8e" font-size="12" font-family="IBM Plex Sans,sans-serif">compose-stack</text>
+        <text x="280" y="72" fill="#9aabbd" font-size="11" font-family="IBM Plex Mono,monospace">5 pillars · strict</text>
+        <rect x="490" y="20" width="200" height="90" rx="6" fill="#1a222c" stroke="#e6b84d"/>
+        <text x="510" y="48" fill="#e6b84d" font-size="12" font-family="IBM Plex Sans,sans-serif">host-dev</text>
+        <text x="510" y="72" fill="#9aabbd" font-size="11" font-family="IBM Plex Mono,monospace">N/A ≠ broken</text>
+      </svg>
+      <figcaption>Illustrative: certificate grade before pillar verdicts.</figcaption>
+    </figure>
+  </article>
+
+  <article class="card" id="idea-4">
+    <div class="rank">4</div>
+    <h3>Dependency-ordered five-channel GO/NO-GO poll</h3>
+    <div class="pills">
+      <span class="pill conf-high">Conf 85%</span>
+      <span class="pill">Complexity Medium</span>
+      <span class="pill">axis: stack-pillars-status</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>List pillars in bring-up order: postgres → migrate → api + worker → frontend. Treat migrate as a one-shot gate (<code>alembic_head</code>), not a forever-live service. Continuous channels (postgres/api/worker) use ongoing readiness. Detail copy explains the next blocker without Docker internals.</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> canonical compose service set; smoke oracles; external readiness-vs-liveness pattern.</dd>
+      <dt>Rationale</dt>
+      <dd>Turns “something is up but the app does nothing” into a readable blocking path.</dd>
+      <dt>Downsides</dt>
+      <dd>Ordering UI is slightly more complex than a flat list; must not imply the frontend can control Docker.</dd>
+    </dl>
+  </article>
+
+  <article class="card" id="idea-5">
+    <div class="rank">5</div>
+    <h3>Worker heartbeat freshness as lease-poller truth</h3>
+    <div class="pills">
+      <span class="pill conf-high">Conf 90%</span>
+      <span class="pill">Complexity Low</span>
+      <span class="pill">axis: stack-pillars-status</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>Worker row means “lease poller heartbeat within window,” not “container exists.” Map stale/absent heartbeat to warning/error with safe detail codes. Never expose the heartbeat file path.</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> compose worker healthcheck on heartbeat mtime &lt; 30s; runnable-stack learning that missing worker yields a login shell with queued uploads.</dd>
+      <dt>Rationale</dt>
+      <dd>Surfaces the failure mode that made the stack worthless, in the place admins already look.</dd>
+      <dt>Downsides</dt>
+      <dd>Long <code>run_once</code> work can briefly look stale — copy should avoid panic on transient lag.</dd>
+    </dl>
+  </article>
+
+  <article class="card" id="idea-6">
+    <div class="rank">6</div>
+    <h3>Acceptance-traceable Setup rows</h3>
+    <div class="pills">
+      <span class="pill conf-med">Conf 78%</span>
+      <span class="pill">Complexity Low</span>
+      <span class="pill">axis: safe-status-api-contracts</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>Every Setup row maps to one pillar, one oracle, one contract-safe field, and one test expectation. PRs that add a check must answer those four questions.</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> smoke + safety-scan discipline already used for stack evidence; status/id-only JSON rule.</dd>
+      <dt>Rationale</dt>
+      <dd>Compounds governance so Setup cannot grow into an unsafe dump of ops strings.</dd>
+      <dt>Downsides</dt>
+      <dd>Slight process overhead; may feel heavy for a first slice if over-applied.</dd>
+    </dl>
+  </article>
+
+  <article class="card" id="idea-7">
+    <div class="rank">7</div>
+    <h3>Read-only stack mirror — not a setup wizard</h3>
+    <div class="pills">
+      <span class="pill conf-high">Conf 86%</span>
+      <span class="pill">Complexity Low</span>
+      <span class="pill">axis: reference-setup-ui-parity</span>
+    </div>
+    <dl class="kv">
+      <dt>Description</dt>
+      <dd>Keep the LS Setup <em>look</em>, invert the product meaning: non-interactive readiness board for stack pillars. No install actions, no Docker controls, no Logs/Usage/Node — those stay F-010-blocked.</dd>
+      <dt>Basis</dt>
+      <dd><code>direct:</code> F-010 AC-007 blocks richer operator UI; F-009 hides setup-wizard; Settings shell already status-oriented with StatusPill.</dd>
+      <dt>Rationale</dt>
+      <dd>Clarifies scope so parity work does not accidentally import Local Studio’s first-run wizard semantics.</dd>
+      <dt>Downsides</dt>
+      <dd>Users may expect “fix” buttons; guidance must point to compose/dev docs, not in-app remediation.</dd>
+    </dl>
+  </article>
+
+  <h2 id="rejection">Rejection Summary</h2>
+  <table class="reject">
+    <thead>
+      <tr><th>#</th><th>Idea</th><th>Reason rejected</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>Drop frontend pillar; replace with proxy-only</td><td>basis refuted — canonical five-service fixture includes frontend; proxy check can be additive later</td></tr>
+      <tr><td>2</td><td>Make Setup the first admin nav item</td><td>basis refuted — LS lists Setup last; no evidence for house-open-first placement</td></tr>
+      <tr><td>3</td><td>Automate rows from compose service list only</td><td>basis refuted — misses host applicability, heartbeat semantics, redaction</td></tr>
+      <tr><td>4</td><td>Embed Setup checks inside General</td><td>weak / scope mismatch — conflicts with LS separate Setup section and CE General-as-preferences</td></tr>
+      <tr><td>5</td><td>Worker-first hero with collapsed pillars</td><td>weak — worker importance grounded, layout reshuffle unsupported</td></tr>
+      <tr><td>6</td><td>Public status IDs = smoke oracle names verbatim</td><td>weak as public contract — keep as internal mapping under idea 2</td></tr>
+      <tr><td>7</td><td>Overall readiness banner alone</td><td>weak as standalone — optional polish folded into idea 1</td></tr>
+      <tr><td>8</td><td>Full F-010 operator console via Setup</td><td>scope overrun / contract-blocked — Logs/Usage/Node/Docker stay out</td></tr>
+      <tr><td>9</td><td>Copy LS fixture details (URLs, paths)</td><td>unjustified / unsafe — contradicts AGENTS redaction</td></tr>
+      <tr><td>10</td><td>New nested <code>/settings/setup</code> route required</td><td>duplicates stronger idea — state section matches current shell</td></tr>
+      <tr><td>—</td><td>Duplicates of mode-aware / heartbeat / LS-parity across frames</td><td>merged into survivors 1–5</td></tr>
+    </tbody>
+  </table>
+
+  <footer class="composition-signal">
+    Composed 2026-07-10T19:55Z by ce-ideate · focus: Settings Setup stack status with reference settings-panel Setup UI · scratch <code>/tmp/compound-engineering/ce-ideate/1d33e8c0</code>
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,41 @@
+---
+id: F-008
+title: Observability And Pilot Gate UX And State Contract
+status: approved
+owner: Context Engine delivery team
+last_reviewed: 2026-07-06
+depends_on: [F-007]
+supersedes: []
+---
+
+
+# F-008 - UX And State Contract
+
+## Surface
+
+P8 has no required UI. Admin audit/diagnostics UI later reads safe metadata only, and Logs/Usage/operator screens belong to future F-010/shared-node-operations scope when formalized. Observability cannot alter P1-P7 product outcomes.
+
+## User/System Flow
+
+```text
+Read feature spec
+-> implement named contracts and state transitions
+-> run proof checks
+-> update acceptance and traceability
+-> stop before next phase
+```
+
+## Loading, Empty, Error, Forbidden
+
+- API clients must preserve safe request IDs where returned.
+- Audit lists may hide `audit_events.read` rows by default while still allowing explicit filtering.
+- No P8 screen tails raw runtime logs; any LightRAG diagnostic text must already be redacted and bounded by the backend.
+- UI-facing phases use Local Studio compact loading, empty, error, and forbidden states from `DESIGN.md`.
+- Backend-only phases expose safe status DTOs that later UI slices can render without guessing private internals.
+
+## Accessibility And Visual Rules
+
+- Frontend work must follow `DESIGN.md`.
+- Icon-only controls need labels/tooltips.
+- Dialogs require focus trap, Escape close, title/description, and opener focus restore.
+- Tables/lists must support keyboard access and stable row heights.
