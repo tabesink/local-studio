@@ -41,7 +41,7 @@
 }
 
 body {
-  font-size: var(--fs-base);
+  font-size: var(--app-font-size, var(--fs-base));
 }
 
 button,

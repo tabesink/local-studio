@@ -1,19 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { SegmentedControl, SettingsGroup, SettingsRow } from "@/_shared/ui";
-import { readUiPreference, writeUiPreference } from "@/lib/storage";
+import { useAppearance } from "@/features/user-preferences/AppearanceProvider";
+import type { DensityId } from "@/features/user-preferences/appearanceTypes";
 
-/* Browser-local appearance preferences (LS user-preferences slice).
-   No server API: values live on the ce.* storage allowlist only. */
+/* Browser-local appearance preferences — thin General surface until U3 expands
+   Mode / Theme catalog / editor. All writes go through AppearanceProvider. */
 export function PreferencesPanel() {
-  const [theme, setTheme] = useState("zai-dark");
-  const [density, setDensity] = useState("compact");
-
-  useEffect(() => {
-    setTheme(readUiPreference("ce.theme") ?? "zai-dark");
-    setDensity(readUiPreference("ce.density") ?? "compact");
-  }, []);
+  const { preferences, setThemeId, setDensity } = useAppearance();
 
   return (
     <SettingsGroup title="Appearance" description="Preferences apply to this browser only.">
@@ -21,15 +15,13 @@ export function PreferencesPanel() {
         label="Theme"
         control={
           <SegmentedControl
-            value={theme}
+            value={preferences.themeId === "zai-light" ? "zai-light" : "zai-dark"}
             items={[
               { id: "zai-dark", label: "Dark" },
               { id: "zai-light", label: "Light" },
             ]}
             onChange={(value) => {
-              setTheme(value);
-              writeUiPreference("ce.theme", value);
-              document.documentElement.dataset.theme = value;
+              setThemeId(value === "zai-light" ? "zai-light" : "zai-dark");
             }}
           />
         }
@@ -38,16 +30,12 @@ export function PreferencesPanel() {
         label="Density"
         control={
           <SegmentedControl
-            value={density}
+            value={preferences.density}
             items={[
               { id: "compact", label: "Compact" },
               { id: "comfortable", label: "Comfortable" },
             ]}
-            onChange={(value) => {
-              setDensity(value);
-              writeUiPreference("ce.density", value);
-              document.documentElement.dataset.density = value;
-            }}
+            onChange={(value) => setDensity(value as DensityId)}
           />
         }
       />

@@ -61,14 +61,43 @@ describe("F-009 foundation", () => {
     assert.match(layout, /router\.replace\("\/login"\)/);
   });
 
-  it("applies persisted theme and density preferences at bootstrap", () => {
+  it("applies persisted appearance preferences before paint via central runtime", () => {
+    const layout = read("src/app/layout.tsx");
+    assert.match(layout, /getAppearanceBootstrapScript/);
+    assert.match(layout, /dangerouslySetInnerHTML/);
+
     const providers = read("src/app/providers.tsx");
-    assert.match(providers, /dataset\.theme = readUiPreference\("ce\.theme"\)/);
-    assert.match(providers, /dataset\.density = readUiPreference\("ce\.density"\)/);
+    assert.match(providers, /AppearanceProvider/);
+    assert.equal(providers.includes("dataset.theme"), false);
+    assert.equal(providers.includes("dataset.density"), false);
+    assert.equal(providers.includes('readUiPreference("ce.theme")'), false);
+
+    const runtime = read("src/features/user-preferences/appearanceRuntime.ts");
+    assert.match(runtime, /export function applyAppearance/);
+    assert.match(runtime, /export function readAppearance/);
+
     const preferences = read("src/features/user-preferences/PreferencesPanel.tsx");
-    assert.match(preferences, /dataset\.density = value/);
+    assert.match(preferences, /useAppearance/);
+    assert.equal(preferences.includes("dataset.theme"), false);
+    assert.equal(preferences.includes("writeUiPreference"), false);
+
     const css = read("src/app/globals.css");
     assert.match(css, /\[data-density="comfortable"\]/);
+  });
+
+  it("keeps data-theme and data-density writes inside the appearance runtime", () => {
+    const allowed = new Set([
+      join("src", "features", "user-preferences", "appearanceRuntime.ts"),
+      join("src", "features", "user-preferences", "appearanceBootstrap.ts"),
+    ]);
+    const offenders = sourceFiles()
+      .filter((file) => !allowed.has(relative(root, file)))
+      .filter((file) => {
+        const source = readFileSync(file, "utf8");
+        return /dataset\.theme\s*=/.test(source) || /dataset\.density\s*=/.test(source);
+      })
+      .map((file) => relative(root, file));
+    assert.deepEqual(offenders, []);
   });
 
   it("keeps direct fetch isolated to shared API and SSE wrappers", () => {
@@ -85,11 +114,22 @@ describe("F-009 foundation", () => {
 
   it("keeps browser storage behind the explicit allowlist", () => {
     const storage = read("src/lib/storage.ts");
-    for (const key of ["ce.theme", "ce.density", "ce.railCollapsed", "ce.panelWidths", "ce.lastRouteGroup"]) {
+    for (const key of [
+      "ce.appearance",
+      "ce.theme",
+      "ce.density",
+      "ce.railCollapsed",
+      "ce.panelWidths",
+      "ce.lastRouteGroup",
+    ]) {
       assert.match(storage, new RegExp(`"${key}"`));
     }
+    const allowed = new Set([
+      join("src", "lib", "storage.ts"),
+      join("src", "features", "user-preferences", "appearanceBootstrap.ts"),
+    ]);
     const offenders = sourceFiles()
-      .filter((file) => !file.endsWith(join("src", "lib", "storage.ts")))
+      .filter((file) => !allowed.has(relative(root, file)))
       .filter((file) => /\b(localStorage|sessionStorage)\b/.test(readFileSync(file, "utf8")))
       .map((file) => relative(root, file));
     assert.deepEqual(offenders, []);

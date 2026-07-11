@@ -27,8 +27,20 @@ const CHAT_SHOTS: Array<{ name: string; width: number; height: number; theme: Th
 
 async function applyTheme(page: import("@playwright/test").Page, theme: Theme) {
   await page.evaluate((next) => {
-    document.documentElement.dataset.theme = next;
+    const prefs = {
+      themeMode: next === "zai-light" ? "light" : "dark",
+      themeId: next,
+      density: "compact",
+      fontFamilyId: "geist",
+      fontSize: 16,
+      uiScale: 1,
+      radiusBase: 7,
+      tokenOverrides: {},
+    };
+    window.localStorage.setItem("ce.appearance", JSON.stringify(prefs));
     window.localStorage.setItem("ce.theme", next);
+    window.localStorage.setItem("ce.density", "compact");
+    document.documentElement.dataset.theme = next;
   }, theme);
 }
 
