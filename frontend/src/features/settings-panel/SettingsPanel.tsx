@@ -340,7 +340,10 @@ function DomainsSection({
         onError(errorMessage(outcome.error));
         return;
       }
-      // start_failed_keep: keep domain, danger notice, reload — no success flash
+      // start_failed_keep: keep domain, clear draft so retry is Start (not Deploy again)
+      setDraftId("");
+      setDraftName("");
+      setDraftEmbeddingId(defaultEmbeddingProfileId(embeddingProfiles) ?? "");
       onError(errorMessage(outcome.error));
       await reload();
     } finally {
@@ -403,12 +406,17 @@ function DomainsSection({
                       <SettingsButton disabled={anyBusy} onClick={() => void run(domain.id, "stop")}>
                         Stop
                       </SettingsButton>
-                    ) : (
+                    ) : null}
+                    {lifecycle === "start" ? (
                       <SettingsButton disabled={anyBusy} onClick={() => void run(domain.id, "start")}>
                         Start
                       </SettingsButton>
-                    )}
-                    <SettingsButton tone="danger" disabled={anyBusy} onClick={() => setPendingDelete(domain)}>
+                    ) : null}
+                    <SettingsButton
+                      tone="danger"
+                      disabled={anyBusy || domain.state === "deleting"}
+                      onClick={() => setPendingDelete(domain)}
+                    >
                       Delete
                     </SettingsButton>
                   </div>

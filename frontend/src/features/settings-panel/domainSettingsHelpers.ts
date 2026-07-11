@@ -141,8 +141,12 @@ export function busyLabel(action: DomainBusyAction): string {
   }
 }
 
-/** Start XOR Stop: running → Stop; otherwise Start. */
-export function primaryLifecycleAction(state: string): "start" | "stop" {
+/**
+ * Start XOR Stop for the row header.
+ * Returns null when no primary lifecycle control should show (e.g. deleting).
+ */
+export function primaryLifecycleAction(state: string): "start" | "stop" | null {
+  if (state === "deleting") return null;
   return state === "running" ? "stop" : "start";
 }
 

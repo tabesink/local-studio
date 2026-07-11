@@ -146,6 +146,7 @@ describe("Domain settings helpers (F-009 deploy)", () => {
     assert.equal(primaryLifecycleAction("running"), "stop");
     assert.equal(primaryLifecycleAction("stopped"), "start");
     assert.equal(primaryLifecycleAction("error"), "start");
+    assert.equal(primaryLifecycleAction("deleting"), null);
 
     assert.equal(domainTone("running"), "good");
     assert.equal(domainTone("error"), "danger");
