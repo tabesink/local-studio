@@ -1,4 +1,5 @@
 export const UI_STORAGE_KEYS = [
+  "ce.appearance",
   "ce.theme",
   "ce.density",
   "ce.railCollapsed",
