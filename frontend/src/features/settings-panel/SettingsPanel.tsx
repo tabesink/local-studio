@@ -83,9 +83,9 @@ export function SettingsPanel() {
     return rows;
   }, [isAdmin]);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (opts?: { clearError?: boolean }) => {
     setLoading(true);
-    setError(null);
+    if (opts?.clearError !== false) setError(null);
     try {
       if (isAdmin) {
         const [runtimeSnapshot, domainRows, userRows] = await Promise.all([
@@ -136,11 +136,15 @@ export function SettingsPanel() {
           domains={domains}
           modelProfiles={runtime?.modelProfiles ?? []}
           onChanged={(message) => {
+            setError(null);
             setNotice(message);
             void reload();
           }}
-          onError={(message) => setError(message)}
-          reload={() => void reload()}
+          onError={(message) => {
+            setNotice(null);
+            setError(message);
+          }}
+          reload={() => reload({ clearError: false })}
         />
       ) : null}
       {section === "users" && isAdmin ? <UsersSection users={users} /> : null}
@@ -268,14 +272,13 @@ function DomainsSection({
   modelProfiles: ModelProfile[];
   onChanged: (message: string) => void;
   onError: (message: string) => void;
-  reload: () => void;
+  reload: () => Promise<void>;
 }) {
   const embeddingProfiles = useMemo(() => filterEmbeddingProfiles(modelProfiles), [modelProfiles]);
   const [draftId, setDraftId] = useState("");
   const [draftName, setDraftName] = useState("");
   const [draftEmbeddingId, setDraftEmbeddingId] = useState(() => defaultEmbeddingProfileId(embeddingProfiles) ?? "");
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [busyAction, setBusyAction] = useState<DomainBusyAction | null>(null);
+  const [busy, setBusy] = useState<{ id: string; action: DomainBusyAction } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<AdminDomain | null>(null);
 
   useEffect(() => {
@@ -292,8 +295,7 @@ function DomainsSection({
   });
 
   const run = async (domainId: string, action: "start" | "stop" | "delete") => {
-    setBusyId(domainId);
-    setBusyAction(action);
+    setBusy({ id: domainId, action });
     try {
       if (action === "start") await startDomain(domainId);
       if (action === "stop") await stopDomain(domainId);
@@ -301,10 +303,9 @@ function DomainsSection({
       onChanged(`Domain ${domainId}: ${action} requested.`);
     } catch (err) {
       onError(errorMessage(err));
-      reload();
+      await reload();
     } finally {
-      setBusyId(null);
-      setBusyAction(null);
+      setBusy((current) => (current?.id === domainId ? null : current));
     }
   };
 
@@ -314,8 +315,7 @@ function DomainsSection({
       onError("Domain id must be 2–63 characters: lowercase letters, digits, underscore, or hyphen.");
       return;
     }
-    setBusyId("__deploy__");
-    setBusyAction("deploy");
+    setBusy({ id: "__deploy__", action: "deploy" });
     try {
       const outcome = await deployDomain(
         {
@@ -338,10 +338,9 @@ function DomainsSection({
       }
       // start_failed_keep: keep domain, danger notice, reload — no success flash
       onError(errorMessage(outcome.error));
-      reload();
+      await reload();
     } finally {
-      setBusyId(null);
-      setBusyAction(null);
+      setBusy((current) => (current?.id === "__deploy__" ? null : current));
     }
   };
 
@@ -352,7 +351,8 @@ function DomainsSection({
     void run(target.id, "delete");
   };
 
-  const deployBusy = busyId === "__deploy__";
+  const anyBusy = busy !== null;
+  const deployBusy = busy?.id === "__deploy__";
 
   return (
     <>
@@ -364,9 +364,9 @@ function DomainsSection({
           <EmptySafeNotice>No Knowledge Domains configured.</EmptySafeNotice>
         ) : (
           domains.map((domain) => {
-            const rowBusy = busyId === domain.id;
+            const rowBusy = busy?.id === domain.id;
             const lifecycle = primaryLifecycleAction(domain.state);
-            const pillLabel = rowBusy && busyAction ? busyLabel(busyAction) : domain.state;
+            const pillLabel = rowBusy && busy ? busyLabel(busy.action) : domain.state;
             const pillTone = rowBusy ? "warning" : domainTone(domain.state);
             return (
               <SettingsRow
@@ -378,19 +378,15 @@ function DomainsSection({
                 actions={
                   <>
                     {lifecycle === "stop" ? (
-                      <SettingsButton disabled={rowBusy || deployBusy} onClick={() => void run(domain.id, "stop")}>
+                      <SettingsButton disabled={anyBusy} onClick={() => void run(domain.id, "stop")}>
                         Stop
                       </SettingsButton>
                     ) : (
-                      <SettingsButton disabled={rowBusy || deployBusy} onClick={() => void run(domain.id, "start")}>
+                      <SettingsButton disabled={anyBusy} onClick={() => void run(domain.id, "start")}>
                         Start
                       </SettingsButton>
                     )}
-                    <SettingsButton
-                      tone="danger"
-                      disabled={rowBusy || deployBusy}
-                      onClick={() => setPendingDelete(domain)}
-                    >
+                    <SettingsButton tone="danger" disabled={anyBusy} onClick={() => setPendingDelete(domain)}>
                       Delete
                     </SettingsButton>
                   </>
@@ -418,7 +414,7 @@ function DomainsSection({
           <select
             value={draftEmbeddingId}
             onChange={(event) => setDraftEmbeddingId(event.target.value)}
-            disabled={embeddingProfiles.length === 0 || deployBusy}
+            disabled={embeddingProfiles.length === 0 || anyBusy}
             aria-label="Embedding profile"
             className="h-7 max-w-48 rounded-md border border-(--ui-separator) bg-(--ui-bg) px-2.5 text-[length:var(--fs-base)] text-(--ui-fg) outline-none focus:border-(--ui-accent)/40 disabled:opacity-50"
           >
@@ -432,11 +428,7 @@ function DomainsSection({
               ))
             )}
           </select>
-          <SettingsButton
-            tone="primary"
-            disabled={!deployEnabled || deployBusy || busyId !== null}
-            onClick={() => void onDeploy()}
-          >
+          <SettingsButton tone="primary" disabled={!deployEnabled || anyBusy} onClick={() => void onDeploy()}>
             {deployBusy ? "Deploying…" : "Deploy"}
           </SettingsButton>
         </div>
