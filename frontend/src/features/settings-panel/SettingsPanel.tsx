@@ -12,8 +12,9 @@ import {
   SettingsNotice,
   SettingsRow,
   StatusPill,
+  UiModal,
+  UiModalHeader,
   type SettingsSectionDef,
-  type UiTone,
 } from "@/_shared/ui";
 import { isApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/state/auth-store";
@@ -23,15 +24,29 @@ import {
   listUsers,
   patchRuntimeSettings,
   rotateProviderCredential,
+  type ModelProfile,
   type RuntimeSettingsSnapshot,
 } from "@/features/settings-panel/api";
 import {
+  createDomain,
   deleteDomain,
   listAdminDomains,
   startDomain,
   stopDomain,
   type AdminDomain,
 } from "@/features/domains/api";
+import {
+  busyLabel,
+  canDeployDomain,
+  defaultEmbeddingProfileId,
+  deployDomain,
+  domainTone,
+  filterEmbeddingProfiles,
+  isValidDomainId,
+  primaryLifecycleAction,
+  shouldRequestDelete,
+  type DomainBusyAction,
+} from "@/features/settings-panel/domainSettingsHelpers";
 import type { CurrentUser } from "@/types/auth";
 
 type SectionId = "general" | "provider" | "domains" | "users";
@@ -39,13 +54,6 @@ type SectionId = "general" | "provider" | "domains" | "users";
 function errorMessage(error: unknown): string {
   if (isApiError(error)) return error.message;
   return "Request failed.";
-}
-
-function domainTone(state: string): UiTone {
-  if (state === "running") return "good";
-  if (state === "error") return "danger";
-  if (state === "stopped") return "default";
-  return "warning";
 }
 
 /* LS settings-panel layout over CE-contracted admin surfaces. Controller,
@@ -126,11 +134,13 @@ export function SettingsPanel() {
       {section === "domains" && isAdmin ? (
         <DomainsSection
           domains={domains}
+          modelProfiles={runtime?.modelProfiles ?? []}
           onChanged={(message) => {
             setNotice(message);
             void reload();
           }}
           onError={(message) => setError(message)}
+          reload={() => void reload()}
         />
       ) : null}
       {section === "users" && isAdmin ? <UsersSection users={users} /> : null}
@@ -249,17 +259,41 @@ function ProviderSection({
 
 function DomainsSection({
   domains,
+  modelProfiles,
   onChanged,
   onError,
+  reload,
 }: {
   domains: AdminDomain[];
+  modelProfiles: ModelProfile[];
   onChanged: (message: string) => void;
   onError: (message: string) => void;
+  reload: () => void;
 }) {
-  const [busy, setBusy] = useState<string | null>(null);
+  const embeddingProfiles = useMemo(() => filterEmbeddingProfiles(modelProfiles), [modelProfiles]);
+  const [draftId, setDraftId] = useState("");
+  const [draftName, setDraftName] = useState("");
+  const [draftEmbeddingId, setDraftEmbeddingId] = useState(() => defaultEmbeddingProfileId(embeddingProfiles) ?? "");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<DomainBusyAction | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<AdminDomain | null>(null);
+
+  useEffect(() => {
+    if (!draftEmbeddingId || !embeddingProfiles.some((profile) => profile.id === draftEmbeddingId)) {
+      setDraftEmbeddingId(defaultEmbeddingProfileId(embeddingProfiles) ?? "");
+    }
+  }, [draftEmbeddingId, embeddingProfiles]);
+
+  const deployEnabled = canDeployDomain({
+    id: draftId,
+    displayName: draftName,
+    embeddingProfileId: draftEmbeddingId,
+    hasEmbeddingProfiles: embeddingProfiles.length > 0,
+  });
 
   const run = async (domainId: string, action: "start" | "stop" | "delete") => {
-    setBusy(domainId);
+    setBusyId(domainId);
+    setBusyAction(action);
     try {
       if (action === "start") await startDomain(domainId);
       if (action === "stop") await stopDomain(domainId);
@@ -267,48 +301,167 @@ function DomainsSection({
       onChanged(`Domain ${domainId}: ${action} requested.`);
     } catch (err) {
       onError(errorMessage(err));
+      reload();
     } finally {
-      setBusy(null);
+      setBusyId(null);
+      setBusyAction(null);
     }
   };
 
+  const onDeploy = async () => {
+    if (!deployEnabled) return;
+    if (!isValidDomainId(draftId)) {
+      onError("Domain id must be 2–63 characters: lowercase letters, digits, underscore, or hyphen.");
+      return;
+    }
+    setBusyId("__deploy__");
+    setBusyAction("deploy");
+    try {
+      const outcome = await deployDomain(
+        {
+          id: draftId,
+          displayName: draftName,
+          embeddingProfileId: draftEmbeddingId,
+        },
+        { createDomain, startDomain },
+      );
+      if (outcome.kind === "success") {
+        setDraftId("");
+        setDraftName("");
+        setDraftEmbeddingId(defaultEmbeddingProfileId(embeddingProfiles) ?? "");
+        onChanged(`Domain ${draftId.trim()}: deploy requested.`);
+        return;
+      }
+      if (outcome.kind === "create_failed") {
+        onError(errorMessage(outcome.error));
+        return;
+      }
+      // start_failed_keep: keep domain, danger notice, reload — no success flash
+      onError(errorMessage(outcome.error));
+      reload();
+    } finally {
+      setBusyId(null);
+      setBusyAction(null);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (!pendingDelete || !shouldRequestDelete(true)) return;
+    const target = pendingDelete;
+    setPendingDelete(null);
+    void run(target.id, "delete");
+  };
+
+  const deployBusy = busyId === "__deploy__";
+
   return (
-    <SettingsGroup title="Knowledge Domains" description="Lifecycle actions run on the backend; deletion is asynchronous.">
-      {domains.length === 0 ? (
-        <EmptySafeNotice>No Knowledge Domains configured.</EmptySafeNotice>
-      ) : (
-        domains.map((domain) => (
-          <SettingsRow
-            key={domain.id}
-            variant="resource"
-            label={domain.displayName}
-            description={domain.id}
-            status={<StatusPill tone={domainTone(domain.state)}>{domain.state}</StatusPill>}
-            actions={
-              <>
-                <SettingsButton disabled={busy === domain.id} onClick={() => void run(domain.id, "start")}>
-                  Start
-                </SettingsButton>
-                <SettingsButton disabled={busy === domain.id} onClick={() => void run(domain.id, "stop")}>
-                  Stop
-                </SettingsButton>
-                <SettingsButton
-                  tone="danger"
-                  disabled={busy === domain.id}
-                  onClick={() => {
-                    if (window.confirm(`Delete domain "${domain.displayName}"? This cannot be undone.`)) {
-                      void run(domain.id, "delete");
-                    }
-                  }}
-                >
-                  Delete
-                </SettingsButton>
-              </>
-            }
+    <>
+      <SettingsGroup
+        title="Knowledge Domains"
+        description="Lifecycle on backend. No Docker details in UI."
+      >
+        {domains.length === 0 ? (
+          <EmptySafeNotice>No Knowledge Domains configured.</EmptySafeNotice>
+        ) : (
+          domains.map((domain) => {
+            const rowBusy = busyId === domain.id;
+            const lifecycle = primaryLifecycleAction(domain.state);
+            const pillLabel = rowBusy && busyAction ? busyLabel(busyAction) : domain.state;
+            const pillTone = rowBusy ? "warning" : domainTone(domain.state);
+            return (
+              <SettingsRow
+                key={domain.id}
+                variant="resource"
+                label={domain.displayName}
+                description={domain.id}
+                status={<StatusPill tone={pillTone}>{pillLabel}</StatusPill>}
+                actions={
+                  <>
+                    {lifecycle === "stop" ? (
+                      <SettingsButton disabled={rowBusy || deployBusy} onClick={() => void run(domain.id, "stop")}>
+                        Stop
+                      </SettingsButton>
+                    ) : (
+                      <SettingsButton disabled={rowBusy || deployBusy} onClick={() => void run(domain.id, "start")}>
+                        Start
+                      </SettingsButton>
+                    )}
+                    <SettingsButton
+                      tone="danger"
+                      disabled={rowBusy || deployBusy}
+                      onClick={() => setPendingDelete(domain)}
+                    >
+                      Delete
+                    </SettingsButton>
+                  </>
+                }
+              />
+            );
+          })
+        )}
+
+        <div className="flex flex-col gap-2 border-t border-(--ui-separator) px-3.5 py-3 sm:flex-row sm:items-center sm:justify-end">
+          <SettingsInput
+            value={draftId}
+            onChange={setDraftId}
+            placeholder="id"
+            aria-label="New domain id"
+            className="max-w-40"
           />
-        ))
-      )}
-    </SettingsGroup>
+          <SettingsInput
+            value={draftName}
+            onChange={setDraftName}
+            placeholder="display name"
+            aria-label="New domain display name"
+            className="max-w-48"
+          />
+          <select
+            value={draftEmbeddingId}
+            onChange={(event) => setDraftEmbeddingId(event.target.value)}
+            disabled={embeddingProfiles.length === 0 || deployBusy}
+            aria-label="Embedding profile"
+            className="h-7 max-w-48 rounded-md border border-(--ui-separator) bg-(--ui-bg) px-2.5 text-[length:var(--fs-base)] text-(--ui-fg) outline-none focus:border-(--ui-accent)/40 disabled:opacity-50"
+          >
+            {embeddingProfiles.length === 0 ? (
+              <option value="">No embedding profiles</option>
+            ) : (
+              embeddingProfiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.name}
+                </option>
+              ))
+            )}
+          </select>
+          <SettingsButton
+            tone="primary"
+            disabled={!deployEnabled || deployBusy || busyId !== null}
+            onClick={() => void onDeploy()}
+          >
+            {deployBusy ? "Deploying…" : "Deploy"}
+          </SettingsButton>
+        </div>
+        {embeddingProfiles.length === 0 ? (
+          <p className="px-3.5 pb-3 text-[length:var(--fs-sm)] text-(--ui-muted)">
+            Add an embedding model profile before deploying a domain.
+          </p>
+        ) : null}
+      </SettingsGroup>
+
+      <UiModal isOpen={pendingDelete !== null} onClose={() => setPendingDelete(null)} maxWidth="max-w-md">
+        <UiModalHeader title="Delete domain" onClose={() => setPendingDelete(null)} />
+        <div className="space-y-4 px-6 py-4">
+          <p className="text-[length:var(--fs-base)] text-(--ui-fg)">
+            Delete domain &ldquo;{pendingDelete?.displayName}&rdquo;? This cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <SettingsButton onClick={() => setPendingDelete(null)}>Cancel</SettingsButton>
+            <SettingsButton tone="danger" onClick={confirmDelete}>
+              Delete
+            </SettingsButton>
+          </div>
+        </div>
+      </UiModal>
+    </>
   );
 }
 
