@@ -148,7 +148,7 @@ Settings must not expose raw controller URLs, API keys, host paths, runtime port
 
 ### Blocked Surfaces
 
-- Evidence-to-source navigation remains blocked until an opaque source-ref API/data contract exists. P9 may select current-turn Evidence by public evidence ref id only.
+- Evidence-to-source navigation is contracted: API-001 `GET /evidence-refs/{evidence_ref_id}/source` is the opaque resolve-before-navigate gate. Evidence rows still expose only public evidence ref ids; the browser must resolve before Library deep-link and must not invent Source Document or Source Block ids from Evidence.
 - `/database-visualize` graph data remains blocked until graph API/data DTOs are approved. P9 may port the route shell/canvas unavailable state only.
 - F-010 Logs/Usage/node surfaces and F-011 Wiki/Smart Composer durable writes are not P9 implementation scope without contract patches.
 
@@ -159,7 +159,15 @@ API-001 captures member-readable source list and preview:
 - `GET /domains/{domain_id}/sources` — safe source summaries for authenticated Members and Administrators when the domain is available
 - `GET /domains/{domain_id}/sources/{source_id}/preview` — same-origin cookie-authenticated stream of the stored original (`application/pdf`, `text/plain`, `text/markdown`) with `Cache-Control: private, no-store` and no attachment disposition
 
-Library (`/documents`) may wire list + inline PDF/text preview for domain readers. Members are read-only (no upload/retry/cancel/delete). Admin source mutation routes remain Administrator-only. Docx and other non-previewable types show unsupported; missing/unauthorized fail closed. Opaque source-ref navigation remains blocked.
+Library (`/documents`) may wire list + inline PDF/text preview for domain readers. Members are read-only (no upload/retry/cancel/delete). Admin source mutation routes remain Administrator-only. Docx and other non-previewable types show unsupported; missing/unauthorized fail closed.
+
+### Captured Source-Ref Resolve Contract
+
+API-001 captures opaque evidence→source resolve for F-009 slice 16:
+
+- `GET /evidence-refs/{evidence_ref_id}/source` — cookie-authenticated resolve keyed by public Evidence `id`; success returns Library-safe `domainId`, `sourceId`, optional `page`, and safe `sourceLabel`; redacted/missing/unauthorized fail closed as `source_ref_unavailable`
+- Evidence Panel may show Open in Library on the selected detail only; navigate to `/documents` with domain/source/optional page plus return `conversationId`/`turnId` only after successful resolve
+- Citation chips, Source inspector tab / figure-table asset cards, and in-chat PDF drawers remain deferred
 
 ## Acceptance Criteria
 
@@ -181,4 +189,4 @@ Library (`/documents`) may wire list + inline PDF/text preview for domain reader
 
 - Attachments, model-profile selection, pin/archive/export, and right-panel tabs beyond F-012 Evidence/Refs/Source/Wiki inspection are blocked until API/data contracts capture their safe DTOs and permission rules.
 - Workspace-scoped settings/tool registries are blocked until a Workspace product model is approved; do not introduce `workspaceId` in P9 implementation.
-- Opaque source-ref contract for slice 16 evidence→source navigation.
+- Citation chips, Source inspector figure/table asset cards, docx inline preview, download/export, and in-chat PDF drawer remain deferred after the opaque resolve + Open in Library slice.

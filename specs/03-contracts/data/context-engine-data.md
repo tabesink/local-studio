@@ -167,6 +167,8 @@ Delete behavior: in P4, source and domain delete hard-delete Source Document row
 
 Delivery note (member preview): `GET /domains/{domain_id}/sources/{source_id}/preview` reads the existing private original bytes already stored for the Source Document. It does not add tables, columns, or alternate storage layouts. Preview eligibility is “original file present”; it is independent of preparation or index state. API responses must never expose the private storage path.
 
+Delivery note (opaque source-ref resolve): `GET /evidence-refs/{evidence_ref_id}/source` may project an optional safe `page` from existing private `source_blocks.page_start` when the mapped block still exists and the Source Document remains readable under member preview authz. It does not add tables, columns, jump-session rows, or alternate storage. Public Evidence DTOs still omit Source Document and Source Block ids; only the resolve success DTO may return Library-safe `sourceId` (already used by member list/preview). Never expose `source_block_id`, storage paths, or runtime targets.
+
 `source_preparation_operations`
 
 | Field | Rule |
@@ -384,7 +386,7 @@ P6 RetrievalPort internal result =
   retrieval_order
 ```
 
-Only P7 services, citation validation, and redaction hooks may read the private ids. Public APIs and SSE convert each internal result into a `conversation_turn_evidence_refs.id` plus `citation_label`, `source_label`, and `excerpt`.
+Only P7 services, citation validation, redaction hooks, and the opaque source-ref resolve path may read the private ids. Public APIs and SSE convert each internal result into a `conversation_turn_evidence_refs.id` plus `citation_label`, `source_label`, and `excerpt`. Resolve may additionally project Library-safe `domainId` / `sourceId` / optional `page` after authz; it never returns `source_block_id` to the browser.
 
 ## P7 Idempotency Persistence Rules
 

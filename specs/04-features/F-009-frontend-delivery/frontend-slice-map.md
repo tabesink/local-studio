@@ -31,7 +31,7 @@ Port authority: `ce-client-port-and-parity.md`, `context-panel-tabs.md`.
 | 13 Knowledge graph | inspect graph workspace | graph contract TBD | `GraphViewer`, `components/graph/*` | LS popover on controls |
 | 14 Domain lifecycle | admin start/stop/delete | P3 | settings/lifecycle panels | confirm modal |
 | 15 Operations recovery | retry/cancel operations | P3/P4/P5 ops | new (no old CE route) | LS logs table |
-| 16 Source navigation | evidence→source context | opaque source-ref | blocked | — |
+| 16 Source navigation | evidence→source context | API-001 opaque resolve + Library deep-link | Evidence Panel Open in Library; pdf.js page jump; Back to chat | LS panel + Library chrome |
 | 17 Audit diagnostics | safe audit/diagnostics | P8 | new | LS logs pattern |
 
 ## Shared Frontend Gates
@@ -52,7 +52,11 @@ Retain w-14 **icon rail** nav order: Chat → Documents → Knowledge graph → 
 
 ### 09–10 — Documents + PDF
 
-Single `/documents` route. Row click → `DocumentPreviewPanel` (50% lg+ | mobile drawer) → `DocumentPdfPreview` (`<object>` blob) or plain/markdown text panel. Preview wires to API-001 `GET /domains/{domain_id}/sources/{source_id}/preview`; member list uses `GET /domains/{domain_id}/sources`. Members are read-only; admins retain upload/ops.
+Single `/documents` route. Row click → `DocumentPreviewPanel` (50% lg+ | mobile drawer) → shared pdf.js PDF viewer or plain/markdown text panel. Preview wires to API-001 `GET /domains/{domain_id}/sources/{source_id}/preview`; member list uses `GET /domains/{domain_id}/sources`. Citation deep-links may pass `domainId`/`sourceId`/optional `page` plus return `conversationId`/`turnId` after opaque resolve. Members are read-only; admins retain upload/ops.
+
+### 16 — Source navigation
+
+Evidence Panel selected detail shows Open in Library. Click calls `GET /evidence-refs/{evidence_ref_id}/source`; on success navigate to Library deep-link; on failure stay in chat with Source unavailable. Do not put Source Document or Source Block ids on Evidence rows. Citation chips and Source inspector tab remain deferred.
 
 ### 11–12 — Chat
 

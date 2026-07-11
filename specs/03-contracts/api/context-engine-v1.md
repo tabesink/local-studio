@@ -16,7 +16,7 @@ supersedes: []
 - Auth: opaque `ce_session` HttpOnly cookie. JSON responses never include a token.
 - Error envelope: `{ error: { code, message, requestId, fields? } }`.
 - Unknown fields are rejected where phase docs say strict DTOs.
-- Safe DTOs never expose secrets, ciphertext, storage paths, runtime URLs, controller payloads, raw provider payloads, raw LightRAG hits, source/block IDs for member evidence unless a later source-ref contract approves them.
+- Safe DTOs never expose secrets, ciphertext, storage paths, runtime URLs, controller payloads, raw provider payloads, raw LightRAG hits, or Source Block ids. Public Evidence DTOs never expose Source Document ids. The opaque source-ref resolve route may return a Library-safe `sourceId` (Source Document id already used by member list/preview) after authz — never `source_block_id`, storage paths, or runtime targets.
 
 ## Phase Endpoint Catalog
 
@@ -28,7 +28,7 @@ supersedes: []
 | P4 | `POST /admin/domains/{domain_id}/sources`, `GET /admin/domains/{domain_id}/sources`, `GET /admin/domains/{domain_id}/sources/{source_id}`, `GET /admin/domains/{domain_id}/sources/{source_id}/outline`, `GET /admin/domains/{domain_id}/sources/{source_id}/operations`, `POST /admin/domains/{domain_id}/sources/{source_id}/retry`, `POST /admin/domains/{domain_id}/sources/{source_id}/cancel`, `DELETE /admin/domains/{domain_id}/sources/{source_id}`, `GET /domains/{domain_id}/sources`, `GET /domains/{domain_id}/sources/{source_id}/preview` |
 | P5 | `POST /admin/domains/{domain_id}/sources/{source_id}/index/retry`, `POST /admin/domains/{domain_id}/sources/{source_id}/index/cancel` |
 | P6 | `POST /domains/{domain_id}/evidence` |
-| P7 | `GET /conversations`, `POST /conversations`, `GET /conversations/{conversation_id}`, `PATCH /conversations/{conversation_id}`, `DELETE /conversations/{conversation_id}`, `POST /conversations/{conversation_id}/turns:stream` |
+| P7 | `GET /conversations`, `POST /conversations`, `GET /conversations/{conversation_id}`, `PATCH /conversations/{conversation_id}`, `DELETE /conversations/{conversation_id}`, `POST /conversations/{conversation_id}/turns:stream`, `GET /evidence-refs/{evidence_ref_id}/source` |
 | P8 | `GET /admin/audit-events`, optional `GET /admin/domains/{domain_id}/diagnostics/lightrag` |
 | P12 | `POST /composer-refs:discover`, extended `POST /conversations/{conversation_id}/turns:stream` with `composerRefTokens` |
 | P9 | frontend consumes only captured P1-P8 endpoints through typed feature wrappers |
@@ -512,6 +512,53 @@ This route is the approved same-origin cookie-authenticated preview contract for
 | Stored original is missing or unreadable | 404 | `source_preview_unavailable` |
 
 All member source list and preview error messages are safe and bland. JSON error envelopes and response headers never include storage paths, runtime URLs, credentials, raw source text beyond the intentional preview body on success, provider payloads, stack traces, or private remote identities.
+
+### Opaque evidence→source resolve (source-ref)
+
+`GET /evidence-refs/{evidence_ref_id}/source` is available to authenticated Members and Administrators. It is the opaque source-ref resolve contract for F-009 slice 16 (Evidence Panel → Library navigation). The browser must call this route before leaving chat; it must not invent Source Document ids, Source Block ids, storage paths, or runtime targets from Evidence rows.
+
+`{evidence_ref_id}` is the public turn-scoped Evidence `id` (`conversation_turn_evidence_refs.id`). Evidence list/SSE payloads still omit Source Document and Source Block ids.
+
+Authz:
+
+- Require current session (`ce_session`).
+- Evidence ref must belong to a conversation the caller can read (same ownership rules as `GET /conversations/{conversation_id}`).
+- Mapped Source Document must still exist and pass the same domain-available gate as member list/preview.
+- Redacted evidence refs (`redacted_at` set), missing/deleted sources, unauthorized conversations, and unavailable domains fail closed. Prefer a uniform unavailable envelope for redacted/missing cases so responses do not leak whether a private FK still exists after delete.
+
+Success response `200`:
+
+```json
+{
+  "domainId": "manuals",
+  "sourceId": "src_01",
+  "page": 12,
+  "sourceLabel": "manual.pdf"
+}
+```
+
+Success field rules:
+
+- `domainId` — Knowledge Domain id already used by member list/preview.
+- `sourceId` — Source Document id already exposed on member list/preview. Allowed on this resolve DTO only; never embed on Evidence rows or SSE evidence events.
+- `page` — optional positive integer projected from private `source_blocks.page_start` when present. Omit or null when unknown; never invent a page.
+- `sourceLabel` — optional safe display label (same posture as Evidence `sourceLabel`).
+- Forbidden on this DTO and in error envelopes: `source_block_id` / Source Block ids, storage paths, runtime URLs, credentials, raw source text beyond the approved label, raw LightRAG hits, provider payloads, stack traces, or jump-session tokens.
+
+There is no server-owned jump session, checkout lock, or sticky citation mode. Concurrent callers may resolve and preview the same source independently.
+
+Client deep-link (not an API body): after success, Library may navigate to `/documents` with query params for `domainId`, `sourceId`, optional `page`, plus return `conversationId` and `turnId`. The browser never constructs `sourceId` from Evidence without a successful resolve. Preview bytes continue to use existing `GET /domains/{domain_id}/sources/{source_id}/preview`.
+
+### Opaque evidence→source resolve errors
+
+| Situation | HTTP | Code |
+| --- | --- | --- |
+| Unauthenticated | 401 | `unauthenticated` |
+| Evidence ref unknown to the caller, redacted, source missing/deleted, or otherwise unreadable | 404 | `source_ref_unavailable` |
+| Conversation/domain forbidden or domain unavailable in a way that must not distinguish existence | 404 | `source_ref_unavailable` |
+| Domain stopped/deleting/active lifecycle when that would otherwise surface as conflict on preview | 409 | `domain_state_conflict` |
+
+All resolve error messages are safe and bland. Prefer `source_ref_unavailable` over existence-leaking distinctions for redacted vs deleted vs unauthorized evidence when those would violate redaction posture.
 
 ## P6 Scoped Evidence Retrieval
 

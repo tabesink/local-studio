@@ -51,7 +51,8 @@ supersedes: []
 ## Later-Slice Gates
 
 - Streaming UI requires captured EVT-001 transcript fixtures before chat assertions.
-- Source-ref navigation, real graph data, Logs/Usage/node controls, and Wiki/Smart Composer writes stay blocked until their API/data contracts exist.
+- Source-ref navigation is contracted: API-001 opaque resolve + Library deep-link; Playwright must cover Evidence → Library (PDF page when known) → Back to jump-from turn, plus unavailable stays in chat.
+- Real graph data, Logs/Usage/node controls, and Wiki/Smart Composer writes stay blocked until their API/data contracts exist.
 - Documents preview is unblocked: API-001 member list + preview routes are captured; Playwright must cover admin upload → Library select → PDF or text preview, plus member read-only Library (no mutation controls).
 
 ## Blocked Evidence

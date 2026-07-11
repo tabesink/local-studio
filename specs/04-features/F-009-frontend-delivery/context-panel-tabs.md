@@ -86,7 +86,7 @@ body is the Evidence Panel content. Adding a tab later:
 | Item | Gate |
 | --- | --- |
 | Session ledger (cross-turn merge, All/This answer/Pinned, pins, caps) | product decision to restore old CE ledger UX |
-| Source inspector with figure/table asset cards | opaque source-ref contract (F-009 slice 16 gate) |
+| Source inspector with figure/table asset cards | deferred product slice (opaque resolve + Open in Library is contracted; figure/table cards are not) |
 | Inline citation chips selecting panel rows | markdown/citation rendering slice |
 | `terminal` tab | product + backend contract; no Electron bridge in pilot by default |
 | `side-chat` tab | F-007 conversation model |
