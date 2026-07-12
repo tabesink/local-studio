@@ -33,6 +33,21 @@ export type DeployOutcome =
 
 export type DomainBusyAction = "start" | "stop" | "delete" | "deploy";
 
+export type StorageComponentLike = {
+  kind: string;
+  label: string;
+  bytes: number;
+  percent: number;
+};
+
+export type StorageSummaryLike = {
+  limitBytes: number;
+  totalBytes: number;
+  totalPercent: number;
+  warning: string;
+  components: StorageComponentLike[];
+};
+
 /** DTO/field tokens that must not appear in Domains Settings UI source. */
 export const FORBIDDEN_DOMAIN_UI_FIELD_TOKENS = [
   "host_port",
@@ -153,4 +168,38 @@ export function primaryLifecycleAction(state: string): "start" | "stop" | null {
 /** Delete confirm gate — cancel must not call deleteDomain. */
 export function shouldRequestDelete(confirmed: boolean): boolean {
   return confirmed;
+}
+
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"] as const;
+  let value = bytes;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  const digits = value >= 10 || index === 0 ? 0 : 1;
+  return `${value.toFixed(digits).replace(/\.0$/, "")} ${units[index]}`;
+}
+
+export function clampStoragePercent(percent: number): number {
+  if (!Number.isFinite(percent) || percent <= 0) return 0;
+  return Math.min(100, Math.max(1, Math.round(percent)));
+}
+
+export function storageTone(warning: string): DomainUiTone {
+  if (warning === "exceeded") return "danger";
+  if (warning === "near_limit") return "warning";
+  return "default";
+}
+
+export function storageWarningLabel(warning: string): string {
+  if (warning === "near_limit") return "near limit";
+  if (warning === "exceeded") return "exceeded";
+  return "ok";
+}
+
+export function storageLimitLabel(summary: StorageSummaryLike): string {
+  return `${formatBytes(summary.totalBytes)} of ${formatBytes(summary.limitBytes)}`;
 }

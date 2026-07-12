@@ -51,6 +51,7 @@ class Settings:
     domain_delete_worker_id: str = field(default_factory=lambda: _env("CE_DOMAIN_DELETE_WORKER_ID", "domain-delete-worker") or "domain-delete-worker")
     domain_delete_lease_seconds: int = field(default_factory=lambda: _env_int("CE_DOMAIN_DELETE_LEASE_SECONDS", 60))
     source_storage_root: str = field(default_factory=lambda: _env("CE_SOURCE_STORAGE_ROOT", ".data/source-storage") or ".data/source-storage")
+    domain_storage_limit_bytes: int = field(default_factory=lambda: _env_int("CE_DOMAIN_STORAGE_LIMIT_BYTES", 5 * 1024 * 1024 * 1024))
     source_prep_worker_id: str = field(default_factory=lambda: _env("CE_SOURCE_PREP_WORKER_ID", "source-prep-worker") or "source-prep-worker")
     source_prep_lease_seconds: int = field(default_factory=lambda: _env_int("CE_SOURCE_PREP_LEASE_SECONDS", 60))
     source_index_worker_id: str = field(default_factory=lambda: _env("CE_SOURCE_INDEX_WORKER_ID", "source-index-worker") or "source-index-worker")
@@ -67,6 +68,8 @@ class Settings:
             # beats silently shipping a session cookie the browser will drop.
             raise ValueError("session_cookie_samesite='none' requires session_cookie_secure=True.")
         object.__setattr__(self, "session_cookie_samesite", samesite)
+        if self.domain_storage_limit_bytes <= 0:
+            raise ValueError("domain_storage_limit_bytes must be positive.")
 
     @classmethod
     def from_env(cls) -> "Settings":

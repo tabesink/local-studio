@@ -8,6 +8,7 @@
    PATCH /api/v1/admin/runtime-settings/model-profiles/{id}
    DELETE /api/v1/admin/runtime-settings/model-profiles/{id}
    GET   /api/v1/admin/users
+   PATCH /api/v1/admin/users/{id}
 
    Controller, storage, hardware, plugins, and skills sections are F-010 gated. */
 
@@ -84,4 +85,12 @@ export async function deleteModelProfile(profileId: string): Promise<void> {
 export async function listUsers(): Promise<CurrentUser[]> {
   const body = await ceFetch<{ users: CurrentUser[] }>("/admin/users");
   return body.users;
+}
+
+export async function updateUserDisabled(userId: string, isDisabled: boolean): Promise<CurrentUser> {
+  const body = await ceFetch<{ user: CurrentUser }>(`/admin/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ isDisabled }),
+  });
+  return body.user;
 }

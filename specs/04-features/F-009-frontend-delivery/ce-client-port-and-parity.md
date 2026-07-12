@@ -153,7 +153,7 @@ Context Engine chat remains server-authoritative: FastAPI owns conversation pers
 | General/Personal | `user-preferences` slice (browser-local, storage allowlist) |
 | Model Provider | `GET/PUT /api/v1/admin/runtime-settings` (admin) |
 | Domains | `GET/POST /api/v1/admin/domains` + start/stop/delete (admin) |
-| Users | `GET /api/v1/admin/users` (admin) |
+| Users | `GET /api/v1/admin/users` + `PATCH /api/v1/admin/users/{user_id}` (admin) |
 
 Controller, Storage, Hardware, Plugins, and Skills sections stay absent or disabled until F-010 contracts. Admin-only panels gated in UI; backend remains authority.
 

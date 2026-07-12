@@ -288,6 +288,8 @@ export function IconButton({
   disabled,
   className,
   "aria-label": ariaLabel,
+  "aria-expanded": ariaExpanded,
+  "aria-controls": ariaControls,
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -295,6 +297,8 @@ export function IconButton({
   disabled?: boolean;
   className?: string;
   "aria-label"?: string;
+  "aria-expanded"?: boolean;
+  "aria-controls"?: string;
 }) {
   return (
     <button
@@ -302,6 +306,8 @@ export function IconButton({
       onClick={onClick}
       title={title}
       aria-label={ariaLabel ?? title}
+      aria-expanded={ariaExpanded}
+      aria-controls={ariaControls}
       disabled={disabled}
       className={cx(
         "flex h-7 w-7 items-center justify-center rounded-md text-(--dim) transition-colors hover:bg-(--hover) hover:text-(--fg) disabled:opacity-50",
@@ -309,6 +315,50 @@ export function IconButton({
       )}
     >
       {children}
+    </button>
+  );
+}
+
+/* Canonical compact on/off control for dense settings and list rows. */
+export function ToggleSwitch({
+  checked,
+  onCheckedChange,
+  disabled = false,
+  className,
+  title,
+  "aria-label": ariaLabel,
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  disabled?: boolean;
+  className?: string;
+  title?: string;
+  "aria-label": string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      title={title}
+      disabled={disabled}
+      onClick={() => onCheckedChange(!checked)}
+      className={cx(
+        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors disabled:pointer-events-none disabled:opacity-45",
+        checked
+          ? "border-(--ui-accent)/40 bg-(--ui-accent)/15"
+          : "border-(--ui-separator) bg-(--ui-bg)",
+        className,
+      )}
+    >
+      <span
+        aria-hidden
+        className={cx(
+          "h-3.5 w-3.5 rounded-full shadow-sm transition-transform",
+          checked ? "translate-x-[18px] bg-(--ui-accent)" : "translate-x-1 bg-(--ui-muted)",
+        )}
+      />
     </button>
   );
 }
@@ -580,7 +630,7 @@ export function ListGroup({
         </div>
       ) : null}
       {showBody ? (
-        <div className="overflow-hidden rounded-md border border-(--ui-border) bg-(--ui-surface) shadow-[0_1px_0_rgba(255,255,255,0.025)_inset] [&>*+*]:before:pointer-events-none [&>*+*]:before:absolute [&>*+*]:before:left-3.5 [&>*+*]:before:right-0 [&>*+*]:before:top-0 [&>*+*]:before:h-px [&>*+*]:before:bg-(--ui-separator) [&>*]:relative">
+        <div className="overflow-hidden rounded-md border border-(--ui-border) bg-(--ui-surface) shadow-[0_1px_0_rgba(255,255,255,0.025)_inset] [&>*+*]:before:pointer-events-none [&>*+*]:before:absolute [&>*+*]:before:left-0 [&>*+*]:before:right-0 [&>*+*]:before:top-0 [&>*+*]:before:h-px [&>*+*]:before:bg-(--ui-separator) [&>*]:relative">
           {children}
         </div>
       ) : null}
@@ -1250,18 +1300,42 @@ export function TCell({
 
 export function ProgressBar({
   progress,
+  tone = "default",
+  role = "progressbar",
   className,
   trackClassName,
   barClassName,
+  "aria-label": ariaLabel,
+  "aria-valuetext": ariaValueText,
 }: {
   progress: number;
+  tone?: UiTone;
+  role?: "progressbar" | "meter";
   className?: string;
   trackClassName?: string;
   barClassName?: string;
+  "aria-label"?: string;
+  "aria-valuetext"?: string;
 }) {
   const pct = Math.min(100, Math.max(0, progress));
+  const toneClass =
+    tone === "good"
+      ? "bg-(--ui-success)"
+      : tone === "warning"
+        ? "bg-(--ui-warning)"
+        : tone === "danger"
+          ? "bg-(--ui-danger)"
+          : tone === "info"
+            ? "bg-(--ui-info)"
+            : "bg-(--ui-fg)/40";
   return (
     <div
+      role={role}
+      aria-label={ariaLabel}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+      aria-valuetext={ariaValueText}
       className={cx(
         "h-1 w-full overflow-hidden rounded-full bg-(--ui-fg)/15",
         className,
@@ -1269,7 +1343,7 @@ export function ProgressBar({
       )}
     >
       <div
-        className={cx("h-full rounded-full bg-(--ui-fg)/40 transition-all duration-300", barClassName)}
+        className={cx("h-full rounded-full transition-all duration-300", toneClass, barClassName)}
         style={{ width: `${pct}%` }}
       />
     </div>

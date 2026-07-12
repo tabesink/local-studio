@@ -439,6 +439,20 @@
         "title": "TurnStreamRequest",
         "type": "object"
       },
+      "UserDisabledPatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "isDisabled": {
+            "title": "Isdisabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "isDisabled"
+        ],
+        "title": "UserDisabledPatchRequest",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -1919,6 +1933,58 @@
           }
         },
         "summary": "Admin Users"
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "patch": {
+        "operationId": "admin_update_user_disabled_api_v1_admin_users__user_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserDisabledPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Admin Update User Disabled Api V1 Admin Users  User Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Update User Disabled"
       }
     },
     "/api/v1/admin/wiki/contributions": {

@@ -10,7 +10,15 @@ from sqlalchemy import inspect, select
 from context_engine.app import create_app
 from context_engine.config import Settings
 from context_engine.db import create_db_engine, create_session_factory, utc_now
-from context_engine.models import AuthSession, ROLE_ADMINISTRATOR, ROLE_MEMBER, User
+from context_engine.models import (
+    AUDIT_EVENT_USER_DISABLED,
+    AUDIT_EVENT_USER_ENABLED,
+    AuthSession,
+    AuditEvent,
+    ROLE_ADMINISTRATOR,
+    ROLE_MEMBER,
+    User,
+)
 from context_engine.security import hash_session_token, verify_password
 from context_engine.services.auth import create_user
 from tests.conftest import run_migrations
@@ -255,6 +263,9 @@ def test_admin_route_forbids_members_and_allows_administrators(app, settings: Se
         forbidden = client.get("/api/v1/admin/users")
         assert forbidden.status_code == 403
         assert forbidden.json()["error"]["code"] == "forbidden"
+        forbidden_patch = client.patch("/api/v1/admin/users/not-the-member", json={"isDisabled": True})
+        assert forbidden_patch.status_code == 403
+        assert forbidden_patch.json()["error"]["code"] == "forbidden"
 
     with TestClient(app) as client:
         admin_login = client.post(
@@ -269,6 +280,94 @@ def test_admin_route_forbids_members_and_allows_administrators(app, settings: Se
         assert not _contains_key(body, "password")
         assert not _contains_key(body, "token")
         assert not _contains_key(body, "password_hash")
+
+
+def test_admin_can_disable_and_enable_member_user(app, settings: Settings) -> None:
+    engine = create_db_engine(settings)
+    factory = create_session_factory(engine)
+    db = factory()
+    try:
+        member = create_user(db, "toggle-member@example.test", "member-password", role=ROLE_MEMBER)
+        member_id = member.id
+    finally:
+        db.close()
+        engine.dispose()
+
+    with TestClient(app) as member_client:
+        member_login = member_client.post(
+            "/api/v1/auth/login",
+            json={"username": "toggle-member@example.test", "password": "member-password"},
+        )
+        assert member_login.status_code == 200
+
+        with TestClient(app) as admin_client:
+            admin_login = admin_client.post(
+                "/api/v1/auth/login",
+                json={"username": settings.admin_username, "password": settings.admin_password},
+            )
+            assert admin_login.status_code == 200
+            disabled = admin_client.patch(f"/api/v1/admin/users/{member_id}", json={"isDisabled": True})
+            assert disabled.status_code == 200
+            disabled_body = disabled.json()
+            assert disabled_body["user"]["isDisabled"] is True
+            assert disabled_body["user"]["id"] == member_id
+            assert not _contains_key(disabled_body, "password")
+            assert not _contains_key(disabled_body, "token")
+
+            disabled_me = member_client.get("/api/v1/auth/me")
+            assert disabled_me.status_code == 401
+            disabled_login = member_client.post(
+                "/api/v1/auth/login",
+                json={"username": "toggle-member@example.test", "password": "member-password"},
+            )
+            assert disabled_login.status_code == 401
+
+            enabled = admin_client.patch(f"/api/v1/admin/users/{member_id}", json={"isDisabled": False})
+            assert enabled.status_code == 200
+            assert enabled.json()["user"]["isDisabled"] is False
+
+    with TestClient(app) as client:
+        reenabled_login = client.post(
+            "/api/v1/auth/login",
+            json={"username": "toggle-member@example.test", "password": "member-password"},
+        )
+        assert reenabled_login.status_code == 200
+
+    engine = create_db_engine(settings)
+    factory = create_session_factory(engine)
+    db = factory()
+    try:
+        events = list(
+            db.scalars(
+                select(AuditEvent).where(
+                    AuditEvent.target_kind == "user",
+                    AuditEvent.target_id == member_id,
+                ).order_by(AuditEvent.created_at, AuditEvent.id)
+            )
+        )
+        assert [event.event_name for event in events] == [AUDIT_EVENT_USER_DISABLED, AUDIT_EVENT_USER_ENABLED]
+        assert all(event.actor_kind == ROLE_ADMINISTRATOR for event in events)
+        assert all(event.metadata_json is None for event in events)
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_admin_cannot_disable_current_user(app, settings: Settings) -> None:
+    with TestClient(app) as client:
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"username": settings.admin_username, "password": settings.admin_password},
+        )
+        assert login.status_code == 200
+        admin_user_id = login.json()["user"]["id"]
+
+        blocked = client.patch(f"/api/v1/admin/users/{admin_user_id}", json={"isDisabled": True})
+        assert blocked.status_code == 409
+        assert blocked.json()["error"]["code"] == "user_self_disable_forbidden"
+
+        still_active = client.get("/api/v1/auth/me")
+        assert still_active.status_code == 200
 
 
 def test_health_and_error_envelope_include_request_id(app) -> None:

@@ -3,7 +3,7 @@ id: DATA-001
 title: Context Engine Data Contract
 status: approved
 owner: Context Engine data team
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 depends_on: [ARCH-003]
 supersedes: []
 ---
@@ -45,6 +45,34 @@ Failure belongs to operation/index/turn fields, not extra domain/source states.
 - Each phase with data changes includes Alembic migrations and a fresh-upgrade test.
 - Do not add generic JSON settings, workflow/job tables, index history tables, query logs, runtime manifest/env tables, or persisted rendered LightRAG input unless an approved spec changes this contract.
 - Destructive migrations need explicit rollback/compensation and acceptance evidence.
+
+## P1 Users And Sessions
+
+`users`
+
+| Field | Rule |
+| --- | --- |
+| `id` | Opaque user UUID primary key. |
+| `username` | Unique login identifier, max 320 characters. Confidential; only safe admin user DTOs may return it. |
+| `password_hash` | Argon2id hash only. Never returned by API, logs, traces, fixtures, screenshots, or specs. |
+| `role` | Closed set `administrator`, `member`. Backend authorization uses this value; the browser never grants role authority. |
+| `is_disabled` | Backend-owned account switch. Disabled users cannot authenticate and existing sessions fail the normal session guard. |
+| `created_at`, `updated_at`, `password_changed_at` | Service timestamps. |
+
+Indexes and constraints: primary key on `id`; unique `username`; index `username`.
+
+Admin user enable/disable mutates only `users.is_disabled` and records `user.disabled` or `user.enabled` in `audit_events`. It does not delete users, delete conversations, revoke stored sessions, rotate passwords, or change roles. The request guard enforces disabled users by rejecting future session checks.
+
+`auth_sessions`
+
+| Field | Rule |
+| --- | --- |
+| `id` | Opaque session UUID primary key. |
+| `user_id` | Required FK to `users.id` with `ON DELETE CASCADE`. |
+| `token_hash` | Unique SHA-256 hash of the opaque cookie token. Raw session token is never stored. |
+| `expires_at` | Required session expiry timestamp. |
+| `revoked_at` | Nullable logout/revoke timestamp. |
+| `created_at`, `last_used_at` | Service timestamps. |
 
 ## P2 Runtime Config Tables
 
@@ -111,7 +139,21 @@ Additional seeded OpenAI and Bedrock profiles are catalog rows only. `model_prof
 
 Indexes: primary key on `id`; index on `embedding_profile_id`.
 
-Explicitly omitted from `domains`: `available`, `health_status`, failure message fields, runtime URL, host port, path, DB name, container id, provider config, and generic JSON metadata.
+Explicitly omitted from `domains`: `available`, `health_status`, failure message fields, runtime URL, host port, path, DB name, container id, provider config, generic JSON metadata, and storage summary fields.
+
+Admin `storageSummary` is computed at read time from backend-owned state:
+
+```text
+source_storage bytes = private Source Document file bytes under the selected Knowledge Domain
+graph_index bytes = private graph/index runtime artifacts for the selected Knowledge Domain
+database_metadata bytes = backend estimate from CE-owned domain/source/block metadata rows
+total bytes = source_storage + graph_index + database_metadata
+warning = ok | near_limit | exceeded against the configured per-domain soft limit
+```
+
+The computed summary is not persisted in `domains` and is not exposed on member domain DTOs.
+It returns numeric bytes, percentages, closed component kinds, safe labels, and `calculatedAt` only.
+It must never expose paths, filenames, runtime instance ids, runtime URLs, host ports, container ids, database connection details, raw source text, provider payloads, or raw operational dumps.
 
 `domain_operations`
 
@@ -593,6 +635,9 @@ diagnostics.read
 
 security.admin_route_denied
 
+user.disabled
+user.enabled
+
 wiki.contribution_created
 wiki.contribution_updated
 wiki.contribution_submitted
@@ -617,6 +662,7 @@ Allowed target ids:
 - `domain_operation` -> `domain_operations.id`
 - `source_preparation_operation` -> `source_preparation_operations.id`
 - `conversation_turn` -> `conversation_turns.id` only for redaction accountability
+- `user` -> `users.id` only for admin enable/disable accountability
 - `wiki_contribution` -> `wiki_contributions.id`
 - `wiki_page` -> `wiki_pages.id`
 - `wiki_revision` -> `wiki_revisions.id` only for publish accountability

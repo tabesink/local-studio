@@ -3,7 +3,7 @@ id: F-010
 title: Shared Node Operations And Runnable Stack Specification
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 depends_on: [F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008, F-009]
 supersedes: []
 ---
@@ -64,7 +64,7 @@ Developers, Administrators, operators, delivery reviewers, and the compose worke
   - full pilot path: provider config → domain ready → source upload → prepare → index → evidence → domain-grounded chat → source delete/redaction → domain delete, with the compose worker advancing state (no in-process `run_once` in stack smoke).
 - Current-repo Dockerfile or compose support only where needed by the fixture.
 - HTTP smoke for the runnable-stack proof. Playwright remains owned by F-009 AC-007 unless P10 later implements contracted operator UI.
-- Future P10 contracts for admin/operator shared-node surfaces: Runtime Node status, Node Environment status/actions, scoped logs, usage/cost, storage summaries, and safe dashboard aggregates.
+- Contracted Settings Knowledge Graph storage summaries on admin domain DTOs. Broader admin/operator shared-node surfaces remain future P10 contracts: Runtime Node status, Node Environment status/actions, scoped logs, usage/cost, and safe dashboard aggregates.
 
 ## Out Of Scope
 
@@ -91,7 +91,7 @@ Developers, Administrators, operators, delivery reviewers, and the compose worke
 | FR-004 | The frontend must reach the backend through the approved API proxy path and must not require direct browser knowledge of database, Docker, runtime, storage, or controller targets. | ARCH-002, F-009 | browser/network audit |
 | FR-005 | A stack smoke command must prove login, `/auth/me`, and the full pilot path from the running stack with workers advancing prepare/index/delete, not only from in-process tests. | API-001, RUN-001 | smoke script |
 | FR-006 | The old compose file may inform service ordering and healthcheck shape, but incompatibilities must be documented before implementation. | AGENTS.md | implementation log |
-| FR-007 | Rich node/logs/usage/storage UI surfaces require API-001 and DATA-001 patches before frontend implementation. | CON-000, API-001, DATA-001 | contract gate |
+| FR-007 | Rich node/logs/usage/Docker environment UI surfaces require API-001 and DATA-001 patches before frontend implementation; Settings Knowledge Graph storage bars may consume the contracted admin `storageSummary` DTO only. | CON-000, API-001, DATA-001 | contract gate |
 | FR-008 | P10 must not reintroduce Redis/RQ/Celery, status-poller, or deployment-control. Exactly one CE lease worker (`python -m context_engine.worker`) is required in the stack. | GOV-001, ARCH-002 | import/compose audit |
 | FR-009 | P10 stack proof must use HTTP smoke against listening services; Playwright is not required until F-009 AC-007 or later contracted P10 UI work. | F-009, F-010 | smoke/test-plan review |
 | FR-010 | Stack acceptance for this gate uses local domain-runtime and LightRAG client kinds; production Settings default remains native per LD-006. | LD-006, F-003, F-005 | compose review / smoke |
@@ -100,7 +100,7 @@ Developers, Administrators, operators, delivery reviewers, and the compose worke
 
 - Contracts currently consumed: API-001, DATA-001, QA-002, QA-003, QA-004, RUN-001, ARCH-002, DESIGN.md, F-009.
 - Data changes for the runnable stack foundation: none expected beyond running existing migrations.
-- Future P10 data/API contracts may add Runtime Node, Node Environment, usage, storage-summary, or scoped-log DTOs. They must be patched into API-001 and DATA-001 before implementation.
+- P10 adds the admin domain `storageSummary` DTO to API-001/DATA-001 for Settings Knowledge Graphs. Future Runtime Node, Node Environment, usage, or scoped-log DTOs must still be patched into API-001 and DATA-001 before implementation.
 
 ## Primary Flow
 
@@ -132,7 +132,7 @@ Developers, Administrators, operators, delivery reviewers, and the compose worke
 - AC-004: HTTP smoke through the frontend login/proxy path no longer emits `ECONNREFUSED` for `/api/v1/auth/me` or `/api/v1/auth/login`.
 - AC-005: Secret scan over compose/env examples/log/smoke evidence finds no committed working password, provider key, runtime URL, host path, stack trace, raw source text, prompt, answer, or raw payload.
 - AC-006: Compose audit shows no Redis/RQ/Celery, status-poller, or deployment-control service and no old incompatible service copied from `.references/code/context-engine/docker-compose.yml`. Exactly one CE lease worker service running `python -m context_engine.worker` is required and allowed.
-- AC-007: P10 node/logs/usage/storage UI/API work remains blocked until API-001 and DATA-001 are patched.
+- AC-007: P10 node/logs/usage/Docker UI/API work remains blocked until API-001 and DATA-001 are patched; Settings Knowledge Graph storage bars use only the approved admin `storageSummary`.
 - AC-008: Stack smoke proves upload → prepare → index → evidence → domain-grounded chat → delete → redaction with the compose worker advancing state and no in-process `run_once` in the smoke process.
 
 ## Resolved First-Gate Decisions
@@ -149,7 +149,7 @@ Developers, Administrators, operators, delivery reviewers, and the compose worke
 
 ## Deferred Decisions
 
-Runtime Node, Node Environment, logs, usage/cost, storage summaries, and operator dashboards remain deferred until API-001 and DATA-001 patches are approved.
+Runtime Node, Node Environment, logs, usage/cost, and operator dashboards remain deferred until API-001 and DATA-001 patches are approved. The narrow Settings Knowledge Graph `storageSummary` DTO is approved for admin domain rows only.
 
 ## Known Limits
 

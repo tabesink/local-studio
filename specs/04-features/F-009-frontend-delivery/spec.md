@@ -3,7 +3,7 @@ id: F-009
 title: Frontend Delivery Specification
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-07-08
+last_reviewed: 2026-07-11
 depends_on: [F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008]
 supersedes: []
 ---
@@ -138,7 +138,7 @@ Auth uses the opaque HttpOnly `ce_session` cookie only.
 Settings must be separated by ownership from the first shell implementation:
 
 - Personal: UI-local appearance (Mode, Theme catalog, token editor, typography, Density + scale) via the central appearance runtime, and other browser-only preferences on the storage allowlist.
-- Administration: captured P1-P8 routes only, such as users, provider/model/parser status, domains, sources, audit, and diagnostics.
+- Administration: captured P1-P8 routes only, such as users, provider/model/parser status, domains, sources, audit, and diagnostics. Settings -> Users may list users and toggle `isDisabled` through the admin-only API; backend authz and lockout guards remain authoritative.
 - Reserved: Runtime Node, workspace, Logs, Usage, storage, Docker, Wiki, and Smart Composer. Reserved sections are absent or inactive until F-010/F-011 and affected API/data contracts are approved.
 
 Settings must not expose raw controller URLs, API keys, host paths, runtime ports, storage targets, node credentials, provider secret values, or browser-local infrastructure mutation.
@@ -177,7 +177,7 @@ API-001 captures opaque evidence→source resolve for F-009 slice 16:
 - AC-001: no browser token storage
 - AC-002: 401 clears auth once
 - AC-003: 403 forbidden without redirect loop
-- AC-004: member cannot see/call admin controls
+- AC-004: member cannot see/call admin controls, including Settings -> Users enable/disable actions
 - AC-005: SSE ordering fixtures pass
 - AC-006: no secret/path/raw payload in client errors/logs
 - AC-007: Playwright desktop/mobile key flows for login, chat, documents (incl. preview panel), graph
@@ -186,7 +186,7 @@ API-001 captures opaque evidence→source resolve for F-009 slice 16:
 - AC-010: chat workbench uses the LS chat-shell layout with CE adapter; Evidence and accepted refs populate from CE SSE/history before unsafe browser-owned context is possible
 - AC-011: direct LLM chat turn renders without evidence rows/citations and without exposing route/model/tool controls
 - AC-012: chat shell proves Local Studio timeline/composer/streaming UX is adapted without terminal, filesystem, Git, browser automation, host-skill, Pi-runtime, raw model-controller, or local path controls
-- AC-013: settings surfaces show personal/admin/provider/runtime ownership separately and do not expose raw controller URLs/API keys, host paths, runtime ports, or secret values
+- AC-013: settings surfaces show personal/admin/provider/runtime ownership separately; Users toggle account active/disabled state only through the admin API and do not expose raw controller URLs/API keys, host paths, runtime ports, or secret values
 
 ## Open Decisions
 

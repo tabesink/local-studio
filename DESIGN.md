@@ -25,11 +25,14 @@ This document replaces the earlier white-canvas workbench direction. **Local Stu
 | Local Studio reference codebase | `.references/code/local-studio/` |
 | Local Studio source reference | `.references/code/local-studio/frontend/src/app/styles/globals/tokens.css` |
 | Local Studio shared primitives | `.references/code/local-studio/frontend/src/ui/` |
+| App UI barrel (agent import path) | `frontend/src/components/ui` (`@/components/ui`) |
+| Shared kit (internal) | `frontend/src/_shared/ui` |
 | Settings panel parity template | `.reference-LS-frontend/templates/nextjs-feature-demos/features/settings-panel/` |
+| Appearance / coloring reference | `.reference-LS-frontend/templates/nextjs-feature-demos/features/user-preferences/` |
 
 When instructions conflict, use this order:
 
-1. existing Local Studio visual tokens and primitives;
+1. existing Local Studio visual tokens and primitives (live inventory via `@/components/ui`);
 2. this document;
 3. `docs/design/context_engine_agent_ui_guidelines.md` for agent-facing implementation guidance;
 4. feature-specific UI requirements;
@@ -644,37 +647,55 @@ radius → --rad-*
 spacing → 4px rhythm
 height → --ui-control-h / --row-h / --row-h-sm
 state → StatusDot / StatusPill / existing status tone
-layout → AppPage / PageHeader / ListGroup / Table / RightDetailPanel
+layout → AppPage / PageHeader / ListGroup / Table / Drawer (right detail = Drawer or compose; see gaps)
 ```
 
 ## 11.2 Primitive First
 
-Use shared primitive names and behavior before adding a local equivalent:
+**Authority split**
 
-```text
-Button
-Input
-Select
-Textarea
-Checkbox
-FormField
-SegmentedControl
-Tabs
-Card
-Alert
-Table / THead / TBody / TRow / TH / TCell
-ListGroup / ListRow
-SettingsLayout / SettingsGroup / SettingsRow / SettingsFactRows / SettingsNotice
-AppPage / PageHeader
-Modal
-Drawer
-ProgressBar
-ErrorBox
-RightDetailPanel
-StatusDot / StatusPill
+- This document owns visual parity rules, coloring consumption, import path, and gap policy.
+- Live primitive inventory is whatever `frontend/src/components/ui` (`@/components/ui`) exports. Do not treat a hand-maintained name dump in this file as the inventory source of truth.
+- `@/_shared/ui` is the internal shared kit behind that barrel. New agent/feature UI must import from `@/components/ui` only (going forward). Existing `@/_shared/ui` call sites may remain until a later migration.
+
+**Import path**
+
+```ts
+import { Button, SettingsGroup, StatusPill, PageState } from "@/components/ui";
 ```
 
-A Context Engine-specific component may compose these primitives but must not recreate their token system.
+Do not add new `@/_shared/ui` imports in feature or app code. Do not deep-import thin legacy files under `components/ui/*.tsx` for shared kit names when the barrel already exports them.
+
+**Coloring**
+
+- Components paint with applied theme tokens (`--ui-*`, `--fs-*`, `--rad-*`, kit tone APIs).
+- Appearance Mode / Theme catalog / token overrides belong to the user-preferences / central theme runtime. Feature chrome must not set `data-theme` or appearance CSS variables, invent a palette, or hard-code colors/radii when tokens exist.
+- Tiny bordered theme swatches belong on the appearance surface only — not a second design language in feature chrome.
+- Reference: `.reference-LS-frontend/templates/nextjs-feature-demos/features/user-preferences/`.
+
+**Available primitives**
+
+Discover names from the `@/components/ui` barrel exports. Representative kit names include `Button`, `Input`, `Select`, `Textarea`, `Checkbox`, `ToggleSwitch`, `SegmentedControl`, `Tabs`, `Card`, `Alert`, `Table` / `THead` / `TBody` / `TRow` / `TH` / `TCell`, `ListGroup` / `ListRow`, `SettingsLayout` / `SettingsGroup` / `SettingsRow` / `SettingsFactRows` / `SettingsNotice`, `AppPage` / `PageHeader`, `UiModal`, `Drawer`, `ProgressBar`, `StatusDot` / `StatusPill`, plus CE-only `ErrorBox`, `PageState`, `AppLogo`.
+
+**Naming aliases**
+
+| Prefer (exported) | Do not invent |
+| --- | --- |
+| `UiModal` | `Modal` as a separate primitive |
+| `Drawer` / compose | `RightDetailPanel` as a kit export |
+| Label + `Input` / `SettingsInput` rows | `FormField` as a kit export |
+
+**Not in kit yet**
+
+These Local Studio / template patterns are **not** exported as shared primitives. When needed, adapt only a cited named template under `.reference-LS-frontend/templates/nextjs-feature-demos/`, still under token/coloring rules — do not invent a parallel component API or palette.
+
+| Gap | Cite |
+| --- | --- |
+| Controllers-style accordion / expandable list rows + storage bars (Knowledge Graphs evidence) | `features/environment-controls/` |
+| Settings shell / SectionNav grammar | `features/settings-panel/` |
+| Appearance Mode / Theme / token editor | `features/user-preferences/` |
+
+A Context Engine-specific component may compose barrel primitives but must not recreate their token system.
 
 ## 11.3 Variant Rule
 
@@ -765,4 +786,4 @@ Before merging a Context Engine UI change, verify:
 
 Use this for feature implementation:
 
-> Build this Context Engine surface with Local Studio visual parity. First inspect `.references/code/local-studio/` (and for Settings, `.reference-LS-frontend/templates/nextjs-feature-demos/features/settings-panel/`) for the closest existing token, primitive, shell geometry, or screen pattern. Use the existing dark-first `zai-dark` / `zai-light` token system, Geist and Geist Mono, the compact `--fs-*` scale, 4px rhythm, 7px base radius, 24/28px dense row/control geometry, and shared primitives including SettingsLayout/SettingsGroup/SettingsRow and StatusPill. Preserve the workstation shell: left rail, central work canvas, optional right detail panel. Settings Setup checks mirror LS row grammar with CE stack-pillar content only — no URLs, paths, or operator consoles. Use tokenized subtle surfaces, 1px borders, quiet monochrome primary actions, Local Studio status dots/pills, compact tables/lists, and no generic dashboard cards, gradients, full pills, or arbitrary colors. Context Engine changes data and copy only; it does not introduce a competing visual language.
+> Build this Context Engine surface with Local Studio visual parity. Import shared UI only from `@/components/ui` (live inventory). First inspect `.references/code/local-studio/` and the closest `.reference-LS-frontend/templates/nextjs-feature-demos/features/<slice>/` template for tokens, shell geometry, or screen pattern. Use the dark-first theme runtime / user-preferences token system (`--ui-*`, Geist, compact `--fs-*`, 4px rhythm, dense 24/28px controls). Prefer barrel primitives (`SettingsLayout`/`SettingsGroup`/`SettingsRow`, `StatusPill`, `UiModal`, …). If a pattern is marked not in kit yet (e.g. Controllers accordion rows), cite and adapt a named template — do not invent colors or a parallel component API. Preserve the workstation shell. No generic dashboard, gradients, full pills, or feature-local `data-theme` writes.

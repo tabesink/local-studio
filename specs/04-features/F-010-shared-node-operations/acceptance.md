@@ -3,14 +3,14 @@ id: F-010
 title: Shared Node Operations And Runnable Stack Acceptance Evidence
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 depends_on: [F-010]
 supersedes: []
 ---
 
 # F-010 - Acceptance Evidence
 
-Status: runnable-stack gate implemented with workers-in-stack and hard-cut `stack` naming. Full pilot-path HTTP smoke is the acceptance gate. Runtime Node, Logs, Usage, storage, Docker environment UI/API surfaces remain contract-blocked until API-001 and DATA-001 are patched.
+Status: runnable-stack gate implemented with workers-in-stack and hard-cut `stack` naming. Full pilot-path HTTP smoke is the stack acceptance gate. Settings Knowledge Graph storage summaries are now contracted as admin-only `storageSummary`; Runtime Node, Logs, Usage, and Docker environment UI/API surfaces remain contract-blocked until API-001 and DATA-001 are patched.
 
 | Criterion | Evidence | Result | Notes |
 | --- | --- | --- | --- |
@@ -20,7 +20,7 @@ Status: runnable-stack gate implemented with workers-in-stack and hard-cut `stac
 | AC-004 | stack smoke safe evidence `_tmp/stack-smoke.json` | pass | frontend proxy admin login and auth/me succeeded; no `ECONNREFUSED`; Playwright remains F-009 AC-007 |
 | AC-005 | `python scripts/stack_safety_scan.py --smoke-evidence _tmp/stack-smoke.json` | pass | scan covers compose, env example, Dockerfiles, runbook, F-010 docs, traceability, scripts, and safe smoke evidence |
 | AC-006 | `compose.stack.yml`; `python scripts/stack_safety_scan.py --smoke-evidence _tmp/stack-smoke.json` | pass | no Redis/RQ/Celery, status-poller, or deployment-control; exactly one CE lease worker (`python -m context_engine.worker`) is present and allowed |
-| AC-007 | F-010 docs and implementation log review | pass | Logs/Usage/Node/storage UI/API work remains blocked until API-001 and DATA-001 are patched |
+| AC-007 | API-001/DATA-001; backend/frontend storage-summary tests; F-010 docs and implementation log review | pass | Settings Knowledge Graph storage bars are allowed only through admin `storageSummary`; Logs/Usage/Node/Docker UI/API work remains blocked until API-001 and DATA-001 are patched |
 | AC-008 | stack smoke safe evidence `_tmp/stack-smoke.json` | pass | full path: `provider_config`, `domain_ready`, `source_upload`, `source_prepared_indexed` (`state=prepared`; `indexState=ready`), `evidence_retrieve`, `domain_chat` (`stopReason=grounded`), `source_delete_redaction` (`turnStatus=redacted`), `domain_delete`; compose worker advanced state; no in-process `run_once` in smoke |
 
 ## Completion Rule
@@ -34,6 +34,9 @@ docker compose --env-file .env.stack.local -f compose.stack.yml config --quiet
 pytest tests/test_stack_worker_loop.py tests/test_stack_safety_scan.py tests/test_stack_smoke_helpers.py tests/test_stack_smoke_imports.py tests/test_stack_smoke_worker_negative.py -q -m "not integration_docker"
 STACK_API_PORT=18000 STACK_FRONTEND_PORT=13000 .venv/bin/python scripts/stack_smoke.py --env-file .env.stack.local --project-name context_engine_stack_smoke --reset-state --write-evidence _tmp/stack-smoke.json
 python scripts/stack_safety_scan.py --smoke-evidence _tmp/stack-smoke.json
+pytest tests/test_domains.py::test_admin_domain_dto_includes_safe_backend_storage_summary -q
+cd frontend && npm.cmd run test
+cd frontend && npm.cmd run typecheck
 ```
 
 Default ports (`STACK_API_PORT=8000`, `STACK_FRONTEND_PORT=3000`) and project `context_engine_stack` are the canonical operator defaults when the host is free. The evidence run above overrode ports and used project `context_engine_stack_smoke` due to host conflict.

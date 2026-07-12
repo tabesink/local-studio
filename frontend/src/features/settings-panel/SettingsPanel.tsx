@@ -5,6 +5,10 @@ import { ChevronDown, Database, KeyRound, Palette, Users } from "lucide-react";
 import {
   cx,
   EmptySafeNotice,
+  IconButton,
+  Input,
+  ProgressBar,
+  Select,
   SettingsButton,
   SettingsFactRows,
   SettingsGroup,
@@ -13,10 +17,11 @@ import {
   SettingsNotice,
   SettingsRow,
   StatusPill,
+  ToggleSwitch,
   UiModal,
   UiModalHeader,
   type SettingsSectionDef,
-} from "@/_shared/ui";
+} from "@/components/ui";
 import { isApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/state/auth-store";
 import { PreferencesPanel } from "@/features/user-preferences/PreferencesPanel";
@@ -25,6 +30,7 @@ import {
   listUsers,
   patchRuntimeSettings,
   rotateProviderCredential,
+  updateUserDisabled,
   type ModelProfile,
   type RuntimeSettingsSnapshot,
 } from "@/features/settings-panel/api";
@@ -37,17 +43,19 @@ import {
   type AdminDomain,
 } from "@/features/domains/api";
 import {
-  busyLabel,
   canDeployDomain,
+  clampStoragePercent,
   defaultEmbeddingProfileId,
   deployDomain,
-  domainTone,
   embeddingProfileLabel,
   filterEmbeddingProfiles,
   isValidDomainId,
   nextExpandedDomainId,
   primaryLifecycleAction,
   shouldRequestDelete,
+  storageLimitLabel,
+  storageTone,
+  storageWarningLabel,
   type DomainBusyAction,
 } from "@/features/settings-panel/domainSettingsHelpers";
 import type { CurrentUser } from "@/types/auth";
@@ -79,7 +87,7 @@ export function SettingsPanel() {
     if (isAdmin) {
       rows.push(
         { id: "provider", label: "Model Provider", description: "Providers and model profiles", icon: <KeyRound className="h-3.5 w-3.5" /> },
-        { id: "domains", label: "Domains", description: "Knowledge Domain lifecycle", icon: <Database className="h-3.5 w-3.5" /> },
+        { id: "domains", label: "Knowledge Graphs", description: "Domain-backed retrieval", icon: <Database className="h-3.5 w-3.5" /> },
         { id: "users", label: "Users", description: "User accounts", icon: <Users className="h-3.5 w-3.5" /> },
       );
     }
@@ -150,7 +158,21 @@ export function SettingsPanel() {
           reload={() => reload({ clearError: false })}
         />
       ) : null}
-      {section === "users" && isAdmin ? <UsersSection users={users} /> : null}
+      {section === "users" && isAdmin ? (
+        <UsersSection
+          users={users}
+          currentUserId={user?.id ?? null}
+          onChanged={(message) => {
+            setError(null);
+            setNotice(message);
+            void reload({ clearError: false });
+          }}
+          onError={(message) => {
+            setNotice(null);
+            setError(message);
+          }}
+        />
+      ) : null}
     </SettingsLayout>
   );
 }
@@ -304,7 +326,7 @@ function DomainsSection({
       if (action === "start") await startDomain(domainId);
       if (action === "stop") await stopDomain(domainId);
       if (action === "delete") await deleteDomain(domainId);
-      onChanged(`Domain ${domainId}: ${action} requested.`);
+      onChanged(`Knowledge Graph ${domainId}: ${action} requested.`);
     } catch (err) {
       onError(errorMessage(err));
       await reload();
@@ -316,7 +338,7 @@ function DomainsSection({
   const onDeploy = async () => {
     if (!deployEnabled) return;
     if (!isValidDomainId(draftId)) {
-      onError("Domain id must be 2–63 characters: lowercase letters, digits, underscore, or hyphen.");
+      onError("Domain id must be 2-63 characters: lowercase letters, digits, underscore, or hyphen.");
       return;
     }
     setBusy({ id: "__deploy__", action: "deploy" });
@@ -333,7 +355,7 @@ function DomainsSection({
         setDraftId("");
         setDraftName("");
         setDraftEmbeddingId(defaultEmbeddingProfileId(embeddingProfiles) ?? "");
-        onChanged(`Domain ${draftId.trim()}: deploy requested.`);
+        onChanged(`Knowledge Graph ${draftId.trim()}: deploy requested.`);
         return;
       }
       if (outcome.kind === "create_failed") {
@@ -364,79 +386,124 @@ function DomainsSection({
   return (
     <>
       <SettingsGroup
-        title="Knowledge Domains"
+        title="Knowledge Graphs"
         description="Lifecycle on backend. No Docker details in UI."
       >
         {domains.length === 0 ? (
-          <EmptySafeNotice>No Knowledge Domains configured.</EmptySafeNotice>
+          <EmptySafeNotice>No Knowledge Graphs configured.</EmptySafeNotice>
         ) : (
           domains.map((domain) => {
-            const rowBusy = busy?.id === domain.id;
             const lifecycle = primaryLifecycleAction(domain.state);
-            const pillLabel = rowBusy && busy ? busyLabel(busy.action) : domain.state;
-            const pillTone = rowBusy ? "warning" : domainTone(domain.state);
             const expanded = expandedId === domain.id;
+            const panelId = `knowledge-graph-${domain.id}-panel`;
             const embeddingLabel = embeddingProfileLabel(domain.embeddingProfileId, embeddingProfiles);
+            const storageSummary = domain.storageSummary;
+            const totalStoragePercent = clampStoragePercent(storageSummary?.totalPercent ?? 0);
+            const storageWarningTone = storageTone(storageSummary?.warning ?? "ok");
             return (
               <div key={domain.id}>
                 <div className="flex items-center gap-3 px-3.5 py-2.5 transition-colors hover:bg-(--ui-hover)/35">
-                  <button
-                    type="button"
+                  <IconButton
                     aria-expanded={expanded}
+                    aria-controls={panelId}
                     aria-label={`${expanded ? "Collapse" : "Expand"} ${domain.displayName}`}
+                    title={`${expanded ? "Collapse" : "Expand"} Knowledge Graph`}
                     onClick={() => setExpandedId((current) => nextExpandedDomainId(current, domain.id))}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-(--ui-muted) transition-colors hover:bg-(--ui-hover) hover:text-(--ui-fg)"
+                    className="shrink-0 text-(--ui-muted) hover:bg-(--ui-hover) hover:text-(--ui-fg)"
                   >
                     <ChevronDown
                       className={cx("h-3.5 w-3.5 transition-transform", expanded ? "" : "-rotate-90")}
                       aria-hidden
                     />
-                  </button>
+                  </IconButton>
                   <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-[length:var(--fs-base)] font-medium text-(--ui-fg)">
-                        {domain.displayName}
-                      </span>
-                      <StatusPill tone={pillTone}>{pillLabel}</StatusPill>
-                    </div>
+                    <span className="truncate text-[length:var(--fs-base)] font-medium text-(--ui-fg)">
+                      {domain.displayName}
+                    </span>
                     <div className="truncate font-mono text-[length:var(--fs-xs)] text-(--ui-muted)">{domain.id}</div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    {lifecycle === "stop" ? (
-                      <SettingsButton disabled={anyBusy} onClick={() => void run(domain.id, "stop")}>
-                        Stop
-                      </SettingsButton>
-                    ) : null}
-                    {lifecycle === "start" ? (
-                      <SettingsButton disabled={anyBusy} onClick={() => void run(domain.id, "start")}>
-                        Start
-                      </SettingsButton>
-                    ) : null}
-                    <SettingsButton
-                      tone="danger"
-                      disabled={anyBusy || domain.state === "deleting"}
-                      onClick={() => setPendingDelete(domain)}
-                    >
-                      Delete
-                    </SettingsButton>
-                  </div>
+                  <ToggleSwitch
+                    checked={lifecycle === "stop"}
+                    aria-label={`${lifecycle === "stop" ? "Stop" : "Start"} ${domain.displayName}`}
+                    title={lifecycle === "stop" ? "Stop Knowledge Graph" : "Start Knowledge Graph"}
+                    disabled={anyBusy || lifecycle === null}
+                    onCheckedChange={() => {
+                      if (lifecycle) void run(domain.id, lifecycle);
+                    }}
+                  />
                 </div>
                 {expanded ? (
-                  <div className="bg-(--ui-surface) py-1 pl-12 pr-3.5">
-                    <div className="flex min-h-6 items-baseline justify-between gap-3">
-                      <span className="text-[length:var(--fs-sm)] text-(--ui-muted)">Domain</span>
-                      <span className="text-[length:var(--fs-sm)] text-(--ui-fg)">{domain.displayName}</span>
-                    </div>
-                    <div className="flex min-h-6 items-baseline justify-between gap-3">
-                      <span className="text-[length:var(--fs-sm)] text-(--ui-muted)">Id</span>
-                      <span className="font-mono text-[length:var(--fs-xs)] text-(--ui-fg)">{domain.id}</span>
-                    </div>
-                    <div className="flex min-h-6 items-baseline justify-between gap-3">
-                      <span className="text-[length:var(--fs-sm)] text-(--ui-muted)">Embedding</span>
-                      <span className="font-mono text-[length:var(--fs-xs)] text-(--ui-fg)">
-                        {embeddingLabel}
-                        <span className="text-(--ui-muted)">{" · locked"}</span>
-                      </span>
+                  <div
+                    id={panelId}
+                    role="region"
+                    aria-label={`${domain.displayName} details`}
+                    className="bg-(--ui-bg)/35 px-3.5 py-3"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex gap-3">
+                        <div className="w-7 shrink-0" aria-hidden />
+                        <div className="min-w-0 flex-1 space-y-3">
+                          <label className="grid gap-1.5">
+                            <span className="text-[length:var(--fs-xs)] text-(--ui-muted)">Embedding model</span>
+                            <Input
+                              value={`${embeddingLabel} · locked`}
+                              readOnly
+                              aria-label={`${domain.displayName} embedding model`}
+                              className="h-7 cursor-default font-mono text-(--ui-muted) focus:border-(--ui-separator) focus:ring-0"
+                            />
+                          </label>
+                          {storageSummary ? (
+                            <div
+                              data-testid="domain-storage-summary"
+                              className="border-t border-(--ui-separator) pt-3"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[length:var(--fs-base)] font-semibold text-(--ui-fg)">
+                                      Storage
+                                    </span>
+                                    <span className="font-mono text-[length:var(--fs-xs)] text-(--ui-muted)">
+                                      {totalStoragePercent}%
+                                    </span>
+                                  </div>
+                                  <div className="truncate font-mono text-[length:var(--fs-xs)] text-(--ui-muted)">
+                                    {storageLimitLabel(storageSummary)}
+                                  </div>
+                                </div>
+                                {storageSummary.warning !== "ok" ? (
+                                  <StatusPill tone={storageWarningTone}>
+                                    {storageWarningLabel(storageSummary.warning)}
+                                  </StatusPill>
+                                ) : null}
+                              </div>
+                              <div data-testid="domain-storage-total-bar" className="mt-2.5">
+                                <ProgressBar
+                                  progress={totalStoragePercent}
+                                  tone={storageWarningTone}
+                                  role="meter"
+                                  aria-label={`${domain.displayName} total storage`}
+                                  aria-valuetext={storageLimitLabel(storageSummary)}
+                                  className="h-2 bg-(--ui-border)/65"
+                                />
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="w-9 shrink-0" aria-hidden />
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="w-7 shrink-0" aria-hidden />
+                        <div className="min-w-0 flex-1" aria-hidden />
+                        <SettingsButton
+                          tone="danger"
+                          className="shrink-0"
+                          disabled={anyBusy || domain.state === "deleting"}
+                          onClick={() => setPendingDelete(domain)}
+                        >
+                          Delete
+                        </SettingsButton>
+                      </div>
                     </div>
                   </div>
                 ) : null}
@@ -444,56 +511,57 @@ function DomainsSection({
             );
           })
         )}
+      </SettingsGroup>
 
-        <div className="flex flex-col gap-2 px-3.5 py-3">
+      <SettingsGroup
+        title="New Knowledge Graph"
+        description="Create and start a domain-backed retrieval graph."
+      >
+        <div className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
           <SettingsInput
             value={draftName}
             onChange={setDraftName}
             placeholder="Name"
-            aria-label="New domain display name"
+            aria-label="New Knowledge Graph display name"
+            className="w-32 shrink-0"
           />
           <SettingsInput
             value={draftId}
             onChange={setDraftId}
             placeholder="id"
-            aria-label="New domain id"
-            className="font-mono"
+            aria-label="New Knowledge Graph id"
+            className="w-28 shrink-0 font-mono"
           />
-          <select
-            value={draftEmbeddingId}
-            onChange={(event) => setDraftEmbeddingId(event.target.value)}
-            disabled={embeddingProfiles.length === 0 || anyBusy}
-            aria-label="Embedding profile"
-            className="h-7 w-full rounded-md border border-(--ui-separator) bg-(--ui-bg) px-2.5 text-[length:var(--fs-base)] text-(--ui-fg) outline-none transition focus:border-(--ui-accent)/40 disabled:opacity-50"
-          >
-            {embeddingProfiles.length === 0 ? (
-              <option value="">No embedding profiles</option>
-            ) : (
-              embeddingProfiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.name}
-                </option>
-              ))
-            )}
-          </select>
-          <div className="flex items-center justify-between gap-3 pt-0.5">
-            <SettingsButton disabled={!deployEnabled || anyBusy} onClick={() => void onDeploy()}>
-              {deployBusy ? "Deploying…" : "Deploy"}
-            </SettingsButton>
-            {embeddingProfiles.length === 0 ? (
-              <span className="text-[length:var(--fs-sm)] text-(--ui-muted)">
-                Add an embedding model profile before deploying a domain.
-              </span>
-            ) : null}
+          <div className="min-w-40 flex-1">
+            <Select
+              value={draftEmbeddingId}
+              onChange={(event) => setDraftEmbeddingId(event.target.value)}
+              disabled={embeddingProfiles.length === 0 || anyBusy}
+              aria-label="Embedding model"
+              options={
+                embeddingProfiles.length === 0
+                  ? [{ value: "", label: "No embedding profiles" }]
+                  : embeddingProfiles.map((profile) => ({ value: profile.id, label: profile.name }))
+              }
+              className="h-7"
+            />
           </div>
+          <SettingsButton disabled={!deployEnabled || anyBusy} onClick={() => void onDeploy()}>
+            {deployBusy ? "Deploying…" : "Deploy"}
+          </SettingsButton>
+          {embeddingProfiles.length === 0 ? (
+            <span className="min-w-full text-[length:var(--fs-sm)] text-(--ui-muted)">
+              Add an embedding model profile before deploying a Knowledge Graph.
+            </span>
+          ) : null}
         </div>
       </SettingsGroup>
 
       <UiModal isOpen={pendingDelete !== null} onClose={() => setPendingDelete(null)} maxWidth="max-w-md">
-        <UiModalHeader title="Delete domain" onClose={() => setPendingDelete(null)} />
+        <UiModalHeader title="Delete Knowledge Graph" onClose={() => setPendingDelete(null)} />
         <div className="space-y-4 px-6 py-4">
           <p className="text-[length:var(--fs-base)] text-(--ui-fg)">
-            Delete domain &ldquo;{pendingDelete?.displayName}&rdquo;? This cannot be undone.
+            Delete Knowledge Graph &ldquo;{pendingDelete?.displayName}&rdquo;? This cannot be undone.
           </p>
           <div className="flex justify-end gap-2">
             <SettingsButton onClick={() => setPendingDelete(null)}>Cancel</SettingsButton>
@@ -507,22 +575,63 @@ function DomainsSection({
   );
 }
 
-function UsersSection({ users }: { users: CurrentUser[] }) {
+function UsersSection({
+  users,
+  currentUserId,
+  onChanged,
+  onError,
+}: {
+  users: CurrentUser[];
+  currentUserId: string | null;
+  onChanged: (message: string) => void;
+  onError: (message: string) => void;
+}) {
+  const [busyUserId, setBusyUserId] = useState<string | null>(null);
+
+  const toggleUser = async (row: CurrentUser) => {
+    if (row.id === currentUserId) return;
+    const nextDisabled = !row.isDisabled;
+    setBusyUserId(row.id);
+    try {
+      await updateUserDisabled(row.id, nextDisabled);
+      onChanged(`${row.username} ${nextDisabled ? "disabled" : "enabled"}.`);
+    } catch (err) {
+      onError(errorMessage(err));
+    } finally {
+      setBusyUserId((current) => (current === row.id ? null : current));
+    }
+  };
+
   return (
-    <SettingsGroup title="Users">
+    <SettingsGroup title="Users" description="Administrators can enable or disable accounts.">
       {users.length === 0 ? (
         <EmptySafeNotice>No users found.</EmptySafeNotice>
       ) : (
-        users.map((row) => (
-          <SettingsRow
-            key={row.id}
-            label={row.username}
-            value={<span className="text-[length:var(--fs-sm)] text-[var(--dim)]">{row.role}</span>}
-            status={
-              row.isDisabled ? <StatusPill tone="danger">Disabled</StatusPill> : <StatusPill tone="good">Active</StatusPill>
-            }
-          />
-        ))
+        users.map((row) => {
+          const enabled = !row.isDisabled;
+          const self = row.id === currentUserId;
+          const busy = busyUserId === row.id;
+          return (
+            <SettingsRow
+              key={row.id}
+              label={row.username}
+              value={<span className="text-[length:var(--fs-sm)] text-[var(--dim)]">{row.role}</span>}
+              status={
+                row.isDisabled ? <StatusPill tone="danger">Disabled</StatusPill> : <StatusPill tone="good">Active</StatusPill>
+              }
+              control={
+                <ToggleSwitch
+                  checked={enabled}
+                  aria-label={`${enabled ? "Disable" : "Enable"} ${row.username}`}
+                  title={self ? "Current administrator cannot be disabled." : enabled ? "Disable user" : "Enable user"}
+                  disabled={busyUserId !== null || self}
+                  onCheckedChange={() => void toggleUser(row)}
+                  className={busy ? "opacity-60" : ""}
+                />
+              }
+            />
+          );
+        })
       )}
     </SettingsGroup>
   );

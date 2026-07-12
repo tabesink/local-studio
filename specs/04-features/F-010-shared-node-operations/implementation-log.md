@@ -3,14 +3,14 @@ id: F-010
 title: Shared Node Operations And Runnable Stack Implementation Log
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 depends_on: [F-010]
 supersedes: []
 ---
 
 # F-010 - Implementation Log
 
-Status: runnable-stack gate implemented with workers-in-stack, hard-cut `stack` naming, and full pilot-path smoke. Contracted Runtime Node, Logs, Usage, storage, Docker environment UI/API surfaces remain deferred.
+Status: runnable-stack gate implemented with workers-in-stack, hard-cut `stack` naming, and full pilot-path smoke. Settings Knowledge Graph storage summaries are implemented through admin-only `storageSummary`; Runtime Node, Logs, Usage, and Docker environment UI/API surfaces remain deferred.
 
 **Compound learning:** `docs/solutions/architecture-patterns/runnable-stack-postgres-lease-workers.md` — Postgres lease poll loop, shared compose volumes, HTTP-only stack smoke, and `stack` rename guidance for future agents.
 
@@ -35,6 +35,8 @@ Status: runnable-stack gate implemented with workers-in-stack, hard-cut `stack` 
 | 2026-07-10 | Slice 1 stack hardening: worker heartbeat + compose healthcheck; smoke waits on `worker_healthy`; safety scan pins `python -m context_engine.worker`; AST import guard; dual negative proofs (safe notes + Docker-marked absent/mid-pilot). | Close residuals #1–#4 from `docs/residual-review-findings/feat-runnable-stack-workers.md` without changing local-fake happy path. | Slice 2 live overlay still deferred (residual #5). |
 | 2026-07-10 | Slice 2 optional live overlay: `compose.stack.live.yml`, live Dockerfile build-arg (`CE_STACK_LIVE_IMAGE`), `scripts/stack_smoke_live.py`, RUN-001 live section; safety scan `--live-overlay`. | Close residual #5 with a separate native-fidelity gate; default smoke stays local-fake. | Volume migration operator story is Slice 3. |
 | 2026-07-10 | Slice 3 volume operator story: `scripts/stack_volume_inspect.py` (read-only, no Mountpoints), RUN-001 migration decision tree with encryption-key preserve/verify, solution-doc cross-link, traceability CHG-038. | Reduce silent data loss across `p10` → `stack` volume rename without automatic compose migration. | None for this follow-up plan. |
+
+| 2026-07-11 | Settings Knowledge Graph storage summaries: API-001/DATA-001 now allow admin domain `storageSummary`; backend computes source storage, graph index, and database metadata bytes without returning paths or runtime targets; Settings Domains is relabeled to Knowledge Graphs and renders backend-owned storage bars. | User wants the Settings domain UI to show storage bars and the visible label to be Knowledge Graphs, while preserving backend ownership and no browser runtime/port/URL leakage. | Broader Runtime Node, Logs, Usage, and Docker environment UI/API remain blocked until their contracts exist. |
 
 ## Drift Register
 
@@ -64,6 +66,11 @@ Status: runnable-stack gate implemented with workers-in-stack, hard-cut `stack` 
 | `pytest tests/test_stack_worker_loop.py tests/test_stack_safety_scan.py tests/test_stack_smoke_helpers.py tests/test_stack_smoke_imports.py tests/test_stack_smoke_worker_negative.py -q -m "not integration_docker"` | pass | Slice 1 hardening: heartbeat, safety-scan pin, AST guard, safe negative notes |
 | `STACK_API_PORT=18000 STACK_FRONTEND_PORT=13000 .venv/bin/python scripts/stack_smoke.py --env-file .env.stack.local --project-name context_engine_stack_smoke --reset-state --write-evidence _tmp/stack-smoke.json` | pass | checks include postgres_health, alembic_head, api auth/proxy, worker_healthy, provider_config, domain_ready, source_upload, source_prepared_indexed (state=prepared; indexState=ready), evidence_retrieve, domain_chat (stopReason=grounded), source_delete_redaction (turnStatus=redacted), domain_delete |
 | `python scripts/stack_safety_scan.py --smoke-evidence _tmp/stack-smoke.json` | pass | ok; CE lease worker command pinned; Redis/job-platform patterns rejected |
+
+| `pytest tests/test_domains.py::test_admin_domain_dto_includes_safe_backend_storage_summary -q` | pass | pins admin `storageSummary` shape and no path/url/port/container/runtime-id leakage |
+| `cd frontend && npm.cmd run test` | pass | pins Knowledge Graphs label, storage helpers, delete modal, accordion, and forbidden operator field tokens |
+| `cd frontend && npm.cmd run typecheck` | pass | validates Settings storage-summary TypeScript wiring |
+| `ruff check context_engine/config.py context_engine/services/domains.py context_engine/api/routes.py tests/test_domains.py` | pass | lint coverage for changed backend files |
 
 Historical 2026-07-06 auth/proxy-only evidence used former `compose.p10.yml` / `scripts/p10_*.py` names and is superseded by the commands above.
 

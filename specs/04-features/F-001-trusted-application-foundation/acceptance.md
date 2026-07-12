@@ -3,7 +3,7 @@ id: F-001
 title: Trusted Application Foundation Acceptance Evidence
 status: implemented
 owner: Context Engine delivery team
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-11
 depends_on: [F-000]
 supersedes: []
 ---
@@ -21,6 +21,7 @@ Status: implemented.
 | AC-004 | `test_login_sets_http_only_cookie_and_never_returns_token` in `tests/test_foundation_auth.py`; `./.venv/bin/python -m pytest` | pass | `Set-Cookie` contains `ce_session`, `HttpOnly`, and `SameSite=lax`; raw token is only present in the cookie and DB stores its hash. |
 | AC-005 | `test_revoked_expired_and_disabled_sessions_return_safe_401` in `tests/test_foundation_auth.py`; `./.venv/bin/python -m pytest` | pass | Revoked session, expired session, and disabled user all return canonical safe `401` envelopes with request IDs. |
 | AC-006 | `test_logout_revokes_session_and_clears_cookie`, `test_admin_route_forbids_members_and_allows_administrators`, `test_health_and_error_envelope_include_request_id`, and `test_openapi_snapshot_matches`; `./.venv/bin/python -m pytest` | pass | Responses and admin DTOs omit tokens, passwords, and password hashes; errors use safe messages; OpenAPI snapshot covers the P1 route surface. |
+| AC-007 | `.\.venv\Scripts\python.exe -m pytest tests/test_foundation_auth.py -q`; focused audit rerun `.\.venv\Scripts\python.exe -m pytest tests/test_observability.py::test_admin_audit_route_self_audits_and_hides_self_reads_by_default tests/test_observability.py::test_admin_denial_is_audited_for_authenticated_members -q --basetemp tests/.pytest-tmp-user-toggle-observability` | pass | Administrator can disable/enable a Member through `PATCH /api/v1/admin/users/{user_id}`; Members receive 403; disabled sessions and disabled login return safe 401; self-disable is blocked; `user.disabled`/`user.enabled` audit events store only safe user target ids and no metadata. |
 
 ## Completion Rule
 

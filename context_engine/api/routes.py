@@ -122,6 +122,7 @@ from context_engine.services.sources import (
     source_outline,
     upload_source_bytes,
 )
+from context_engine.services.users import UserAdminError, set_user_disabled
 
 
 class LoginRequest(BaseModel):
@@ -158,6 +159,12 @@ class ModelProfilePatchRequest(BaseModel):
 class RuntimeSettingsPatchRequest(BaseModel):
     active_synthesis_profile_id: str | None = Field(default=None, alias="activeSynthesisProfileId")
     active_parser_kind: str | None = Field(default=None, alias="activeParserKind")
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class UserDisabledPatchRequest(BaseModel):
+    is_disabled: bool = Field(alias="isDisabled")
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -340,6 +347,27 @@ def admin_users(
 ) -> dict[str, object]:
     users = list(db.scalars(select(User).order_by(User.username)))
     return {"users": [safe_user(user) for user in users]}
+
+
+@api_router.patch("/admin/users/{user_id}")
+def admin_update_user_disabled(
+    request: Request,
+    user_id: str = Path(max_length=36),
+    payload: UserDisabledPatchRequest = Body(...),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    try:
+        user = set_user_disabled(
+            db,
+            user_id=user_id,
+            is_disabled=payload.is_disabled,
+            requested_by_user=admin,
+            audit_context=_audit_context(request, admin),
+        )
+    except UserAdminError as exc:
+        raise ApiError(exc.status_code, exc.code, exc.message) from exc
+    return {"user": safe_user(user)}
 
 
 def _runtime_config_api_error(exc: RuntimeConfigError) -> ApiError:
@@ -971,7 +999,7 @@ def admin_create_domain(
         raise _runtime_config_api_error(exc) from exc
     except DomainError as exc:
         raise _domain_api_error(exc) from exc
-    return {"domain": safe_domain_admin(db, domain, controller_from_settings(settings))}
+    return {"domain": safe_domain_admin(db, settings, domain, controller_from_settings(settings))}
 
 
 @api_router.get("/admin/domains")
@@ -1027,7 +1055,7 @@ def admin_start_domain(
         )
     except DomainError as exc:
         raise _domain_api_error(exc) from exc
-    return {"domain": safe_domain_admin(db, domain, controller_from_settings(settings))}
+    return {"domain": safe_domain_admin(db, settings, domain, controller_from_settings(settings))}
 
 
 @api_router.post("/admin/domains/{domain_id}/stop")
@@ -1048,7 +1076,7 @@ def admin_stop_domain(
         )
     except DomainError as exc:
         raise _domain_api_error(exc) from exc
-    return {"domain": safe_domain_admin(db, domain, controller_from_settings(settings))}
+    return {"domain": safe_domain_admin(db, settings, domain, controller_from_settings(settings))}
 
 
 @api_router.delete("/admin/domains/{domain_id}", status_code=202)

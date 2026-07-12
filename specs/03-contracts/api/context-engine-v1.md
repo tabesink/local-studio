@@ -3,7 +3,7 @@ id: API-001
 title: Context Engine API v1
 status: approved
 owner: Context Engine API team
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 depends_on: [CON-000, ARCH-001]
 supersedes: []
 ---
@@ -22,7 +22,7 @@ supersedes: []
 
 | Phase | Endpoints |
 | --- | --- |
-| P1 | `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, `GET /admin/users`, `GET /health/live`, `GET /health/ready` |
+| P1 | `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, `GET /admin/users`, `PATCH /admin/users/{user_id}`, `GET /health/live`, `GET /health/ready` |
 | P2 | `GET /admin/runtime-settings`, `PUT /admin/runtime-settings/providers/{provider_kind}`, `POST /admin/runtime-settings/model-profiles`, `PATCH /admin/runtime-settings/model-profiles/{profile_id}`, `DELETE /admin/runtime-settings/model-profiles/{profile_id}`, `PATCH /admin/runtime-settings` |
 | P3 | `POST /admin/domains`, `GET /admin/domains`, `GET /admin/domains/{domain_id}`, `GET /admin/domains/{domain_id}/status`, `POST /admin/domains/{domain_id}/start`, `POST /admin/domains/{domain_id}/stop`, `DELETE /admin/domains/{domain_id}`, `GET /admin/domains/{domain_id}/operations`, `GET /domains` |
 | P4 | `POST /admin/domains/{domain_id}/sources`, `GET /admin/domains/{domain_id}/sources`, `GET /admin/domains/{domain_id}/sources/{source_id}`, `GET /admin/domains/{domain_id}/sources/{source_id}/outline`, `GET /admin/domains/{domain_id}/sources/{source_id}/operations`, `POST /admin/domains/{domain_id}/sources/{source_id}/retry`, `POST /admin/domains/{domain_id}/sources/{source_id}/cancel`, `DELETE /admin/domains/{domain_id}/sources/{source_id}`, `GET /domains/{domain_id}/sources`, `GET /domains/{domain_id}/sources/{source_id}/preview` |
@@ -32,12 +32,56 @@ supersedes: []
 | P8 | `GET /admin/audit-events`, optional `GET /admin/domains/{domain_id}/diagnostics/lightrag` |
 | P12 | `POST /composer-refs:discover`, extended `POST /conversations/{conversation_id}/turns:stream` with `composerRefTokens` |
 | P9 | frontend consumes only captured P1-P8 endpoints through typed feature wrappers |
-| P10 | no new product API for the first runnable-stack gate; Runtime Node/Logs/Usage/storage/Docker environment APIs remain blocked until this contract is patched |
+| P10 | additive admin domain `storageSummary` on P3 domain DTOs; Runtime Node/Logs/Usage/Docker environment APIs remain blocked until this contract is patched |
 | P11 | `GET /wiki/pages`, `GET /wiki/pages/{page_id}`, `GET /wiki/pages/{page_id}/revisions`, `GET /wiki/contributions`, `POST /wiki/contributions`, `GET /wiki/contributions/{contribution_id}`, `PATCH /wiki/contributions/{contribution_id}`, `POST /wiki/contributions/{contribution_id}:submit`, `GET /admin/wiki/contributions`, `GET /admin/wiki/contributions/{contribution_id}`, `POST /admin/wiki/contributions/{contribution_id}:publish`, `POST /admin/wiki/contributions/{contribution_id}:reject` |
 
 ## Contract Capture Rule
 
 Older reference catalogs may list stale paths such as `/auth/login`, `/chat/turn/stream`, or `/retrieve`. The phase docs above are the target. If implementation keeps compatibility aliases, document them as aliases, not primary product contracts.
+
+## P1 Auth And Admin Users
+
+Auth uses only the opaque `ce_session` HttpOnly cookie. Login, session, and logout responses return safe user/session data only and never return a bearer token, password, password hash, session token, or token hash.
+
+Safe user DTO:
+
+```json
+{
+  "id": "user-id",
+  "username": "admin@example.test",
+  "role": "administrator",
+  "isDisabled": false
+}
+```
+
+`GET /admin/users` is Administrator-only and returns `{ "users": [SafeUser] }` ordered by username.
+
+`PATCH /admin/users/{user_id}` is Administrator-only and uses a strict camelCase body:
+
+```json
+{ "isDisabled": true }
+```
+
+Response: `200 { "user": SafeUser }`.
+
+Rules:
+
+- Setting `isDisabled=true` blocks the target user from new login and causes any existing session to fail the normal `/auth/me` session guard with `401 unauthenticated`.
+- Setting `isDisabled=false` re-enables the target user for normal credential login.
+- The current Administrator cannot disable their own account through this route.
+- The route rejects disabling the last active Administrator.
+- The route records `user.disabled` or `user.enabled` audit rows with `targetKind=user`, `targetId={user_id}`, and no username/email metadata.
+
+Errors:
+
+| Situation | HTTP | Code |
+| --- | --- | --- |
+| Unauthenticated | 401 | `unauthenticated` |
+| Authenticated non-admin | 403 | `forbidden` |
+| Unknown user | 404 | `user_not_found` |
+| Current Administrator tries to disable self | 409 | `user_self_disable_forbidden` |
+| Disable would leave no active Administrator | 409 | `last_admin_disable_forbidden` |
+| Audit write unavailable | 503 | `audit_unavailable` |
 
 ## P2 Runtime Settings DTOs
 
@@ -154,6 +198,18 @@ All `/admin/domains*` routes are Administrator-only. `GET /domains` is available
     "state": "stopped",
     "embeddingProfileId": "openai-embedding-default",
     "available": false,
+    "storageSummary": {
+      "limitBytes": 5368709120,
+      "totalBytes": 0,
+      "totalPercent": 0,
+      "warning": "ok",
+      "components": [
+        { "kind": "source_storage", "label": "Source storage", "bytes": 0, "percent": 0 },
+        { "kind": "graph_index", "label": "Graph index", "bytes": 0, "percent": 0 },
+        { "kind": "database_metadata", "label": "Database metadata", "bytes": 0, "percent": 0 }
+      ],
+      "calculatedAt": "2026-06-30T12:00:00Z"
+    },
     "createdAt": "2026-06-30T12:00:00Z",
     "updatedAt": "2026-06-30T12:00:00Z"
   }
@@ -161,6 +217,13 @@ All `/admin/domains*` routes are Administrator-only. `GET /domains` is available
 ```
 
 Admin domain DTOs never expose `runtimeInstanceId`, `controlGeneration`, controller payloads, container IDs, runtime URLs, host ports, storage paths, runtime DB names, provider config, or provider secrets.
+
+`storageSummary` is an Administrator-only, backend-computed numeric summary for the Settings Knowledge Graphs panel.
+It is not a browser-side calculation and never returns storage paths, runtime targets, container identifiers, filenames, source text, provider payloads, database connection details, or raw operational dumps.
+`limitBytes` defaults to the configured per-domain soft limit (`CE_DOMAIN_STORAGE_LIMIT_BYTES`, default 5 GiB).
+`components` uses the closed kinds `source_storage`, `graph_index`, and `database_metadata`.
+`database_metadata` is a backend estimate from retained CE-owned rows, not a physical per-domain Postgres volume claim.
+`warning` is `ok`, `near_limit`, or `exceeded`.
 
 ### Admin domain reads
 
@@ -177,6 +240,18 @@ Admin domain DTOs never expose `runtimeInstanceId`, `controlGeneration`, control
   "state": "stopped",
   "embeddingProfileId": "openai-embedding-default",
   "available": false,
+  "storageSummary": {
+    "limitBytes": 5368709120,
+    "totalBytes": 4096,
+    "totalPercent": 1,
+    "warning": "ok",
+    "components": [
+      { "kind": "source_storage", "label": "Source storage", "bytes": 2048, "percent": 1 },
+      { "kind": "graph_index", "label": "Graph index", "bytes": 1024, "percent": 1 },
+      { "kind": "database_metadata", "label": "Database metadata", "bytes": 1024, "percent": 1 }
+    ],
+    "calculatedAt": "2026-06-30T12:00:00Z"
+  },
   "createdAt": "2026-06-30T12:00:00Z",
   "updatedAt": "2026-06-30T12:00:00Z"
 }

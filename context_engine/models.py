@@ -187,6 +187,8 @@ AUDIT_EVENT_WIKI_PAGE_INVALIDATED = "wiki.page_invalidated"
 AUDIT_EVENT_AUDIT_EVENTS_READ = "audit_events.read"
 AUDIT_EVENT_DIAGNOSTICS_READ = "diagnostics.read"
 AUDIT_EVENT_SECURITY_ADMIN_ROUTE_DENIED = "security.admin_route_denied"
+AUDIT_EVENT_USER_DISABLED = "user.disabled"
+AUDIT_EVENT_USER_ENABLED = "user.enabled"
 AUDIT_EVENT_NAMES = (
     AUDIT_EVENT_RUNTIME_PROVIDER_CONFIG_ROTATED,
     AUDIT_EVENT_RUNTIME_MODEL_PROFILE_CREATED,
@@ -216,6 +218,8 @@ AUDIT_EVENT_NAMES = (
     AUDIT_EVENT_AUDIT_EVENTS_READ,
     AUDIT_EVENT_DIAGNOSTICS_READ,
     AUDIT_EVENT_SECURITY_ADMIN_ROUTE_DENIED,
+    AUDIT_EVENT_USER_DISABLED,
+    AUDIT_EVENT_USER_ENABLED,
 )
 WIKI_PAGE_STATE_PUBLISHED = "published"
 WIKI_PAGE_STATE_NEEDS_REVIEW = "needs_review"
@@ -1030,7 +1034,9 @@ class AuditEvent(Base):
             "'wiki.page_invalidated', "
             "'audit_events.read', "
             "'diagnostics.read', "
-            "'security.admin_route_denied'"
+            "'security.admin_route_denied', "
+            "'user.disabled', "
+            "'user.enabled'"
             ")",
             name="ck_audit_events_event_name",
         ),

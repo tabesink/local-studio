@@ -3,7 +3,7 @@ id: F-010
 title: Shared Node Operations And Runnable Stack Test Plan
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 depends_on: [F-010]
 supersedes: []
 ---
@@ -20,7 +20,7 @@ supersedes: []
 | AC-004 | automated HTTP smoke | frontend login route proxies `/api/v1/auth/me` and `/api/v1/auth/login` without `ECONNREFUSED` |
 | AC-005 | automated | safety scan over compose/env/runbook/smoke evidence |
 | AC-006 | automated or review | compose audit confirms no Redis/RQ/Celery/status-poller/deployment-control; exactly one CE lease worker (`python -m context_engine.worker`) is present and allowed |
-| AC-007 | review | node/logs/usage/storage surfaces remain blocked until API/data contracts exist |
+| AC-007 | automated + review | Settings Knowledge Graph storage bars consume admin-only `storageSummary`; node/logs/usage/Docker surfaces remain blocked until API/data contracts exist |
 | AC-008 | automated HTTP smoke | full pilot path: upload → prepare → index → evidence → domain-grounded chat → delete → redaction with compose worker advancing state (no in-process `run_once`) |
 
 ## Stack Smoke Requirements
@@ -63,6 +63,14 @@ Unit coverage for worker loop, safety scan, smoke helpers, AST guard, and negati
 pytest tests/test_stack_worker_loop.py tests/test_stack_safety_scan.py tests/test_stack_smoke_helpers.py tests/test_stack_smoke_imports.py tests/test_stack_smoke_worker_negative.py -m "not integration_docker"
 ```
 
+Settings Knowledge Graph storage-summary coverage:
+
+```text
+pytest tests/test_domains.py::test_admin_domain_dto_includes_safe_backend_storage_summary -q
+cd frontend && npm.cmd run test
+cd frontend && npm.cmd run typecheck
+```
+
 Optional Docker-marked negative proofs (skip without Docker / `.env.stack.local`):
 
 ```text
@@ -89,8 +97,8 @@ The stack proof is HTTP smoke only. Playwright remains owned by F-009 AC-007 unl
 
 | Contract/spec | Provider/consumer | Scenario | Evidence |
 | --- | --- | --- | --- |
-| API-001 | API/frontend | auth and health paths match P9 proxy expectations; pilot path uses approved admin/member routes | stack smoke |
-| DATA-001 | migration/API | current schema migrates cleanly on Postgres | migration log/test |
+| API-001 | API/frontend | auth and health paths match P9 proxy expectations; pilot path uses approved admin/member routes; admin domain DTO includes safe `storageSummary` only | stack smoke / domain DTO test |
+| DATA-001 | migration/API | current schema migrates cleanly on Postgres; storage summary remains computed and not persisted on `domains` | migration log/test |
 | QA-002 | deployment/API/frontend | secrets and tokens are not committed, returned, logged, or stored in browser | safety scan |
 | QA-003 | API/deployment | logs contain safe metadata only | log scan/review |
 | ARCH-002 | frontend/deployment | browser does not receive raw Docker/database/runtime/storage targets | import/network audit |
@@ -103,7 +111,7 @@ The stack proof is HTTP smoke only. Playwright remains owned by F-009 AC-007 unl
 - [ ] Browser storage contains no token.
 - [ ] API errors remain safe and bland.
 - [ ] Compose does not expose database credentials to browser runtime.
-- [ ] No raw Docker socket, runtime URL, storage path, provider payload, prompt, answer, source text, evidence excerpt, stack trace, or host path in public UI/API/log evidence.
+- [ ] No raw Docker socket, runtime URL, storage path, provider payload, prompt, answer, source text, evidence excerpt, stack trace, container id, runtime instance id, or host path in public UI/API/log evidence.
 - [ ] Stock `postgres:16` migration reaches head; AGE/vector/custom image work remains deferred unless migration proof fails.
 - [ ] Compose has no Redis/RQ/Celery/status-poller/deployment-control; exactly one CE lease worker is present and allowed.
 - [ ] Smoke evidence artifact contains only safe ids/statuses.

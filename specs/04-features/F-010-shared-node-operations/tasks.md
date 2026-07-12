@@ -3,7 +3,7 @@ id: F-010
 title: Shared Node Operations And Runnable Stack Task List
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 depends_on: [F-010]
 supersedes: []
 ---
@@ -28,9 +28,13 @@ supersedes: []
   - Verification: runbook names required env vars with placeholders only; current instructions use `compose.stack.yml`, `.env.stack.*`, `STACK_*_PORT`, project `context_engine_stack`.
 - [x] T-070 [security] Add safety scan coverage for compose/env examples and smoke evidence; allow CE lease worker while rejecting Redis/RQ/Celery/status-poller/deployment-control.
   - Verification: `python scripts/stack_safety_scan.py --smoke-evidence _tmp/stack-smoke.json` passed.
-- [ ] T-100 [contracts] Patch API-001 and DATA-001 before Logs/Usage/Node/storage UI work.
+- [x] T-100 [contracts] Patch API-001 and DATA-001 for Settings Knowledge Graph storage summaries.
+  - Verification: approved contract diffs define admin-only `storageSummary` without paths, URLs, ports, containers, or private runtime ids.
+- [x] T-110 [backend/frontend] Implement the contracted Settings Knowledge Graph storage bars.
+  - Verification: backend admin domain DTO test and frontend helper/source-scan test.
+- [ ] T-120 [contracts] Patch API-001 and DATA-001 before Logs/Usage/Node/Docker UI work.
   - Verification: approved contract diffs.
-- [ ] T-110 [frontend] Implement only contracted P10 operator surfaces.
+- [ ] T-130 [frontend] Implement only contracted P10 operator surfaces.
   - Verification: authz tests, import/network audit, and visual screenshots.
 - [x] T-900 [verification] Run every check named in `test-plan.md`.
   - Verification: acceptance evidence updated.
@@ -39,7 +43,7 @@ supersedes: []
 
 ## Blocked Until Contract Or Fixture Proof
 
-- Runtime Node, Node Environment, Logs, Usage, storage summaries, and operator dashboards are blocked until API-001 and DATA-001 capture DTOs, roles, audit events, and safety rules.
+- Runtime Node, Node Environment, Logs, Usage, and operator dashboards are blocked until API-001 and DATA-001 capture DTOs, roles, audit events, and safety rules. Settings Knowledge Graph storage summaries are approved only through the admin domain `storageSummary` DTO.
 - Browser node/runtime actions are blocked unless they use backend-authorized opaque IDs and never expose raw targets.
 - Production secret management is blocked until a deployment-specific secret store is selected; P10 may name env/secret inputs only.
 - Live Docker LightRAG / native runtime in compose acceptance remains deferred for this gate (local client kinds; LD-006 production default unchanged).

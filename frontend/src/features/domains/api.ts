@@ -14,8 +14,26 @@ export type AdminDomain = {
   state: string;
   embeddingProfileId: string;
   available: boolean;
+  /** Present on current admin DTO; older proxies may omit it. */
+  storageSummary?: DomainStorageSummary;
   createdAt: string;
   updatedAt: string;
+};
+
+export type DomainStorageComponent = {
+  kind: "source_storage" | "graph_index" | "database_metadata";
+  label: string;
+  bytes: number;
+  percent: number;
+};
+
+export type DomainStorageSummary = {
+  limitBytes: number;
+  totalBytes: number;
+  totalPercent: number;
+  warning: "ok" | "near_limit" | "exceeded";
+  components: DomainStorageComponent[];
+  calculatedAt: string;
 };
 
 export type DomainOperation = {

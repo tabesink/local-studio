@@ -3,7 +3,7 @@ id: F-001
 title: Trusted Application Foundation Implementation Log
 status: implemented
 owner: Context Engine delivery team
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-11
 depends_on: [F-000]
 supersedes: []
 ---
@@ -22,6 +22,7 @@ Status: implemented.
 | 2026-06-30 | Local automated migration proof runs against SQLite, with an additional Alembic offline SQL check using the Postgres dialect. | No live Postgres service is present in the workspace; the migration remains Postgres-compatible and the default runtime URL targets Postgres. | Run `alembic upgrade head` against the deployment Postgres instance in environment bring-up. |
 | 2026-06-30 | File edits used escalated script writes after both patch helpers failed with `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`. | Required implementation could not proceed through the normal patch helper in this sandbox. | Return to `apply_patch` when the sandbox helper is healthy. |
 | 2026-07-08 | Review fix CHG-035: `Settings` validates `session_cookie_samesite` (closed set) and rejects `samesite=none` without `secure=True`, with tests. | ce-code-review #13 — browsers drop SameSite=None cookies without Secure; failing fast beats shipping a session cookie the browser rejects. | Login rate limiting (#12), `/docs` gating (#14), and CORS (#15) deferred under the isolated-port pilot assumption; see `docs/residual-review-findings/a85eb030.md`. |
+| 2026-07-11 | Added admin-only user enable/disable route for Settings Users: `PATCH /api/v1/admin/users/{user_id}` with strict `{ isDisabled }`, safe user DTO, self-disable guard, last-active-admin guard, OpenAPI snapshot update, and `user.disabled`/`user.enabled` audit event names. | F-009 Settings Users needed the already-contracted safe user list to become an admin-controlled account toggle without moving auth/session authority into the browser. | No user create/delete/role-edit UI; broader live member/admin browser authz proof remains tracked under F-009. |
 
 ## Drift Register
 

@@ -3,7 +3,7 @@ id: F-001
 title: Trusted Application Foundation Specification
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-11
 depends_on: [F-000]
 supersedes: []
 ---
@@ -59,6 +59,7 @@ Public login users, Members, Administrators, API clients, coding agents.
 | FR-003 | Logout revokes server session and clears cookie. | API-001 |
 | FR-004 | Admin proof route returns 403 to members and 200 to administrators. | PROD-004 |
 | FR-005 | All errors use the canonical envelope with request ID when available. | API-001 |
+| FR-006 | Admin user list and enable/disable routes return safe user DTOs only, are Administrator-only, and keep disabled-session behavior in the backend session guard. | API-001, DATA-001, QA-002 |
 
 ## Contracts And Data
 
@@ -73,6 +74,7 @@ Public login users, Members, Administrators, API clients, coding agents.
 - AC-004: cookie is HttpOnly/SameSite
 - AC-005: revoked/expired/disabled user gets safe 401
 - AC-006: no token/password/hash in responses/logs/URLs
+- AC-007: Administrator can disable/enable a user through the admin route; Members cannot call it; current/last Administrator disable is blocked
 
 ## Open Decisions
 

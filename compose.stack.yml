@@ -5,6 +5,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB locally}
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER locally}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD locally}
+    # Loopback publish for host-native scripts/dev.sh and scripts/dev.ps1.
+    # Compose api/worker still use the internal hostname postgres:5432.
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s

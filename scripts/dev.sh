@@ -146,8 +146,23 @@ configure_runtime_env() {
 }
 
 sync_api_base() {
+  local preferred_backend_port="$1"
+  local actual_base="http://$BACKEND_HOST:$BACKEND_PORT"
+  local preferred_base="http://$BACKEND_HOST:$preferred_backend_port"
+
   if [[ -z "${CONTEXT_ENGINE_API_BASE_SET:-}" ]]; then
-    export CONTEXT_ENGINE_API_BASE="http://$BACKEND_HOST:$BACKEND_PORT"
+    # Env-file / default value — always follow the backend this script starts
+    # (including when resolve_dev_port remapped away from :8000).
+    export CONTEXT_ENGINE_API_BASE="$actual_base"
+    return
+  fi
+
+  local current="${CONTEXT_ENGINE_API_BASE%/}"
+  # Leftover shell env or .env pointing at the preferred local port must
+  # retarget when that port was busy and we remapped the host backend.
+  if [[ "$BACKEND_PORT" != "$preferred_backend_port" && "$current" == "$preferred_base" ]]; then
+    echo "WARNING: CONTEXT_ENGINE_API_BASE retargeted to $actual_base (backend port remapped)." >&2
+    export CONTEXT_ENGINE_API_BASE="$actual_base"
   fi
 }
 
@@ -178,9 +193,10 @@ fi
 
 configure_runtime_env
 
+PREFERRED_BACKEND_PORT="$BACKEND_PORT"
 BACKEND_PORT="$(resolve_dev_port "backend" "$BACKEND_PORT" "$BACKEND_PORT_EXPLICIT")"
 FRONTEND_PORT="$(resolve_dev_port "frontend" "$FRONTEND_PORT" "$FRONTEND_PORT_EXPLICIT")"
-sync_api_base
+sync_api_base "$PREFERRED_BACKEND_PORT"
 
 echo "Migrating database..."
 (cd "$ROOT_DIR" && "$PYTHON_BIN" -m alembic upgrade head)
@@ -209,6 +225,7 @@ FRONTEND_PID=$!
 echo
 echo "Backend:  http://$BACKEND_HOST:$BACKEND_PORT"
 echo "Frontend: http://localhost:$FRONTEND_PORT/chat"
+echo "API proxy: $CONTEXT_ENGINE_API_BASE"
 echo "Stop both with Ctrl+C."
 echo
 

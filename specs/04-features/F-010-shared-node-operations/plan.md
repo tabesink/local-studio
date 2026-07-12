@@ -3,7 +3,7 @@ id: F-010
 title: Shared Node Operations And Runnable Stack Implementation Plan
 status: approved
 owner: Context Engine delivery team
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-11
 depends_on: [F-010]
 supersedes: []
 ---
@@ -19,9 +19,9 @@ Build the minimal runnable stack first, prove frontend-to-backend interaction, t
 | Boundary | Impact |
 | --- | --- |
 | Deployment | Canonical fixture is `compose.stack.yml` (hard-cut rename from former `compose.p10.yml`): stock `postgres:16`, migrations, API, one CE lease worker, and frontend. Do not copy the old reference compose unchanged. |
-| UI | P9 frontend runs in production build/start mode as part of the fixture and points at the API through `CONTEXT_ENGINE_API_BASE` or same-origin rewrites. `next dev` may be documented as an optional local path outside compose. Future Logs/Usage/Node UI remains blocked by contracts. |
-| API/service | API service uses `context_engine.app:create_app`, current env names, and existing P1-P8 routes. No public API shape changes for the runnable foundation. |
-| Data | Existing Alembic migrations run against stock `postgres:16`. No AGE/vector/custom image is required for the stack gate unless migration smoke proves otherwise. No new tables for the runnable foundation. Future node/usage/log surfaces require DATA-001 patches. Volume rename to `stack-*` implies a fresh local DB unless the operator migrates. |
+| UI | P9 frontend runs in production build/start mode as part of the fixture and points at the API through `CONTEXT_ENGINE_API_BASE` or same-origin rewrites. `next dev` may be documented as an optional local path outside compose. Settings Knowledge Graph rows may render the contracted admin `storageSummary`; future Logs/Usage/Node UI remains blocked by contracts. |
+| API/service | API service uses `context_engine.app:create_app`, current env names, and existing P1-P8 routes. P10 adds only the safe admin domain `storageSummary` DTO for Settings Knowledge Graph bars. |
+| Data | Existing Alembic migrations run against stock `postgres:16`. No AGE/vector/custom image is required for the stack gate unless migration smoke proves otherwise. Storage summary is computed at read time; no new tables are required. Future node/usage/log surfaces require DATA-001 patches. Volume rename to `stack-*` implies a fresh local DB unless the operator migrates. |
 | Worker/runtime | No Redis/RQ/Celery. Exactly one compose `worker` service runs `python -m context_engine.worker` and round-robins prepare/index/domain-delete `run_once` claims. Shared source-storage and domain-runtime volumes mount on `api` and `worker`. Stack acceptance uses local domain-runtime and LightRAG client kinds; production Settings default remains native (LD-006). |
 | Security/privacy | Admin seed is env-driven; no committed working passwords or secret values. Browser never receives database, Docker, runtime, storage, provider, or controller targets. |
 | Observability | Stack smoke records safe health/auth/pilot-path evidence only. Logs remain JSON/safe per QA-003. |
@@ -44,9 +44,13 @@ Build the minimal runnable stack first, prove frontend-to-backend interaction, t
   - Verification: runbook uses placeholders only and names required env vars without values; no canonical `p10` entrypoints remain as current instructions.
 - [x] T-070 [security] Add safety scan coverage for compose/env examples and smoke evidence; allow CE lease worker while rejecting Redis/RQ/Celery/status-poller/deployment-control.
   - Verification: `python scripts/stack_safety_scan.py --smoke-evidence _tmp/stack-smoke.json` passed.
-- [ ] T-100 [contracts] Capture API-001/DATA-001 contracts for Runtime Node, Node Environment, logs, usage, and storage summaries before any UI surfaces.
+- [x] T-100 [contracts] Capture API-001/DATA-001 contracts for Settings Knowledge Graph storage summaries.
+  - Verification: API-001 and DATA-001 define admin-only `storageSummary` without paths, URLs, ports, containers, or private runtime ids.
+- [x] T-110 [backend/frontend] Implement Settings Knowledge Graph storage bars from backend-owned `storageSummary`.
+  - Verification: admin domain DTO route test; frontend helper/source-scan test; typecheck.
+- [ ] T-120 [contracts] Capture API-001/DATA-001 contracts for Runtime Node, Node Environment, logs, and usage before any UI surfaces.
   - Verification: contract patch review.
-- [ ] T-110 [frontend] Implement contracted Logs/Usage/Node surfaces with Local Studio visual parity.
+- [ ] T-130 [frontend] Implement contracted Logs/Usage/Node surfaces with Local Studio visual parity.
   - Verification: admin/member authz tests, import/network audit, screenshots.
 
 ## Runnable Stack Shape
@@ -102,7 +106,7 @@ Rules:
 - Schema change for runnable foundation: none.
 - Migration order: Postgres healthy -> Alembic head -> API startup + worker startup -> frontend startup.
 - Rollback: stop services, preserve or remove local volumes according to runbook; destructive volume cleanup must be explicit.
-- Future P10 node/usage/log contracts may require additive migrations and rollback notes.
+- Future P10 node/usage/log contracts may require additive migrations and rollback notes. Settings Knowledge Graph storage summary is read-time computed and has no rollback beyond removing the DTO/UI consumption.
 
 ## Risks
 
@@ -119,7 +123,7 @@ Rules:
 
 - Full production deployment hardening is not required for the stack gate.
 - Live Docker LightRAG / native runtime in compose acceptance (local fakes for this gate; LD-006 production default unchanged).
-- Runtime Node, Logs, Usage, storage summaries, and Docker environment UI/API work remains blocked until API-001 and DATA-001 are patched.
+- Runtime Node, Logs, Usage, and Docker environment UI/API work remains blocked until API-001 and DATA-001 are patched. Settings Knowledge Graph storage summaries are the narrow approved exception.
 - Playwright is deferred to F-009 AC-007 unless later contracted P10 UI surfaces require it.
 - AGE/vector/custom Postgres image work is deferred until migrations, indexing, graph, or node contracts require it.
 - Multiple worker replicas or per-kind worker services.

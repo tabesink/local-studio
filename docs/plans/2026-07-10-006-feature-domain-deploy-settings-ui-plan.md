@@ -8,15 +8,15 @@ execution: code
 feature: F-009
 topic: domain-deploy-settings-ui
 related: [F-003, F-010]
-product_contract_preservation: "changed: R1–R2, R12, F5, AE5, viz — safe accordion rows (chevron expand) with locked embedding in body; ports/URLs/storage bars explicitly out; mockup-aligned grammar without operator guts"
+product_contract_preservation: "changed 2026-07-11: visible label is Knowledge Graphs; backend-owned storageSummary bars are in; ports/URLs/container ids/runtime targets remain out"
 ---
 
 # Domain deploy settings UI - Plan
 
 ## Goal Capsule
 
-- **Objective:** Let Administrators deploy a new Knowledge Domain and control Start/Stop/Delete from a clean Settings Domains surface that reuses Local Studio environment-controls / connections-panel grammar—accordion rows, Deploy footer—without exposing Docker, ports, URLs, or other runtime operator guts.
-- **Product authority:** F-009 owns Settings Domains UX; F-003 owns domain lifecycle APIs and safe DTOs; F-010 owns deferred Runtime Node / Docker / storage-summary operator surfaces; DESIGN.md owns SettingsRow / StatusPill / quiet-danger delete patterns.
+- **Objective:** Let Administrators deploy and control backend-owned Knowledge Graphs from Settings with accordion rows, Deploy footer, safe storage bars, and no Docker, ports, URLs, or other runtime operator guts.
+- **Product authority:** F-009 owns the Settings UI surface; F-003 owns Knowledge Domain lifecycle APIs; F-010 owns the admin `storageSummary` DTO and keeps Runtime Node / Docker / Logs / Usage surfaces blocked until contracted; DESIGN.md owns SettingsRow / StatusPill / quiet-danger delete patterns.
 - **Open blockers:** None.
 - **Execution:** `code`
 
@@ -26,17 +26,17 @@ product_contract_preservation: "changed: R1–R2, R12, F5, AE5, viz — safe acc
 
 ### Summary
 
-Ship one Settings **Knowledge Domains** group styled like the Controllers list: chevron **accordion** rows (status pill + Start/Stop XOR + quiet Delete), safe expanded details (display name, domain id, locked embedding), and a compact **Deploy** footer (id, display name, embedding). Deploy = create + start. No ports, URLs, container ids, or storage bars in this slice.
+Ship one Settings **Knowledge Graphs** group styled like the Controllers list: chevron **accordion** rows (status pill + Start/Stop XOR + quiet Delete), safe expanded details (display name, domain id, locked embedding, backend-owned storage bars), and a compact **Deploy** footer (id, display name, embedding). Deploy = create + start. No ports, URLs, container ids, runtime targets, or browser-side storage calculations.
 
 ### Problem Frame
 
-Admins need to deploy and control domains from Settings. The annotated Controllers mockup is the visual target (accordion + add row + status pills), but Context Engine contracts forbid showing host ports, runtime URLs, and container ids. Storage quota bars need a safe summary API that does not exist yet (F-010-adjacent). This plan keeps the mockup’s interaction grammar while stripping operator guts.
+Admins need to deploy and control domain-backed Knowledge Graphs from Settings. The annotated Controllers mockup is the visual target (accordion + add row + status pills), but Context Engine contracts forbid showing host ports, runtime URLs, and container ids. Storage quota bars are allowed only because F-010 now provides a safe backend-owned `storageSummary`; the browser renders those numbers and does not inspect storage itself.
 
 ### Key Decisions
 
 - **Safe accordion, not radio Controllers.** Chevron expands/collapses a domain row; there is no “active backend” radio—domains are not controller URLs.
-- **Expanded body = safe facts only.** Display name, domain id, embedding profile (locked after create). No port, no `http://…`, no container id.
-- **Storage bars deferred.** Total / raw docs / Postgres volume and 5 GB warnings wait for a safe storage-summary contract; do not fake bars from browser guesses.
+- **Expanded body = safe facts plus storage summary.** Display name, domain id, locked embedding profile, and backend-owned storage bars. No port, no `http://...`, no container id.
+- **Storage bars are backend-owned.** Total / source storage / graph index / database metadata bars come from admin `storageSummary`; the browser never calculates storage from paths or runtime targets.
 - **Deploy = create + start.** One Deploy action means the domain is coming up, not parked stopped.
 - **One group + Deploy footer.** Environment-controls list + add-row grammar; not a second section or a create modal.
 - **Start-failure keeps the domain.** If create succeeds and start fails, keep the row, show a safe danger notice, and let Start retry. Do not roll back/delete.
@@ -47,8 +47,8 @@ Admins need to deploy and control domains from Settings. The annotated Controlle
 
 ### Actors
 
-- **Administrator** — deploys domains and runs Start/Stop/Delete from Settings Domains.
-- **Backend** — owns create/start/stop/delete lifecycle; returns safe admin domain summaries only.
+- **Administrator** — deploys Knowledge Graphs and runs Start/Stop/Delete from Settings.
+- **Backend** — owns create/start/stop/delete lifecycle and computes safe admin domain storage summaries.
 - **Member** — not an actor on this surface (admin-only).
 
 ### Key Flows
@@ -73,16 +73,16 @@ Admins need to deploy and control domains from Settings. The annotated Controlle
   - **Steps:** Domain remains in list → `SettingsNotice` danger with safe message → Admin can Start again.
   - **Outcome:** Recoverable deploy without silent rollback.
 
-- F5. Expand domain details
+- F5. Expand Knowledge Graph details
   - **Trigger:** Admin clicks the row chevron (or equivalent expand control).
-  - **Steps:** Row expands to show safe details (name, id, locked embedding); collapse hides the body. Header keeps status pill and lifecycle actions.
+  - **Steps:** Row expands to show safe details (name, id, locked embedding, backend storage bars); collapse hides the body. Header keeps status pill and lifecycle actions.
   - **Outcome:** Details without leaving Settings or leaking infra.
 
 ### Visualizations
 
 ```text
-Settings → Domains
-┌ Knowledge Domains ─────────────────────────────────────────┐
+Settings -> Domains
+┌ Knowledge Graphs ──────────────────────────────────────────┐
 │ Lifecycle on backend. No Docker / port / URL details.      │
 ├────────────────────────────────────────────────────────────┤
 │ ▸ Fatigue Manuals        [running]      [Stop]  Delete     │
@@ -93,7 +93,10 @@ Settings → Domains
 │   │ Domain: Homelab                                      │ │
 │   │ Id: homelab                                          │ │
 │   │ Embedding: <profile label> · locked                  │ │
-│   │ (storage bars: deferred — not shown)                 │ │
+│   │ Storage: 28 MB of 5 GB                               │ │
+│   │ Source storage     [###]                             │ │
+│   │ Graph index        [##]                              │ │
+│   │ Database metadata  [#]                               │ │
 │   └──────────────────────────────────────────────────────┘ │
 ├────────────────────────────────────────────────────────────┤
 │ [id____] [name____] [embedding ▾]              [Deploy]    │
@@ -103,16 +106,16 @@ Settings → Domains
   ok    → SettingsNotice tone=good (optional short confirm)
 
 MOCKUP DELIBERATELY OMITTED FROM UI
-  port / auto URL  ·  radio "active"  ·  storage 5GB bars
+  port / auto URL  ·  radio "active"  ·  API key field
 ```
 
 ### Requirements
 
 **Surface and layout**
 
-- R1. Settings Domains is one `SettingsGroup` of accordion domain rows plus a compact Deploy footer (environment-controls / connections-panel grammar), not a multi-card create form and not a Controllers radio list.
+- R1. Settings Knowledge Graphs renders one `SettingsGroup` visibly titled **Knowledge Graphs**, with accordion domain rows plus a compact Deploy footer (environment-controls / connections-panel grammar), not a multi-card create form and not a Controllers radio list.
 - R2. Each row **header** shows a chevron, display name, safe domain id subtitle, lifecycle `StatusPill`, primary Start **or** Stop (XOR), and quiet Delete.
-- R12. Expanding a row shows only safe details: display name, domain id, and locked embedding label (resolved from known profiles when possible). Collapsed by default.
+- R12. Expanding a row shows only safe details: display name, domain id, locked embedding label, and backend-owned `storageSummary` bars. Collapsed by default.
 - R3. The Deploy footer requires domain id, display name, and embedding profile before Deploy is enabled.
 
 **Lifecycle behavior**
@@ -124,7 +127,8 @@ MOCKUP DELIBERATELY OMITTED FROM UI
 
 **Safety and errors**
 
-- R8. The browser never displays host ports, Docker/compose targets, runtime URLs, container ids, reachability dumps, manifest/lifecycle operator dumps, or storage quota bars on this surface.
+- R8. The browser never displays host ports, Docker/compose targets, runtime URLs, container ids, reachability dumps, manifest/lifecycle operator dumps, storage paths, or browser-computed storage quota bars on this surface.
+- R13. Storage bars render only the admin `storageSummary` fields: total bytes, limit bytes, warning, and closed components `source_storage`, `graph_index`, and `database_metadata`.
 - R9. Action failures use Local Studio settings error grammar: panel `SettingsNotice` danger with a safe message; failed domain state uses `StatusPill` danger.
 - R10. If create succeeds and start fails, the domain remains listed and Start remains available; the product does not auto-delete the created domain.
 
@@ -136,17 +140,17 @@ MOCKUP DELIBERATELY OMITTED FROM UI
 
 **In scope**
 
-- Settings Domains accordion + Deploy + Start/Stop/Delete using Local Studio settings primitives and existing safe admin domain APIs.
+- Settings Knowledge Graphs accordion + Deploy + Start/Stop/Delete using Local Studio settings primitives and existing safe admin domain APIs.
+- Backend-owned storage bars from the F-010 admin `storageSummary` contract.
 - Visual grammar adapted from environment-controls (list + add row), with chevron accordion instead of radio activation.
 
 **Deferred for later**
 
-- Per-domain storage visualization (total / raw docs / Postgres volume, 5 GB limit, warning) until a safe storage-summary contract exists.
 - Runtime Node / Docker environment consoles and other F-010 operator dashboards.
 - Per-domain logs/diagnostics entry points from this panel.
 - Continuous live status polling beyond refresh-after-action.
 - Host-port selection, auto-increment URL fields, or any infra field in create/deploy UI.
-- Renaming the product concept to “LightRAG Containers” (keep **Knowledge Domains** vocabulary).
+- Renaming the visible settings group to “LightRAG Containers”; use **Knowledge Graphs** in the UI while keeping Knowledge Domain as the backend/API entity.
 
 **Outside this product's identity**
 
@@ -158,7 +162,7 @@ MOCKUP DELIBERATELY OMITTED FROM UI
 
 - AE1. Happy deploy
   - **Covers:** R1, R3, R4, R7
-  - **Given:** Admin is on Settings Domains with a valid embedding profile available.
+  - **Given:** Admin is on Settings Knowledge Graphs with a valid embedding profile available.
   - **When:** Admin enters id, display name, embedding, and clicks Deploy.
   - **Then:** The domain appears in the list without a browser reload; pill shows a starting/busy state then running (or equivalent safe terminal success state).
 
@@ -169,10 +173,10 @@ MOCKUP DELIBERATELY OMITTED FROM UI
   - **Then:** A danger `SettingsNotice` appears with safe copy; the domain remains listed; Start can be retried; no operator guts are shown.
 
 - AE3. No operator leakage
-  - **Covers:** R2, R8, R12
+  - **Covers:** R2, R8, R12, R13
   - **Given:** Domains exist with backend runtime details.
   - **When:** Admin views and expands a Domains row.
-  - **Then:** Header and expanded body show only safe name/id/state/embedding—no ports, URLs, container ids, reachability/manifest dumps, or storage bars.
+  - **Then:** Header and expanded body show only safe name/id/state/embedding/storage summary values—no ports, URLs, container ids, reachability/manifest dumps, storage paths, or browser-computed storage values.
 
 - AE4. Delete confirm
   - **Covers:** R6
@@ -184,14 +188,21 @@ MOCKUP DELIBERATELY OMITTED FROM UI
   - **Covers:** R12, F5
   - **Given:** At least one domain row exists.
   - **When:** Admin toggles the chevron.
-  - **Then:** Expanded body shows locked embedding (and name/id); header keeps status pill and Start/Stop/Delete; collapse hides the body.
+  - **Then:** Expanded body shows locked embedding, name/id, and storage bars; header keeps status pill and Start/Stop/Delete; collapse hides the body.
+
+- AE6. Backend-owned storage bars
+  - **Covers:** R8, R13
+  - **Given:** Admin domain DTOs include `storageSummary`.
+  - **When:** Admin expands a Knowledge Graph row.
+  - **Then:** The UI renders total/limit and source storage, graph index, and database metadata components from the DTO only; no path, URL, port, container, runtime id, or filename appears.
 
 ### Assumptions
 
 - Existing `POST /admin/domains` create and start/stop/delete endpoints remain the product surface; this work does not invent new public infra fields.
 - Embedding profiles already available to admin Settings can populate the Deploy embedding control and expanded locked label.
-- Admin-only gating for Settings Domains already matches product auth rules.
+- Admin-only gating for Settings Knowledge Graphs already matches product auth rules.
 - Admin domain DTO may already include `embeddingProfileId`; expanded label resolves via runtime profiles when present, otherwise shows a safe fallback (profile id or “Locked”)—never a runtime URL.
+- Admin domain DTO includes F-010 `storageSummary`; missing or invalid storage fields are an API/contract bug, not something the browser computes around.
 
 ---
 
@@ -199,7 +210,7 @@ MOCKUP DELIBERATELY OMITTED FROM UI
 
 ### Key Technical Decisions
 
-- **KTD-1. Extend `DomainsSection` in place.** Do not add a new Settings route or feature package. Pass embedding profiles from the parent runtime snapshot already loaded by Settings.
+- **KTD-1. Extend `DomainsSection` in place.** Do not add a new Settings route or feature package. The visible group label is **Knowledge Graphs** while the code/API entity remains Knowledge Domain. Pass embedding profiles from the parent runtime snapshot already loaded by Settings.
 - **KTD-2. Client Deploy = `createDomain` then `startDomain`.** No new `/deploy` endpoint. Prefer a small `deployDomain` helper (create then start) so U3 can test outcomes without React RTL. On start failure after create: call `onError` with the safe API message and `reload()` so the created domain appears—do **not** also call `onChanged` (that would flash a success notice). Never auto-delete.
 - **KTD-3. Delete uses `UiModal`.** Replace `window.confirm` for domain delete so R6 matches DESIGN quiet-danger + modal. Cancel closes without calling delete.
 - **KTD-4. Busy presentation without live polling.** While a request is in flight, disable that row’s controls and show an in-flight label (starting/stopping/deleting/deploying). After the request settles, refresh via existing `reload()` and render the backend `state` pill. Do not invent continuous poll loops.
@@ -207,7 +218,7 @@ MOCKUP DELIBERATELY OMITTED FROM UI
 - **KTD-6. Client id validation mirrors backend pattern.** Validate domain id against `^[a-z0-9][a-z0-9_-]{1,62}$` before POST; still surface API errors via `SettingsNotice`.
 - **KTD-7. Test via extracted helpers + source scan.** Frontend has no React Testing Library; follow `documents-deep-link.test.mjs` style: pure helpers (including `deployDomain` outcome classification) + node:test. Source-scan forbids **DTO/field tokens** (`host_port`, `hostPort`, `container_id`, `runtime_url`, `base_url`, etc.)—not prose words like “Docker” in safe UI copy. Optional Playwright only if smoke needs interaction proof beyond helpers.
 - **KTD-8. Accordion local UI state.** Track which domain id is expanded in component state. Chevron toggles expand; do not use radio “active controller” semantics from environment-controls. Visual density should still match environment-controls rows (hover, mono subtitle, StatusPill, quiet actions).
-- **KTD-9. No storage UI stubs that imply real quotas.** Do not render placeholder progress bars that look like live 5 GB metering; omit the section until a safe API exists.
+- **KTD-9. Storage bars use `storageSummary` only.** Render total/limit and component bars from the admin domain DTO. Do not inspect browser paths, infer filesystem usage client-side, or invent placeholder quota values.
 
 ### High-Level Technical Design
 
@@ -238,7 +249,7 @@ sequenceDiagram
 SettingsPanel (admin)
   runtime.modelProfiles ──filter embedding──► Deploy footer + expanded label
   domains[] ──accordion rows──► header (chevron, pill, Start XOR Stop, Delete)
-                              └─ body (name, id, locked embedding)
+                              └─ body (name, id, locked embedding, storageSummary bars)
   onChanged / onError / reload() ◄── DomainsSection actions
 
 environment-controls reference
@@ -250,14 +261,14 @@ environment-controls reference
 ### Assumptions
 
 - `createDomain` / `startDomain` / `stopDomain` / `deleteDomain` in `frontend/src/features/domains/api.ts` stay the only client seams.
-- Admin domain DTO remains safe (`id`, `displayName`, `state`, `embeddingProfileId`, `available`, timestamps)—no infra fields to strip in UI.
+- Admin domain DTO remains safe (`id`, `displayName`, `state`, `embeddingProfileId`, `available`, `storageSummary`, timestamps)—no infra fields to strip in UI.
 - Backend create leaves domain `stopped` until start; Deploy’s second call is what brings it up.
 - `UiModal` / `UiModalHeader` in `frontend/src/_shared/ui` are acceptable for Settings confirm without a new modal primitive.
 - Lucide chevron icons already used elsewhere in the frontend are fine for expand/collapse.
 
 ### Open Questions
 
-- None blocking. Deferred: safe storage-summary DTO + UI; optional F-010 deep-link from failed rows.
+- None blocking. Deferred: optional F-010 deep-link from failed rows.
 
 ### Risks & Dependencies
 
@@ -265,11 +276,11 @@ environment-controls reference
 - **Concurrent ops** may return `domain_operation_in_progress` — surface safe `isApiError` message; disable busy row.
 - **No embedding profiles** — Deploy stays disabled with a quiet empty-state hint; do not invent profiles client-side.
 - **Accordion vs SettingsRow** — may need a thin custom row shell inspired by environment-controls rather than forcing `SettingsRow` alone; keep tokens/primitives, avoid new design system.
-- Depends on F-003 admin domain APIs and existing Settings admin gate; does not depend on F-010 Docker/storage UI.
+- Depends on F-003 admin domain APIs, F-010 admin `storageSummary`, and existing Settings admin gate; does not depend on F-010 Docker/Node/Logs/Usage UI.
 
 ### Alternative Approaches Considered
 
-- **Mockup with ports/URLs/storage** — matches annotated image literally; rejected (contract + missing storage API).
+- **Mockup with ports/URLs/API key fields** — matches annotated image literally; rejected because browser runtime targets remain forbidden.
 - **Two Settings groups (Deploy | Domains)** — clearer split, more chrome; rejected for connections-panel cleanliness.
 - **Deploy modal** — cleaner list, weaker “deploy from this surface” feel; rejected.
 - **Backend single `/deploy` endpoint** — nicer atomicity, invents contract surface; rejected.
@@ -282,7 +293,7 @@ environment-controls reference
 
 ### U1. Deploy footer and create-then-start
 
-- **Goal:** Admins can Deploy (create + start) from a compact footer on the Knowledge Domains group, with embedding selection and refresh/error behavior.
+- **Goal:** Admins can Deploy (create + start) from a compact footer on the Knowledge Graphs group, with embedding selection and refresh/error behavior.
 - **Requirements:** R1, R3, R4, R7, R9, R10, R11; F1, F4; AE1, AE2
 - **Dependencies:** None
 - **Files:**
@@ -298,7 +309,7 @@ environment-controls reference
   - Create fails → outcome `create_failed`; start not called.
   - Deploy control disabled when any required field missing or no embedding profiles (helper predicate).
   - Invalid id rejected client-side before POST.
-- **Verification:** Admin can Deploy from Settings Domains; empty list still shows Deploy footer; start-fail keeps domain; no new API routes.
+- **Verification:** Admin can Deploy from Settings Knowledge Graphs; empty list still shows Deploy footer; start-fail keeps domain; no new API routes.
 
 ### U2. Accordion rows, busy state, and UiModal delete
 
@@ -308,7 +319,7 @@ environment-controls reference
 - **Files:**
   - Modify: `frontend/src/features/settings-panel/SettingsPanel.tsx`
   - Modify: `frontend/src/features/settings-panel/domainSettingsHelpers.ts` (tone/busy/embedding-label helpers)
-- **Approach:** Build accordion row headers inspired by environment-controls `ControllerRow` density (chevron instead of radio). Expanded body lists safe facts only. Replace `window.confirm` with `UiModal` for delete. Show Start XOR Stop from runtime state. Busy disables that row’s actions; then `reload()`. Resolve embedding label from `embeddingProfileId` + runtime profiles. Omit storage UI entirely.
+- **Approach:** Build accordion row headers inspired by environment-controls `ControllerRow` density (chevron instead of radio). Expanded body lists safe facts and backend-owned storage bars only. Replace `window.confirm` with `UiModal` for delete. Show Start XOR Stop from runtime state. Busy disables that row’s actions; then `reload()`. Resolve embedding label from `embeddingProfileId` + runtime profiles.
 - **Patterns to follow:** `.reference-LS-frontend/templates/nextjs-feature-demos/features/environment-controls/components/environment-controls-demo.tsx` row layout; `UiModal` / `UiModalHeader`; DESIGN quiet-danger delete; StatusPill tones.
 - **Test scenarios:**
   - Covers AE4: delete opens modal; cancel does not call `deleteDomain`.
@@ -320,20 +331,43 @@ environment-controls reference
 
 ### U3. Helper and source-scan tests
 
-- **Goal:** Automate deploy outcome rules, id/embedding helpers, and no-leakage guard without inventing a React test stack.
-- **Requirements:** R3, R8, R10, R12; AE1–AE5 (logic coverage)
+- **Goal:** Automate deploy outcome rules, id/embedding/storage helpers, and no-leakage guard without inventing a React test stack.
+- **Requirements:** R3, R8, R10, R12, R13; AE1–AE6 (logic coverage)
 - **Dependencies:** U1, U2
 - **Files:**
   - Create: `frontend/tests/domains-settings.test.mjs`
   - Modify: `frontend/src/features/settings-panel/domainSettingsHelpers.ts` (as needed for export surface)
-- **Approach:** node:test module importing helpers (same loader pattern as `documents-deep-link.test.mjs`). Assert id validation, embedding filter/default/label, `deployDomain` outcomes, busy label mapping, and a source scan of Settings Domains UI files forbidding **field/DTO tokens** (not the word “Docker” in safe copy).
+- **Approach:** node:test module importing helpers (same loader pattern as `documents-deep-link.test.mjs`). Assert id validation, embedding filter/default/label, storage formatting/tone helpers, `deployDomain` outcomes, busy label mapping, and a source scan of Settings Knowledge Graphs UI files forbidding **field/DTO tokens** (not the word “Docker” in safe copy).
 - **Execution note:** Keep tests fixture-free; mock `createDomain`/`startDomain` at the helper boundary. Do not require Playwright for the default gate.
 - **Test scenarios:**
   - Id pattern accept/reject cases aligned with backend slug rules (`^[a-z0-9][a-z0-9_-]{1,62}$`).
   - Embedding filter returns only `profileKind === "embedding"`; default prefers `isDefault` when set.
+  - Storage helpers format bytes, clamp percentages, and map warnings to tones.
   - `deployDomain`: start-fail after create → `start_failed_keep` (not rollback).
   - Source scan fails if Domains Settings UI introduces forbidden operator **field** tokens.
 - **Verification:** `npm.cmd run test` from `frontend/` passes for the new file; typecheck clean for touched TS.
+
+### U4. Backend-owned storage summary
+
+- **Goal:** Provide the safe admin `storageSummary` fields that drive the Knowledge Graph storage bars.
+- **Requirements:** R8, R12, R13; AE3, AE5, AE6
+- **Dependencies:** API-001/DATA-001 patches
+- **Files:**
+  - Modify: `context_engine/config.py`
+  - Modify: `context_engine/services/domains.py`
+  - Modify: `context_engine/api/routes.py`
+  - Modify: `frontend/src/features/domains/api.ts`
+  - Modify: `frontend/src/features/settings-panel/SettingsPanel.tsx`
+  - Modify: `frontend/src/features/settings-panel/domainSettingsHelpers.ts`
+  - Modify: `tests/test_domains.py`
+  - Modify: `frontend/tests/domains-settings.test.mjs`
+- **Approach:** Compute source storage, graph index, and database metadata bytes on the backend; include only numeric bytes/percentages, closed component kinds, safe labels, warning, limit, and calculatedAt. Render those fields in expanded Knowledge Graph rows. Keep database metadata labeled as a backend estimate, not a physical per-domain Postgres volume claim.
+- **Test scenarios:**
+  - Admin domain list/detail include `storageSummary`.
+  - Summary components include `source_storage`, `graph_index`, and `database_metadata`.
+  - Summary and UI source scans omit path, URL, port, container, runtime id, and secret terms.
+  - Frontend renders Knowledge Graphs label and storage helpers without using forbidden DTO tokens.
+- **Verification:** Backend route test, frontend node:test suite, and frontend typecheck pass.
 
 ---
 
@@ -341,20 +375,21 @@ environment-controls reference
 
 | Gate | Command / check | Applies to |
 |---|---|---|
-| Helper + scan tests | `npm.cmd run test` from `frontend/` (includes `tests/domains-settings.test.mjs`) | U1–U3 |
-| Typecheck | `npm.cmd run typecheck` from `frontend/` | U1–U2 |
-| Manual smoke | Admin Settings → Domains: Deploy; expand/collapse; Start/Stop; start-fail keep; Delete cancel/confirm; empty list still shows Deploy footer; confirm no ports/URLs/storage bars | AE1–AE5, F2, F5 |
-| Leakage review | Expanded + collapsed UI show only safe fields | AE3 / R8 / R12 |
+| Backend storage summary | `pytest tests/test_domains.py::test_admin_domain_dto_includes_safe_backend_storage_summary -q` | U4 / AE6 |
+| Helper + scan tests | `npm.cmd run test` from `frontend/` (includes `tests/domains-settings.test.mjs`) | U1–U4 |
+| Typecheck | `npm.cmd run typecheck` from `frontend/` | U1–U4 |
+| Manual smoke | Admin Settings -> Knowledge Graphs: Deploy; expand/collapse; storage bars render from backend DTO; Start/Stop; start-fail keep; Delete cancel/confirm; empty list still shows Deploy footer; confirm no ports/URLs/paths/container ids | AE1–AE6, F2, F5 |
+| Leakage review | Expanded + collapsed UI show only safe fields and backend-owned storage values | AE3 / R8 / R12 / R13 |
 
 ---
 
 ## Definition of Done
 
-- [ ] All Product Contract requirements R1–R12 satisfied in Settings Domains
-- [ ] U1–U3 complete with listed test scenarios green
-- [ ] Accordion expand shows locked embedding only (no ports/URLs/storage bars)
+- [ ] All Product Contract requirements R1–R13 satisfied in Settings Knowledge Graphs
+- [ ] U1–U4 complete with listed test scenarios green
+- [ ] Accordion expand shows locked embedding and backend-owned storage bars only (no ports/URLs/paths/container ids)
 - [ ] Delete uses `UiModal` confirm; Deploy is create-then-start with start-fail keep
-- [ ] No host ports, Docker targets, runtime URLs, or container ids appear in Domains UI
+- [ ] No host ports, Docker targets, runtime URLs, storage paths, runtime ids, or container ids appear in Knowledge Graphs UI
 - [ ] No live polling added; refresh-after-action only
 - [ ] Mockup grammar adopted without silent F-010 / contract drift
 
@@ -367,6 +402,6 @@ environment-controls reference
 - Origin Product Contract: this file (ce-brainstorm → ce-plan enrichment; mockup revision 2026-07-10)
 - Visual reference: `.reference-LS-frontend/templates/nextjs-feature-demos/features/environment-controls/`
 - Patterns: `frontend/src/features/settings-panel/SettingsPanel.tsx`, `frontend/src/features/domains/api.ts`, `frontend/src/_shared/ui/index.tsx` (`UiModal`, Settings primitives)
-- Contracts: `specs/03-contracts/api/context-engine-v1.md`, `specs/03-contracts/data/context-engine-data.md` (safe domain fields)
-- Boundaries: F-009 / F-010 deferred Docker, Runtime Node, storage summaries
+- Contracts: `specs/03-contracts/api/context-engine-v1.md`, `specs/03-contracts/data/context-engine-data.md` (safe domain fields and admin storage summary)
+- Boundaries: F-009 / F-010 deferred Docker, Runtime Node, Logs, and Usage surfaces; admin `storageSummary` is the narrow approved storage surface
 - External research: skipped — strong local Settings + domain API patterns

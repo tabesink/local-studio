@@ -20,9 +20,15 @@ from context_engine.models import (
     DOMAIN_OPERATION_STATUS_SUCCEEDED,
     DOMAIN_STATE_RUNNING,
     DOMAIN_STATE_STOPPED,
+    PARSER_DOCLING,
     ROLE_MEMBER,
+    SOURCE_BLOCK_KIND_TEXT,
+    SOURCE_INDEX_STATE_NOT_REQUESTED,
+    SOURCE_STATE_PREPARED,
     Domain,
     DomainOperation,
+    SourceBlock,
+    SourceDocument,
 )
 from context_engine.services.auth import create_user
 from context_engine.services.domains import (
@@ -32,6 +38,7 @@ from context_engine.services.domains import (
     controller_from_settings,
     update_domain_state_if_current,
 )
+from context_engine.services.sources import storage_from_settings
 from tests.conftest import run_migrations
 
 
@@ -245,6 +252,90 @@ def test_start_creates_private_runtime_without_host_port_and_member_sees_availab
 
     assert unavailable_member_list.json() == {"domains": []}
     assert {domain["id"]: domain["available"] for domain in unavailable_admin_list.json()["domains"]}["fatigue"] is False
+
+
+def test_admin_domain_dto_includes_safe_backend_storage_summary(app, settings: Settings) -> None:
+    with TestClient(app) as client:
+        _login_admin(client, settings)
+        _configure_openai(client)
+        _create_domain(client, "fatigue")
+        started = client.post("/api/v1/admin/domains/fatigue/start")
+        assert started.status_code == 200
+
+    source_id = "11111111-1111-4111-8111-111111111111"
+    original_bytes = b"source original bytes"
+    engine, db = _session(settings)
+    try:
+        now = utc_now()
+        source = SourceDocument(
+            id=source_id,
+            domain_id="fatigue",
+            original_filename="manual.md",
+            content_type="text/markdown",
+            original_sha256="a" * 64,
+            original_size_bytes=len(original_bytes),
+            state=SOURCE_STATE_PREPARED,
+            parser_kind=PARSER_DOCLING,
+            preparation_generation=1,
+            index_state=SOURCE_INDEX_STATE_NOT_REQUESTED,
+            index_generation=0,
+            created_at=now,
+            updated_at=now,
+        )
+        block = SourceBlock(
+            source_document_id=source_id,
+            domain_id="fatigue",
+            source_order=1,
+            kind=SOURCE_BLOCK_KIND_TEXT,
+            canonical_markdown="Prepared markdown.",
+            section_path='["Manual"]',
+            created_at=now,
+        )
+        db.add(source)
+        db.add(block)
+        db.commit()
+    finally:
+        db.close()
+        engine.dispose()
+
+    original_path = storage_from_settings(settings).original_path("fatigue", source_id)
+    original_path.parent.mkdir(parents=True, exist_ok=True)
+    original_path.write_bytes(original_bytes)
+
+    with TestClient(app) as client:
+        _login_admin(client, settings)
+        listed = client.get("/api/v1/admin/domains")
+        detail = client.get("/api/v1/admin/domains/fatigue")
+
+    assert listed.status_code == 200
+    assert detail.status_code == 200
+    domain = next(row for row in listed.json()["domains"] if row["id"] == "fatigue")
+    detail_summary = detail.json()["domain"]["storageSummary"]
+    assert detail_summary["totalBytes"] == domain["storageSummary"]["totalBytes"]
+    assert detail_summary["components"] == domain["storageSummary"]["components"]
+
+    summary = domain["storageSummary"]
+    assert summary["limitBytes"] == settings.domain_storage_limit_bytes
+    assert summary["totalBytes"] >= len(original_bytes)
+    assert 1 <= summary["totalPercent"] <= 100
+    assert summary["warning"] == "ok"
+    assert summary["calculatedAt"]
+
+    components = {component["kind"]: component for component in summary["components"]}
+    assert set(components) == {"source_storage", "graph_index", "database_metadata"}
+    assert components["source_storage"]["bytes"] >= len(original_bytes)
+    assert components["graph_index"]["bytes"] > 0
+    assert components["database_metadata"]["bytes"] >= len("Prepared markdown.")
+    for component in components.values():
+        assert set(component) == {"kind", "label", "bytes", "percent"}
+        assert 0 <= component["percent"] <= 100
+
+    assert not _contains(summary, "runtimeinstance")
+    assert not _contains(summary, "path")
+    assert not _contains(summary, "url")
+    assert not _contains(summary, "port")
+    assert not _contains(summary, "container")
+    assert not _contains(summary, "secret")
 
 
 def test_domain_lifecycle_concurrency_returns_409_and_partial_index_blocks_second_active_op(app, settings: Settings) -> None:

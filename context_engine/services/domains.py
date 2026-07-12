@@ -12,7 +12,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any, Protocol
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -42,6 +42,8 @@ from context_engine.models import (
     DOMAIN_STATE_STOPPED,
     Domain,
     DomainOperation,
+    SourceBlock,
+    SourceDocument,
     User,
 )
 from context_engine.services.audit import AuditContext, AuditService
@@ -606,13 +608,125 @@ def domain_available(db: Session, domain: Domain, controller: DomainRuntimeContr
     return controller.health(domain).healthy
 
 
-def safe_domain_admin(db: Session, domain: Domain, controller: DomainRuntimeController) -> dict[str, Any]:
+def _directory_size_bytes(root: Path) -> int:
+    try:
+        root = root.resolve()
+    except OSError:
+        return 0
+    if not root.exists():
+        return 0
+    total = 0
+    try:
+        paths = root.rglob("*")
+        for path in paths:
+            try:
+                if path.is_file():
+                    total += path.stat().st_size
+            except OSError:
+                continue
+    except OSError:
+        return total
+    return total
+
+
+def _source_domain_storage_dir(settings: Settings, domain_id: str) -> Path:
+    root = Path(settings.source_storage_root).resolve()
+    candidate = (root / "domains" / domain_id).resolve()
+    if candidate == root or root not in candidate.parents:
+        raise DomainControllerError("Source storage path escaped root.")
+    return candidate
+
+
+def _domain_database_bytes(db: Session, domain_id: str) -> int:
+    markdown_bytes = db.scalar(
+        select(func.coalesce(func.sum(func.length(SourceBlock.canonical_markdown)), 0)).where(
+            SourceBlock.domain_id == domain_id
+        )
+    )
+    section_path_bytes = db.scalar(
+        select(func.coalesce(func.sum(func.length(SourceBlock.section_path)), 0)).where(
+            SourceBlock.domain_id == domain_id,
+            SourceBlock.section_path.is_not(None),
+        )
+    )
+    source_metadata_bytes = db.scalar(
+        select(
+            func.coalesce(
+                func.sum(func.length(SourceDocument.original_filename) + func.length(SourceDocument.content_type)),
+                0,
+            )
+        ).where(SourceDocument.domain_id == domain_id)
+    )
+    return int(markdown_bytes or 0) + int(section_path_bytes or 0) + int(source_metadata_bytes or 0)
+
+
+def _storage_percent(bytes_value: int, limit_bytes: int) -> int:
+    if limit_bytes <= 0:
+        return 0
+    if bytes_value <= 0:
+        return 0
+    return min(100, max(1, round((bytes_value / limit_bytes) * 100)))
+
+
+def _storage_warning(total_bytes: int, limit_bytes: int) -> str:
+    if total_bytes >= limit_bytes:
+        return "exceeded"
+    if total_bytes >= int(limit_bytes * 0.8):
+        return "near_limit"
+    return "ok"
+
+
+def safe_domain_storage_summary(
+    db: Session,
+    settings: Settings,
+    domain: Domain,
+    controller: DomainRuntimeController,
+) -> dict[str, Any]:
+    limit_bytes = settings.domain_storage_limit_bytes
+    try:
+        source_storage_bytes = _directory_size_bytes(_source_domain_storage_dir(settings, domain.id))
+    except (OSError, DomainControllerError):
+        source_storage_bytes = 0
+    runtime_bytes = _directory_size_bytes(controller.runtime_dir(domain.id, domain.runtime_instance_id))
+    database_bytes = _domain_database_bytes(db, domain.id)
+    total_bytes = source_storage_bytes + runtime_bytes + database_bytes
+    return {
+        "limitBytes": limit_bytes,
+        "totalBytes": total_bytes,
+        "totalPercent": _storage_percent(total_bytes, limit_bytes),
+        "warning": _storage_warning(total_bytes, limit_bytes),
+        "components": [
+            {
+                "kind": "source_storage",
+                "label": "Source storage",
+                "bytes": source_storage_bytes,
+                "percent": _storage_percent(source_storage_bytes, limit_bytes),
+            },
+            {
+                "kind": "graph_index",
+                "label": "Graph index",
+                "bytes": runtime_bytes,
+                "percent": _storage_percent(runtime_bytes, limit_bytes),
+            },
+            {
+                "kind": "database_metadata",
+                "label": "Database metadata",
+                "bytes": database_bytes,
+                "percent": _storage_percent(database_bytes, limit_bytes),
+            },
+        ],
+        "calculatedAt": iso_utc(utc_now()),
+    }
+
+
+def safe_domain_admin(db: Session, settings: Settings, domain: Domain, controller: DomainRuntimeController) -> dict[str, Any]:
     return {
         "id": domain.id,
         "displayName": domain.display_name,
         "state": domain.state,
         "embeddingProfileId": domain.embedding_profile_id,
         "available": domain_available(db, domain, controller),
+        "storageSummary": safe_domain_storage_summary(db, settings, domain, controller),
         "createdAt": iso_utc(domain.created_at),
         "updatedAt": iso_utc(domain.updated_at),
     }
@@ -659,7 +773,7 @@ def safe_active_operation(operation: DomainOperation | None) -> dict[str, Any] |
 def admin_domain_list(db: Session, settings: Settings) -> list[dict[str, Any]]:
     controller = controller_from_settings(settings)
     domains = list(db.scalars(select(Domain).order_by(Domain.id)))
-    return [safe_domain_admin(db, domain, controller) for domain in domains]
+    return [safe_domain_admin(db, settings, domain, controller) for domain in domains]
 
 
 def member_domain_list(db: Session, settings: Settings) -> list[dict[str, Any]]:
@@ -670,7 +784,7 @@ def member_domain_list(db: Session, settings: Settings) -> list[dict[str, Any]]:
 
 def domain_detail(db: Session, settings: Settings, domain_id: str) -> dict[str, Any]:
     controller = controller_from_settings(settings)
-    return safe_domain_admin(db, _domain_or_404(db, domain_id), controller)
+    return safe_domain_admin(db, settings, _domain_or_404(db, domain_id), controller)
 
 
 def domain_status(db: Session, settings: Settings, domain_id: str) -> dict[str, Any]:
