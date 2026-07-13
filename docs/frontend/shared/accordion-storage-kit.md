@@ -45,8 +45,7 @@ Nested storage-breakdown chevrons, multi-open accordion, browser-computed quotas
 │   │ locked config facts (no paths / ports / URLs)            │ │
 │   │ Storage                                                  │ │
 │   │   total / limit (backend)     [warning pill if needed]   │ │
-│   │   ProgressBar (total)                                    │ │
-│   │   optional closed component bars from storageSummary     │ │
+│   │   ProgressBar (total only on compact Settings surfaces)  │ │
 │   │ quiet danger Delete (or plan-specified placement)        │ │
 │   └──────────────────────────────────────────────────────────┘ │
 ├────────────────────────────────────────────────────────────────┤

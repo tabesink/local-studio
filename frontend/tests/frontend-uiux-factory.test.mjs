@@ -119,12 +119,11 @@ describe("frontend UIUX factory docs", () => {
     const readme = readRepo("docs/frontend/settings/knowledge-graphs/README.md");
     assert.match(readme, /[Dd]rift/);
     assert.match(readme, /target grammar/i);
-    assert.match(readme, /2026-07-11-002|2026-07-10-006|2026-07-11-003/);
-    assert.equal(
-      /copy SettingsPanel markup/i.test(readme),
-      false,
-      "KG pack must not instruct agents to copy SettingsPanel markup as canon",
-    );
+    assert.match(readme, /2026-07-11-002/);
+    assert.match(readme, /2026-07-10-006/);
+    assert.match(readme, /2026-07-11-003/);
+    // Canon must not steer agents to freeze live hand-rolls / SettingsPanel as the pattern.
+    assert.match(readme, /do not freeze hand-rolls|Do not treat current hand-rolled|prefer.*target/i);
 
     const behavior = readRepo("docs/frontend/settings/knowledge-graphs/behavior.md");
     assert.match(behavior, /storageSummary/);
@@ -133,6 +132,14 @@ describe("frontend UIUX factory docs", () => {
     const doDont = readRepo("docs/frontend/settings/knowledge-graphs/do-dont.md");
     assert.match(doDont, /not exported yet/i);
     assert.match(doDont, /hand-rolled|drift/i);
+    assert.match(doDont, /[Dd]on'?t:[\s\S]*hand-rolled|Copying hand-rolled|copy.*hand-rolled/i);
+
+    const components = readRepo("docs/frontend/settings/knowledge-graphs/components.md");
+    assert.equal(
+      /ControllersStyleAccordionRow|<\s*Accordion[\w.]*/.test(components),
+      false,
+      "KG components must not invent Accordion* / ControllersStyle* JSX APIs",
+    );
   });
 
   it("stubs declare Status Stub and point at existing frontend/src/features paths", () => {

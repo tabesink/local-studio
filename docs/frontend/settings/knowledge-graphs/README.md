@@ -54,9 +54,9 @@ Shell / coloring context only: `features/settings-panel/`, `features/user-prefer
 
 Known drift themes to re-check against live code (evidence only):
 
-- Hand-rolled expandable rows instead of a shared Controllers accordion primitive (**not exported yet**).
+- Hand-rolled expandable rows instead of cited Controllers density composition (**not exported yet** as a shared primitive).
 - Collapsed-row status / action density may lag Controllers (e.g. missing or lighter `StatusPill` weight vs target).
-- Storage block may show total bar only while product authority still describes closed component bars from `storageSummary`.
+- Storage must remain expand-only total/limit + one bar + warning (plan 002); do not re-add component breakdown chrome on this surface.
 - Deploy may live in an adjacent `SettingsGroup` (“New Knowledge Graph”) per polish decisions — match the product plan in force, not ad-hoc card stacks.
 
 See plans **006**, **002**, and **003** linked above for remediation ownership.

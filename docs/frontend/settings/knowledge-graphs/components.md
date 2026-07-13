@@ -1,19 +1,19 @@
 # Knowledge Graphs — components
 
 Composition uses the shared accordion/storage kit plus live `@/components/ui` primitives.
-Controllers accordion row chrome remains **not exported yet** — cite `environment-controls`.
+Controllers accordion row chrome remains **not exported yet** — cite `environment-controls` and adapt density locally. Do not invent an Accordion / ControllersStyle* component API.
 
 ## Composition map
 
 | UI piece | Role | Base |
 |---|---|---|
 | Knowledge Graphs group | List region | `SettingsGroup` |
-| Expandable domain row | Controllers-style accordion row | Template cite `environment-controls` + local composition (**not in kit yet**) |
+| Expandable domain row | Controllers-style list row (local composition) | Cite `environment-controls`; compose barrel controls below — **not in kit yet** as a single export |
 | Chevron control | Expand / collapse | `IconButton` + chevron icon |
 | Lifecycle status | Running / stopped / transitioning | `StatusPill` |
 | Start / Stop | XOR lifecycle | `ToggleSwitch` or equivalent plan-approved control |
 | Expanded embedding | Locked profile label | `Input` read-only or fact row — never a URL |
-| Storage block | Expand-only usage | `ProgressBar` + `StatusPill` warning from `storageSummary` |
+| Storage block | Expand-only usage | `ProgressBar` + `StatusPill` warning from `storageSummary` (total bar) |
 | Delete | Quiet danger + confirm | Settings danger button + `UiModal` |
 | Deploy / create | Create + start gesture | `SettingsGroup` footer or adjacent group + `SettingsInput` / `Select` / primary button |
 | Errors / confirms | Safe operator copy | `SettingsNotice` |
@@ -32,16 +32,23 @@ Controllers accordion row chrome remains **not exported yet** — cite `environm
 ```tsx
 <SettingsGroup title="Knowledge Graphs" description="…">
   {domains.map((domain) => (
-    <ControllersStyleAccordionRow /* cite environment-controls; not a barrel export */>
-      <RowHeader chevron statusPill startStopXor />
+    <div key={domain.id}>
+      {/* Local Controllers-density row — adapt environment-controls; do not invent Accordion* exports */}
+      <div className="/* dense row chrome */">
+        <IconButton aria-expanded={…} onClick={…}>{/* chevron */}</IconButton>
+        <div>{/* displayName + mono id */}</div>
+        <StatusPill>{/* lifecycle */}</StatusPill>
+        <ToggleSwitch /* Start XOR Stop */ />
+      </div>
       {expanded ? (
-        <ExpandedBody>
-          <LockedEmbedding label={embeddingProfileLabel(…)} />
-          <StorageFromSummary summary={domain.storageSummary} />
-          <QuietDelete onConfirm={…} />
-        </ExpandedBody>
+        <div role="region">
+          <Input readOnly value={`${embeddingLabel} · locked`} />
+          {/* Storage: total/limit + one ProgressBar + warning pill (plan 002) */}
+          <ProgressBar progress={storageSummary.totalPercent} tone={…} />
+          <Button tone="danger">{/* Delete → UiModal confirm */}</Button>
+        </div>
       ) : null}
-    </ControllersStyleAccordionRow>
+    </div>
   ))}
 </SettingsGroup>
 

@@ -20,8 +20,7 @@ Target grammar (Controllers-style). ASCII only — adapt density from `environme
 │ │   │ Embedding: <profile label> · locked                    │ │ │
 │ │   │ Storage                                 [near limit?]  │ │ │
 │ │   │   28 MB of 5 GB                                        │ │ │
-│ │   │   [████████░░░░] total ProgressBar                     │ │ │
-│ │   │   optional component bars from storageSummary          │ │ │
+│ │   │   [████████░░░░] one total ProgressBar                 │ │ │
 │ │   │                                        [ Delete ]      │ │ │
 │ │   └────────────────────────────────────────────────────────┘ │ │
 │ ├──────────────────────────────────────────────────────────────┤ │
@@ -52,14 +51,15 @@ Target grammar (Controllers-style). ASCII only — adapt density from `environme
 Embedding (read-only / locked label)
 Storage header + optional warning pill
   total / limit mono summary from storageSummary
-  ProgressBar(totalPercent)
-  optional closed component bars (source_storage / graph_index / database_metadata)
+  one ProgressBar(totalPercent)  — plan 002 compact surface
 quiet Delete (confirm via UiModal)
 ```
+
+Closed component breakdown rows (`source_storage` / `graph_index` / `database_metadata`) remain on the admin DTO for other consumers but are **out of v1 Settings chrome** (plan 002 omits them here).
 
 ## What is not drawn
 
 - Host ports, runtime URLs, container ids, compose targets
 - Storage filesystem paths
 - Radio “active controller”
-- Nested storage-breakdown chevrons (deferred unless a plan requires them)
+- Nested storage-breakdown chevrons / component bar stacks on this compact Settings surface
